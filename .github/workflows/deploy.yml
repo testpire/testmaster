@@ -34,16 +34,19 @@ jobs:
         env:
           # Expose to Vite so base can be derived dynamically
           GITHUB_REPOSITORY: ${{ github.repository }}
+          # Uncomment if you add Supabase secrets
+          # VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          # VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Add SPA fallback and disable Jekyll
         run: |
-          cp build/index.html build/404.html
-          touch build/.nojekyll
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build
+          path: dist
 
   deploy:
     needs: build
