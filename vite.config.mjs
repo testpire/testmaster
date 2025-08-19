@@ -11,6 +11,12 @@ export default defineConfig({
     outDir: "build",
     chunkSizeWarningLimit: 2000,
   },
+  base: (() => {
+    const repository = process.env.GITHUB_REPOSITORY;
+    if (!repository) return "/";
+    const repoName = repository.split("/")[1] || "";
+    return repoName.endsWith(".github.io") ? "/" : `/${repoName}/`;
+  })(),
   plugins: [tsconfigPaths(), react(), tagger()],
   server: {
     port: "4028",
