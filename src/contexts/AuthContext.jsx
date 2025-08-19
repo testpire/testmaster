@@ -97,29 +97,30 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Set up auth state listener - MUST NOT be async
-    const { data: { subscription } } = supabase?.auth?.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        
-        if (session?.user) {
-          setUser(session?.user);
-          setLoading(true);
-          // Fire and forget - don't await
-          loadUserProfile(session?.user?.id);
-        } else {
-          setUser(null);
-          setUserProfile(null);
-          setLoading(false);
-        }
-      }
-    );
+    const onAuthStateChange = supabase?.auth?.onAuthStateChange?.bind(supabase?.auth);
+    const subscription = onAuthStateChange
+      ? supabase?.auth?.onAuthStateChange((event, session) => {
+          if (!mounted) return;
+          
+          if (session?.user) {
+            setUser(session?.user);
+            setLoading(true);
+            // Fire and forget - don't await
+            loadUserProfile(session?.user?.id);
+          } else {
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+          }
+        })?.data?.subscription
+      : null;
 
     // Initialize auth
     initializeAuth();
 
     return () => {
       mounted = false;
-      subscription?.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, []);
 
