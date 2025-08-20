@@ -24,9 +24,9 @@ const LoginForm = ({ onLogin, isLoading }) => {
 
   // Demo credentials for quick access
   const demoCredentials = {
-    'super_admin': { email: 'admin@testpire.com', password: 'admin123' },
-    'teacher': { email: 'teacher1@testpire.com', password: 'teacher123' },
-    'student': { email: 'student1@testpire.com', password: 'student123' }
+    'super_admin': { email: 'admin@testmaster.com', password: 'admin123' },
+    'teacher': { email: 'teacher1@testmaster.com', password: 'teacher123' },
+    'student': { email: 'student1@testmaster.com', password: 'student123' }
   };
 
   const validateForm = () => {
