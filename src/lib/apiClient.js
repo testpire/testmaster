@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Base API configuration
-const API_BASE_URL = 'http://localhost:8080/api';
-//const API_BASE_URL = 'https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api';
+//const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api';
 
 // Create axios instance
 const apiClient = axios.create({
