@@ -1,10 +1,10 @@
-import { post, get, setAuthToken } from '../lib/apiClient';
+import { post, get, postUnauthenticated, setAuthToken } from '../lib/apiClient';
 
 export const newAuthService = {
   // User login
   async login(username, password) {
     try {
-      const { data, error, success } = await post('/auth/login', {
+      const { data, error, success } = await postUnauthenticated('/auth/login', {
         username,
         password,
       });
@@ -39,7 +39,7 @@ export const newAuthService = {
         instituteId: userData.instituteId || '1', // Default institute ID if not provided
       };
 
-      const { data, error, success } = await post('/auth/register/student', registerData);
+      const { data, error, success } = await postUnauthenticated('/auth/register/student', registerData);
       
       if (success && data) {
         return { data, error: null };
