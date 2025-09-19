@@ -1,38 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
+// Legacy Supabase configuration - kept for backward compatibility
+// New API uses the apiClient configuration
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+// NOTE: This file is deprecated and should not be used for new functionality
+// Use src/lib/apiClient.js instead for the new backend API
 
-let supabase = null;
+export const supabase = null; // Disabled Supabase
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  // Avoid crashing the app during static hosting without env vars.
-  // Features that require Supabase will be no-ops.
-  console.warn(
-    'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable backend features.'
-  );
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false
-    }
-  });
-}
-
-export { supabase };
-
-// Test connection helper
+// Test connection helper - now uses new API
 export const testConnection = async () => {
   try {
-    if (!supabase) {
-      return { success: false, message: 'Supabase is not configured.' };
+    // Test new API connection
+    const response = await fetch('https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api/auth/profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'test'}`
+      }
+    });
+    
+    if (response.status === 401) {
+      return { success: true, message: 'New API is reachable (authentication required)' };
     }
-    const { data, error } = await supabase?.from('user_profiles')?.select('count', { count: 'exact' });
-    if (error) throw error;
-    return { success: true, message: 'Connected to Supabase successfully' };
+    
+    return { success: true, message: 'Connected to new API successfully' };
   } catch (error) {
-    return { success: false, message: `Connection failed: ${error?.message}` };
+    return { success: false, message: `New API connection failed: ${error?.message}` };
   }
 };

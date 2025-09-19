@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { authService } from '../services/authService';
+import { newAuthService } from '../services/newAuthService';
 
 const AuthContext = createContext({});
 
@@ -23,126 +22,91 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        // Get initial session with retry logic
-        let session = null;
-        let retries = 3;
+        console.log('🔐 Initializing auth...');
+        const { data: sessionData, error: sessionError } = await newAuthService.getSession();
         
-        while (retries > 0 && !session) {
-          try {
-            const { data: sessionData, error: sessionError } = await supabase?.auth?.getSession();
-            if (sessionError) {
-              if (sessionError?.message?.includes('Failed to fetch') || 
-                  sessionError?.message?.includes('NetworkError')) {
-                retries--;
-                if (retries > 0) {
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  continue;
-                }
-              }
-              throw sessionError;
-            }
-            session = sessionData?.session;
-          } catch (error) {
-            retries--;
-            if (retries === 0) {
-              console.error('Failed to initialize auth after retries:', error);
-              if (mounted) {
-                setLoading(false);
-                setInitialized(true);
-              }
-              return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
-        if (session?.user && mounted) {
-          setUser(session?.user);
-          // Fire and forget - don't await to prevent callback delays
-          loadUserProfile(session?.user?.id);
-        } else {
+        if (sessionError) {
+          console.log('❌ No valid session found:', sessionError);
           if (mounted) {
             setUser(null);
             setUserProfile(null);
             setLoading(false);
+            setInitialized(true);
+          }
+          return;
+        }
+
+        const session = sessionData?.session;
+        if (session?.user && mounted) {
+          // The user object should already be in the correct format from getSession
+          const userProfile = session.user;
+          console.log('✅ Session found, user:', userProfile?.username || userProfile?.email, 'role:', userProfile?.role);
+          setUser(userProfile);
+          setUserProfile(userProfile);
+        } else {
+          console.log('❌ No user in session');
+          if (mounted) {
+            setUser(null);
+            setUserProfile(null);
           }
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('❌ Auth initialization error:', error);
         if (mounted) {
           setUser(null);
           setUserProfile(null);
-          setLoading(false);
         }
       } finally {
         if (mounted) {
+          setLoading(false);
           setInitialized(true);
+          console.log('🔐 Auth initialization complete');
         }
       }
     };
 
-    const loadUserProfile = async (userId) => {
-      try {
-        const { data: profile, error } = await authService?.getUserProfile(userId);
-        if (mounted && !error && profile) {
-          setUserProfile(profile);
-        }
-      } catch (error) {
-        console.error('Error loading user profile:', error);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    // Set up auth state listener - MUST NOT be async
-    const onAuthStateChange = supabase?.auth?.onAuthStateChange?.bind(supabase?.auth);
-    const subscription = onAuthStateChange
-      ? supabase?.auth?.onAuthStateChange((event, session) => {
-          if (!mounted) return;
-          
-          if (session?.user) {
-            setUser(session?.user);
-            setLoading(true);
-            // Fire and forget - don't await
-            loadUserProfile(session?.user?.id);
-          } else {
-            setUser(null);
-            setUserProfile(null);
-            setLoading(false);
-          }
-        })?.data?.subscription
-      : null;
-
-    // Initialize auth
+    // Initialize auth (no auth state listener needed for JWT-based auth)
     initializeAuth();
 
     return () => {
       mounted = false;
-      subscription?.unsubscribe?.();
     };
   }, []);
 
   const signIn = async (email, password) => {
     try {
       setLoading(true);
-      const { data, error } = await authService?.signInWithPassword(email, password);
+      const { data, error } = await newAuthService.signInWithPassword(email, password);
       
       if (error) {
         throw error;
+      }
+
+      // If login successful, load user profile
+      if (data) {
+        const { data: profileResponse } = await newAuthService.getProfile();
+        if (profileResponse) {
+          // The API returns { user: { ... } }, so we need profileResponse.user
+          const userProfile = profileResponse.user || profileResponse;
+          setUser(userProfile);
+          setUserProfile(userProfile);
+          // Return user profile data along with login data
+          return { data: { ...data, user: userProfile, profile: userProfile }, error: null };
+        }
       }
       
       return { data, error: null };
     } catch (error) {
       return { data: null, error };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true);
-      const { data, error } = await authService?.signUp(email, password, userData);
+      const { data, error } = await newAuthService.signUp(email, password, userData);
       
       if (error) {
         throw error;
@@ -151,12 +115,14 @@ export const AuthProvider = ({ children }) => {
       return { data, error: null };
     } catch (error) {
       return { data: null, error };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
-      const { error } = await authService?.signOut();
+      const { error } = await newAuthService.signOut();
       if (error) {
         throw error;
       }
@@ -175,7 +141,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No authenticated user');
       }
 
-      const { data, error } = await authService?.updateUserProfile(user?.id, updates);
+      const { data, error } = await newAuthService.updateUserProfile(user?.id, updates);
       
       if (error) {
         throw error;

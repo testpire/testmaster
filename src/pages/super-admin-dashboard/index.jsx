@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
 import QuickActionPanel from '../../components/ui/QuickActionPanel';
@@ -8,20 +9,35 @@ import ActivityFeed from './components/ActivityFeed';
 import QuickActions from './components/QuickActions';
 import SystemAlerts from './components/SystemAlerts';
 import AnalyticsChart from './components/AnalyticsChart';
+import CreateInstituteModal from './components/CreateInstituteModal';
+import CreateUserModal from './components/CreateUserModal';
+import UserManagementTree from './components/UserManagementTree';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
+  const { user, userProfile } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Modal states
+  const [showInstituteModal, setShowInstituteModal] = useState(false);
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [showUserManagementTree, setShowUserManagementTree] = useState(false);
+  
+  // Notification state
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
-  // Mock user data
+  // Get actual user data from authentication
   const currentUser = {
-    name: 'Dr. Rajesh Kumar',
-    role: 'super-admin',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    name: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Admin',
+    firstName: userProfile?.firstName || user?.firstName || 'Admin',
+    role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'super-admin',
+    email: userProfile?.email || user?.email,
+    avatar: userProfile?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
     notifications: 5
   };
 
@@ -75,6 +91,26 @@ const SuperAdminDashboard = () => {
     setMobileMenuOpen(false);
   };
 
+  const handleNavigationAction = (actionId) => {
+    switch (actionId) {
+      case 'show-user-management':
+        setShowUserManagementTree(true);
+        break;
+      case 'show-institute-modal':
+        setShowInstituteModal(true);
+        break;
+      case 'show-teacher-modal':
+        setShowTeacherModal(true);
+        break;
+      case 'show-student-modal':
+        setShowStudentModal(true);
+        break;
+      default:
+        console.log('Unknown action:', actionId);
+    }
+    setMobileMenuOpen(false);
+  };
+
   const handleQuickAction = (actionId) => {
     const actionRoutes = {
       'add-student': '/student-management-screen',
@@ -92,6 +128,25 @@ const SuperAdminDashboard = () => {
 
   const handleLogout = () => {
     navigate('/login-screen');
+  };
+
+  // Modal handlers
+  const handleInstituteCreated = (instituteData) => {
+    setNotification({
+      show: true,
+      message: `Institute "${instituteData?.name}" created successfully!`,
+      type: 'success'
+    });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
+  };
+
+  const handleUserCreated = (userData) => {
+    setNotification({
+      show: true,
+      message: `${userData?.role === 'TEACHER' ? 'Teacher' : 'Student'} "${userData?.firstName}" created successfully!`,
+      type: 'success'
+    });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
   };
 
   const formatTime = (date) => {
@@ -123,6 +178,7 @@ const SuperAdminDashboard = () => {
         userRole={currentUser?.role}
         activeRoute="/super-admin-dashboard"
         onNavigate={handleNavigation}
+        onAction={handleNavigationAction}
         isCollapsed={sidebarCollapsed}
         isMobile={false}
       />
@@ -131,6 +187,7 @@ const SuperAdminDashboard = () => {
         userRole={currentUser?.role}
         activeRoute="/super-admin-dashboard"
         onNavigate={handleNavigation}
+        onAction={handleNavigationAction}
         isMobile={true}
         isOpen={mobileMenuOpen}
         onToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -145,14 +202,14 @@ const SuperAdminDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground mb-2">
-                  Welcome back, {currentUser?.name?.split(' ')?.[1]}! 👋
+                  Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {currentUser?.firstName}
                 </h1>
                 <p className="text-muted-foreground">
-                  {formatTime(currentTime)} • TestMaster Admin Dashboard
+                  {formatTime(currentTime)} • TestMaster Administration Portal
                 </p>
               </div>
               
-              <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+              <div className="flex items-center gap-2 mt-4 sm:mt-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -162,9 +219,9 @@ const SuperAdminDashboard = () => {
                   <Icon name={sidebarCollapsed ? "PanelLeftOpen" : "PanelLeftClose"} size={20} />
                 </Button>
                 
-                <Button variant="outline">
+                <Button variant="outline" size="sm">
                   <Icon name="Download" size={16} />
-                  Export Report
+                  <span className="hidden sm:inline">Export </span>Report
                 </Button>
               </div>
             </div>
@@ -283,6 +340,70 @@ const SuperAdminDashboard = () => {
         userRole={currentUser?.role}
         onAction={handleQuickAction}
         variant="floating"
+      />
+
+      {/* Success Notification */}
+      {notification.show && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 1001,
+          backgroundColor: notification.type === 'success' ? '#10b981' : '#ef4444',
+          color: 'white',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          maxWidth: '400px'
+        }}>
+          <Icon 
+            name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} 
+            size={20} 
+          />
+          {notification.message}
+          <button
+            onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              cursor: 'pointer',
+              marginLeft: '8px',
+              fontSize: '18px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
+      <CreateInstituteModal
+        isOpen={showInstituteModal}
+        onClose={() => setShowInstituteModal(false)}
+        onSuccess={handleInstituteCreated}
+      />
+
+      <CreateUserModal
+        isOpen={showTeacherModal}
+        onClose={() => setShowTeacherModal(false)}
+        onSuccess={handleUserCreated}
+        userRole="TEACHER"
+      />
+
+      <CreateUserModal
+        isOpen={showStudentModal}
+        onClose={() => setShowStudentModal(false)}
+        onSuccess={handleUserCreated}
+        userRole="STUDENT"
+      />
+
+      <UserManagementTree
+        isOpen={showUserManagementTree}
+        onClose={() => setShowUserManagementTree(false)}
       />
     </div>
   );

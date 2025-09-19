@@ -22,9 +22,10 @@ const StudentDashboard = () => {
 
   // Use actual user data from AuthContext when available, fallback to mock data for preview
   const currentUser = {
-    name: userProfile?.full_name || user?.user_metadata?.full_name || "Arjun Sharma",
+    name: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Student",
+    firstName: userProfile?.firstName || user?.firstName || "Student",
     role: userProfile?.role || "student",
-    avatar: userProfile?.photo_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+    avatar: userProfile?.avatar || userProfile?.photo_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
     notifications: 3
   };
 
@@ -183,7 +184,7 @@ const StudentDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Welcome Banner */}
           <WelcomeBanner
-            studentName={currentUser?.name}
+            studentName={currentUser?.firstName}
             studentPhoto={currentUser?.avatar}
             upcomingTests={3}
             completionRate={78}

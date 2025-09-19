@@ -6,6 +6,7 @@ const RoleBasedNavigation = ({
   userRole = 'student', 
   activeRoute = '/', 
   onNavigate = () => {},
+  onAction = () => {}, // New prop for handling actions (modals, etc.)
   isCollapsed = false,
   isMobile = false,
   isOpen = false,
@@ -38,12 +39,48 @@ const RoleBasedNavigation = ({
         path: '/analytics-and-reports-screen',
         icon: 'BarChart3',
         roles: ['super-admin']
+      },
+      {
+        label: 'divider',
+        type: 'divider'
+      },
+      {
+        label: 'User Management',
+        action: 'show-user-management',
+        icon: 'TreePine',
+        roles: ['super-admin'],
+        type: 'action',
+        color: 'text-red-600'
+      },
+      {
+        label: 'Create Institute',
+        action: 'show-institute-modal',
+        icon: 'Building',
+        roles: ['super-admin'],
+        type: 'action',
+        color: 'text-purple-600'
+      },
+      {
+        label: 'Create Teacher',
+        action: 'show-teacher-modal',
+        icon: 'GraduationCap',
+        roles: ['super-admin'],
+        type: 'action',
+        color: 'text-green-600'
+      },
+      {
+        label: 'Create Student',
+        action: 'show-student-modal',
+        icon: 'User',
+        roles: ['super-admin'],
+        type: 'action',
+        color: 'text-blue-600'
       }
     ],
     'teacher': [
       {
         label: 'Dashboard',
-        path: '/super-admin-dashboard',
+        path: '/teacher-dashboard',
         icon: 'LayoutDashboard',
         roles: ['teacher']
       },
@@ -64,6 +101,26 @@ const RoleBasedNavigation = ({
         path: '/analytics-and-reports-screen',
         icon: 'BarChart3',
         roles: ['teacher']
+      },
+      {
+        label: 'divider',
+        type: 'divider'
+      },
+      {
+        label: 'Create Student',
+        action: 'show-student-modal',
+        icon: 'UserPlus',
+        roles: ['teacher'],
+        type: 'action',
+        color: 'text-blue-600'
+      },
+      {
+        label: 'Bulk Import',
+        action: 'show-bulk-import',
+        icon: 'Upload',
+        roles: ['teacher'],
+        type: 'action',
+        color: 'text-green-600'
       }
     ],
     'student': [
@@ -91,7 +148,16 @@ const RoleBasedNavigation = ({
   const currentNavItems = navigationConfig?.[userRole] || navigationConfig?.['student'];
 
   const handleItemClick = (item) => {
-    if (item?.children) {
+    if (item?.type === 'divider') {
+      return; // Don't handle divider clicks
+    }
+    
+    if (item?.type === 'action') {
+      onAction(item?.action);
+      if (isMobile) {
+        onToggle();
+      }
+    } else if (item?.children) {
       setExpandedItems(prev => ({
         ...prev,
         [item?.path]: !prev?.[item?.path]
@@ -124,53 +190,70 @@ const RoleBasedNavigation = ({
         <div className="flex flex-col h-full">
           <div className="flex-1 overflow-y-auto py-4">
             <div className="space-y-1 px-3">
-              {currentNavItems?.map((item) => (
-                <div key={item?.path}>
-                  <button
-                    onClick={() => handleItemClick(item)}
-                    className={`nav-item w-full justify-start ${
-                      isActiveRoute(item?.path) ? 'active' : ''
-                    } ${isCollapsed ? 'px-3' : 'px-4'}`}
-                    title={isCollapsed ? item?.label : ''}
-                  >
-                    <Icon name={item?.icon} size={20} className="flex-shrink-0" />
-                    {!isCollapsed && (
-                      <>
-                        <span className="ml-3 flex-1 text-left">{item?.label}</span>
-                        {item?.children && (
-                          <Icon 
-                            name="ChevronRight" 
-                            size={16} 
-                            className={`transition-transform duration-200 ${
-                              expandedItems?.[item?.path] ? 'rotate-90' : ''
-                            }`}
-                          />
+              {currentNavItems?.map((item, index) => (
+                <div key={item?.path || item?.action || `divider-${index}`}>
+                  {/* Divider */}
+                  {item?.type === 'divider' ? (
+                    <div className="my-3 border-t border-border"></div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleItemClick(item)}
+                        className={`nav-item w-full justify-start ${
+                          item?.type === 'action' 
+                            ? 'hover:bg-accent/50' 
+                            : isActiveRoute(item?.path) ? 'active' : ''
+                        } ${isCollapsed ? 'px-3' : 'px-4'} ${
+                          item?.type === 'action' ? 'font-medium' : ''
+                        }`}
+                        title={isCollapsed ? item?.label : ''}
+                      >
+                        <Icon 
+                          name={item?.icon} 
+                          size={20} 
+                          className={`flex-shrink-0 ${item?.color || ''}`}
+                        />
+                        {!isCollapsed && (
+                          <>
+                            <span className={`ml-3 flex-1 text-left ${item?.color || ''}`}>
+                              {item?.label}
+                            </span>
+                            {item?.children && (
+                              <Icon 
+                                name="ChevronRight" 
+                                size={16} 
+                                className={`transition-transform duration-200 ${
+                                  expandedItems?.[item?.path] ? 'rotate-90' : ''
+                                }`}
+                              />
+                            )}
+                            {item?.badge && (
+                              <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                                {item?.badge}
+                              </span>
+                            )}
+                          </>
                         )}
-                        {item?.badge && (
-                          <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                            {item?.badge}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </button>
-                  
-                  {/* Submenu items */}
-                  {item?.children && !isCollapsed && expandedItems?.[item?.path] && (
-                    <div className="ml-6 mt-1 space-y-1">
-                      {item?.children?.map((child) => (
-                        <button
-                          key={child?.path}
-                          onClick={() => handleItemClick(child)}
-                          className={`nav-item w-full justify-start text-sm ${
-                            isActiveRoute(child?.path) ? 'active' : ''
-                          }`}
-                        >
-                          <Icon name={child?.icon} size={16} />
-                          <span className="ml-3">{child?.label}</span>
-                        </button>
-                      ))}
-                    </div>
+                      </button>
+                      
+                      {/* Submenu items */}
+                      {item?.children && !isCollapsed && expandedItems?.[item?.path] && (
+                        <div className="ml-6 mt-1 space-y-1">
+                          {item?.children?.map((child) => (
+                            <button
+                              key={child?.path}
+                              onClick={() => handleItemClick(child)}
+                              className={`nav-item w-full justify-start text-sm ${
+                                isActiveRoute(child?.path) ? 'active' : ''
+                              }`}
+                            >
+                              <Icon name={child?.icon} size={16} />
+                              <span className="ml-3">{child?.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -221,48 +304,63 @@ const RoleBasedNavigation = ({
         <div className="flex flex-col h-full">
           <div className="flex-1 overflow-y-auto py-4">
             <div className="space-y-1 px-3">
-              {currentNavItems?.map((item) => (
-                <div key={item?.path}>
-                  <button
-                    onClick={() => handleItemClick(item)}
-                    className={`nav-item w-full justify-start ${
-                      isActiveRoute(item?.path) ? 'active' : ''
-                    }`}
-                  >
-                    <Icon name={item?.icon} size={20} />
-                    <span className="ml-3 flex-1 text-left">{item?.label}</span>
-                    {item?.children && (
-                      <Icon 
-                        name="ChevronRight" 
-                        size={16} 
-                        className={`transition-transform duration-200 ${
-                          expandedItems?.[item?.path] ? 'rotate-90' : ''
+              {currentNavItems?.map((item, index) => (
+                <div key={item?.path || item?.action || `divider-${index}`}>
+                  {/* Divider */}
+                  {item?.type === 'divider' ? (
+                    <div className="my-3 border-t border-border"></div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleItemClick(item)}
+                        className={`nav-item w-full justify-start ${
+                          item?.type === 'action' 
+                            ? 'hover:bg-accent/50 font-medium' 
+                            : isActiveRoute(item?.path) ? 'active' : ''
                         }`}
-                      />
-                    )}
-                    {item?.badge && (
-                      <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                        {item?.badge}
-                      </span>
-                    )}
-                  </button>
-                  
-                  {/* Submenu items */}
-                  {item?.children && expandedItems?.[item?.path] && (
-                    <div className="ml-6 mt-1 space-y-1">
-                      {item?.children?.map((child) => (
-                        <button
-                          key={child?.path}
-                          onClick={() => handleItemClick(child)}
-                          className={`nav-item w-full justify-start text-sm ${
-                            isActiveRoute(child?.path) ? 'active' : ''
-                          }`}
-                        >
-                          <Icon name={child?.icon} size={16} />
-                          <span className="ml-3">{child?.label}</span>
-                        </button>
-                      ))}
-                    </div>
+                      >
+                        <Icon 
+                          name={item?.icon} 
+                          size={20} 
+                          className={`${item?.color || ''}`} 
+                        />
+                        <span className={`ml-3 flex-1 text-left ${item?.color || ''}`}>
+                          {item?.label}
+                        </span>
+                        {item?.children && (
+                          <Icon 
+                            name="ChevronRight" 
+                            size={16} 
+                            className={`transition-transform duration-200 ${
+                              expandedItems?.[item?.path] ? 'rotate-90' : ''
+                            }`}
+                          />
+                        )}
+                        {item?.badge && (
+                          <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                            {item?.badge}
+                          </span>
+                        )}
+                      </button>
+                      
+                      {/* Submenu items */}
+                      {item?.children && expandedItems?.[item?.path] && (
+                        <div className="ml-6 mt-1 space-y-1">
+                          {item?.children?.map((child) => (
+                            <button
+                              key={child?.path}
+                              onClick={() => handleItemClick(child)}
+                              className={`nav-item w-full justify-start text-sm ${
+                                isActiveRoute(child?.path) ? 'active' : ''
+                              }`}
+                            >
+                              <Icon name={child?.icon} size={16} />
+                              <span className="ml-3">{child?.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}

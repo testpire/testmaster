@@ -5,6 +5,7 @@ import PlatformLogo from './components/PlatformLogo';
 import LoginForm from './components/LoginForm';
 import SecurityFeatures from './components/SecurityFeatures';
 import { useAuth } from '../../contexts/AuthContext';
+import { getDashboardRoute } from '../../utils/roleBasedRouting';
 
 const LoginScreen = () => {
   const { signIn, loading: authLoading, user } = useAuth();
@@ -25,17 +26,11 @@ const LoginScreen = () => {
   useEffect(() => {
     if (user && !isRedirecting) {
       setIsRedirecting(true);
-      const userRole = user?.user_metadata?.role;
-      switch (userRole) {
-        case 'super_admin':navigate('/super-admin-dashboard');
-          break;
-        case 'teacher':navigate('/course-and-batch-management-screen');
-          break;
-        case 'student':navigate('/student-dashboard');
-          break;
-        default:
-          navigate('/student-dashboard');
-      }
+      const userRole = user?.role || user?.user_metadata?.role || 'STUDENT';
+      const dashboardRoute = getDashboardRoute(userRole);
+      
+      console.log('🚀 Auto-redirecting logged-in user:', user?.firstName || 'Unknown', 'with role:', userRole, 'to:', dashboardRoute);
+      navigate(dashboardRoute);
     }
   }, [user, navigate, isRedirecting]);
 
@@ -58,11 +53,20 @@ const LoginScreen = () => {
         return { success: false, error: errorMessage };
       }
 
-      if (data?.user) {
-        // Get user role from user_metadata or userProfile
-        const userRole = data?.user?.user_metadata?.role || formData?.userRole || 'student';
+      if (data?.user || data?.profile) {
+        // Get user role from the API response (user.role)
+        const userRole = data?.user?.role || data?.profile?.role || data?.user?.user_metadata?.role || 'STUDENT';
+        const dashboardRoute = getDashboardRoute(userRole);
+        
+        console.log('🚀 Login successful! User:', data?.user?.firstName || 'Unknown', 'Role:', userRole, 'Redirecting to:', dashboardRoute);
         
         setIsRedirecting(true);
+        
+        // Navigate immediately for better UX
+        setTimeout(() => {
+          navigate(dashboardRoute);
+        }, 100);
+        
         return { success: true };
       }
 

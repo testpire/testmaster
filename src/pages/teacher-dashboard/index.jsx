@@ -6,6 +6,7 @@ import { userService } from '../../services/userService';
 
 import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
+import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -16,6 +17,10 @@ const TeacherDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('');
+  
+  // Modal states for teacher actions
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   
   // Dashboard data
   const [dashboardData, setDashboardData] = useState({
@@ -173,8 +178,28 @@ const TeacherDashboard = () => {
     navigate(path);
   };
 
+  const handleNavigationAction = (actionId) => {
+    switch (actionId) {
+      case 'show-student-modal':
+        setShowStudentModal(true);
+        break;
+      case 'show-bulk-import':
+        setShowBulkImportModal(true);
+        break;
+      default:
+        console.log('Unknown action:', actionId);
+    }
+    setIsMobileNavOpen(false);
+  };
+
   const handleLogout = () => {
     navigate('/login');
+  };
+
+  const handleStudentCreated = (studentData) => {
+    console.log('Student created:', studentData);
+    // Refresh dashboard data if needed
+    loadDashboardData();
   };
 
   const getTimeAgo = (timestamp) => {
@@ -224,6 +249,7 @@ const TeacherDashboard = () => {
         userRole={userProfile?.role}
         activeRoute="/teacher-dashboard"
         onNavigate={handleNavigation}
+        onAction={handleNavigationAction}
         isMobile={window.innerWidth < 1024}
         isOpen={isMobileNavOpen}
         onToggle={() => setIsMobileNavOpen(!isMobileNavOpen)}
@@ -271,7 +297,7 @@ const TeacherDashboard = () => {
             {/* Page Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground">
-                Welcome back, {userProfile?.full_name?.split(' ')?.[0] || 'Teacher'}!
+                Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {userProfile?.firstName || user?.firstName || 'Teacher'}
               </h1>
               <p className="text-muted-foreground mt-2">
                 {dashboardData?.totalBatches > 0 
@@ -491,6 +517,38 @@ const TeacherDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <CreateUserModal
+        isOpen={showStudentModal}
+        onClose={() => setShowStudentModal(false)}
+        onSuccess={handleStudentCreated}
+        userRole="STUDENT"
+      />
+
+      {/* Bulk Import Modal Placeholder */}
+      {showBulkImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-foreground">Bulk Import Students</h2>
+              <Button variant="ghost" size="icon" onClick={() => setShowBulkImportModal(false)}>
+                <Icon name="X" size={20} />
+              </Button>
+            </div>
+            <div className="text-center py-8">
+              <Icon name="Upload" size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Bulk import functionality coming soon!</p>
+              <Button 
+                onClick={() => setShowBulkImportModal(false)} 
+                className="mt-4"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
