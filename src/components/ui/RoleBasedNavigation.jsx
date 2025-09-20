@@ -15,6 +15,44 @@ const RoleBasedNavigation = ({
   const [expandedItems, setExpandedItems] = useState({});
 
   const navigationConfig = {
+    'inst-admin': [
+      {
+        label: 'Dashboard',
+        path: '/inst-admin-dashboard',
+        icon: 'LayoutDashboard',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Teacher Management',
+        path: '/teacher-management',
+        icon: 'Users',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Student Management',
+        path: '/student-management',
+        icon: 'GraduationCap',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Course Management',
+        path: '/course-management',
+        icon: 'BookOpen',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Test Creation',
+        path: '/test-creation-screen',
+        icon: 'FileText',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Analytics',
+        path: '/analytics-and-reports-screen',
+        icon: 'BarChart3',
+        roles: ['inst-admin']
+      }
+    ],
     'super-admin': [
       {
         label: 'Dashboard',
@@ -35,6 +73,12 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
+        label: 'Institute Management',
+        path: '/institute-management',
+        icon: 'Building2',
+        roles: ['super-admin']
+      },
+      {
         label: 'Analytics',
         path: '/analytics-and-reports-screen',
         icon: 'BarChart3',
@@ -49,32 +93,35 @@ const RoleBasedNavigation = ({
         action: 'show-user-management',
         icon: 'TreePine',
         roles: ['super-admin'],
-        type: 'action',
-        color: 'text-red-600'
+        type: 'action'
       },
       {
         label: 'Create Institute',
         action: 'show-institute-modal',
         icon: 'Building',
         roles: ['super-admin'],
-        type: 'action',
-        color: 'text-purple-600'
+        type: 'action'
       },
       {
         label: 'Create Teacher',
         action: 'show-teacher-modal',
         icon: 'GraduationCap',
         roles: ['super-admin'],
-        type: 'action',
-        color: 'text-green-600'
+        type: 'action'
       },
       {
         label: 'Create Student',
         action: 'show-student-modal',
         icon: 'User',
         roles: ['super-admin'],
-        type: 'action',
-        color: 'text-blue-600'
+        type: 'action'
+      },
+      {
+        label: 'Create Institute Admin',
+        action: 'show-institute-admin-modal',
+        icon: 'Shield',
+        roles: ['super-admin'],
+        type: 'action'
       }
     ],
     'teacher': [
@@ -111,16 +158,14 @@ const RoleBasedNavigation = ({
         action: 'show-student-modal',
         icon: 'UserPlus',
         roles: ['teacher'],
-        type: 'action',
-        color: 'text-blue-600'
+        type: 'action'
       },
       {
         label: 'Bulk Import',
         action: 'show-bulk-import',
         icon: 'Upload',
         roles: ['teacher'],
-        type: 'action',
-        color: 'text-green-600'
+        type: 'action'
       }
     ],
     'student': [
@@ -184,7 +229,7 @@ const RoleBasedNavigation = ({
   // Desktop Sidebar Navigation
   if (!isMobile) {
     return (
-      <nav className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-card border-r border-border z-[1000] transition-all duration-300 ease-out ${
+      <nav className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-card border-r border-border z-[999] transition-all duration-300 ease-out ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">
@@ -267,7 +312,7 @@ const RoleBasedNavigation = ({
   // Mobile Navigation (Bottom Tabs for Students, Slide-out for Others)
   if (userRole === 'student') {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-[1000] md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-[999] md:hidden">
         <div className="flex items-center justify-around py-2">
           {currentNavItems?.slice(0, 4)?.map((item) => (
             <button
@@ -293,12 +338,12 @@ const RoleBasedNavigation = ({
       {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1020] md:hidden"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[998] md:hidden"
           onClick={onToggle}
         />
       )}
       {/* Slide-out Navigation */}
-      <nav className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r border-border z-[1020] transform transition-transform duration-300 ease-out md:hidden ${
+      <nav className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r border-border z-[999] transform transition-transform duration-300 ease-out md:hidden ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">

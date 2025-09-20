@@ -14,7 +14,8 @@ export const newInstituteService = {
       const { data, error, success } = await get(endpoint);
       
       if (success && data) {
-        const institutes = Array.isArray(data) ? data : [data];
+        // Backend returns { institutes: [...] } or { data: [...] } structure
+        const institutes = data.institutes || data.data || (Array.isArray(data) ? data : [data]);
         return { data: institutes, error: null };
       }
       
@@ -133,7 +134,8 @@ export const newInstituteService = {
       const { data, error, success } = await get(`/institute/search?searchTerm=${encodeURIComponent(searchTerm)}`);
       
       if (success && data) {
-        const institutes = Array.isArray(data) ? data : [data];
+        // Backend returns { institutes: [...] } or { data: [...] } structure
+        const institutes = data.institutes || data.data || (Array.isArray(data) ? data : [data]);
         return { data: institutes, error: null };
       }
       

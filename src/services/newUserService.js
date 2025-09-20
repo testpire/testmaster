@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../lib/apiClient';
+import { get, post, put, patch, del } from '../lib/apiClient';
 
 export const newUserService = {
   // Get user profile by ID
@@ -31,8 +31,15 @@ export const newUserService = {
       const { data, error, success } = await get(endpoint);
       
       if (success && data) {
-        // Transform data to match expected format
-        const users = Array.isArray(data) ? data : [data];
+        // Backend may return wrapped structure based on role
+        let users;
+        if (role.toUpperCase() === 'TEACHER') {
+          users = data.teachers || data.data || (Array.isArray(data) ? data : [data]);
+        } else if (role.toUpperCase() === 'STUDENT') {
+          users = data.students || data.data || (Array.isArray(data) ? data : [data]);
+        } else {
+          users = data.users || data.data || (Array.isArray(data) ? data : [data]);
+        }
         return { data: users, error: null };
       }
       
@@ -66,6 +73,134 @@ export const newUserService = {
       
       return { data: null, error };
     } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Update teacher using TeacherController
+  async updateTeacher(teacherId, teacherData) {
+    try {
+      console.log('updateTeacher called with:', { teacherId, teacherData });
+      
+      // Transform teacher data to match UpdateTeacherRequestDto format
+      const updateData = {
+        firstName: teacherData.firstName,
+        lastName: teacherData.lastName,
+        phone: teacherData.phone || '',
+        department: teacherData.department || '',
+        subject: teacherData.subject || '',
+        qualification: teacherData.qualification || '',
+        experienceYears: teacherData.experienceYears || 0,
+        specialization: teacherData.specialization || '',
+        bio: teacherData.bio || '',
+        instituteId: teacherData.instituteId,
+        enabled: teacherData.enabled !== undefined ? teacherData.enabled : true,
+      };
+
+      console.log('Calling PUT /teachers/{id} with:', { teacherId, updateData });
+
+      const { data, error, success } = await put(`/teachers/${teacherId}`, updateData);
+      
+      console.log('TeacherController API response:', { data, error, success });
+      
+      if (success && data) {
+        return { data, error: null };
+      }
+      
+      return { data: null, error };
+    } catch (error) {
+      console.error('Error updating teacher:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Update student using StudentController
+  async updateStudent(studentId, studentData) {
+    try {
+      console.log('updateStudent called with:', { studentId, studentData });
+      
+      // Transform student data to match UpdateStudentRequestDto format
+      const updateData = {
+        firstName: studentData.firstName,
+        lastName: studentData.lastName,
+        phone: studentData.phone || '',
+        course: studentData.course || '',
+        yearOfStudy: studentData.yearOfStudy || 1,
+        rollNumber: studentData.rollNumber || '',
+        parentName: studentData.parentName || '',
+        parentPhone: studentData.parentPhone || '',
+        parentEmail: studentData.parentEmail || '',
+        address: studentData.address || '',
+        dateOfBirth: studentData.dateOfBirth ? `${studentData.dateOfBirth}T00:00:00.000Z` : null,
+        bloodGroup: studentData.bloodGroup || '',
+        emergencyContact: studentData.emergencyContact || '',
+        instituteId: studentData.instituteId,
+        enabled: studentData.enabled !== undefined ? studentData.enabled : true,
+      };
+
+      console.log('Calling PUT /students/{id} with:', { studentId, updateData });
+
+      const { data, error, success } = await put(`/students/${studentId}`, updateData);
+      
+      console.log('StudentController API response:', { data, error, success });
+      
+      if (success && data) {
+        return { data, error: null };
+      }
+      
+      return { data: null, error };
+    } catch (error) {
+      console.error('Error updating student:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Update user (for CreateUserModal compatibility)
+  async updateUser(userId, userData) {
+    try {
+      console.log('updateUser called with:', { userId, userData });
+      
+      // Determine role from userData
+      const role = userData.role || 'STUDENT';
+      
+      // If it's a teacher, use the specific updateTeacher method
+      if (role.toUpperCase() === 'TEACHER') {
+        return await this.updateTeacher(userId, userData);
+      }
+      
+      // If it's a student, use the specific updateStudent method
+      if (role.toUpperCase() === 'STUDENT') {
+        return await this.updateStudent(userId, userData);
+      }
+      
+      // For other roles, use the generic user update
+      const updateData = {
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: role.toUpperCase(),
+        instituteId: userData.instituteId,
+      };
+
+      // Only include password if provided
+      if (userData.password && userData.password.trim()) {
+        updateData.password = userData.password;
+      }
+
+      console.log('Calling PUT API with:', { endpoint: `/users/${role.toUpperCase()}/${userId}`, updateData });
+
+      const { data, error, success } = await put(`/users/${role.toUpperCase()}/${userId}`, updateData);
+      
+      console.log('API response:', { data, error, success });
+      
+      if (success && data) {
+        return { data, error: null };
+      }
+      
+      return { data: null, error };
+    } catch (error) {
+      console.error('Error updating user:', error);
       return { data: null, error };
     }
   },
@@ -110,16 +245,21 @@ export const newUserService = {
     }
   },
 
-  // Get students by batch - using student operations
-  async getStudentsByBatch(batchId) {
+  // Get students by batch - using institute-specific endpoint
+  async getStudentsByBatch(batchId, instituteId) {
     try {
-      // This might need to be implemented differently based on available endpoints
-      // For now, get all students and filter client-side if needed
-      const { data, error, success } = await get('/inst-admin/students');
+      // Use institute-specific endpoint if instituteId is provided
+      const endpoint = instituteId 
+        ? `/institute/${instituteId}/users/students`
+        : '/students';
+      
+      const { data, error, success } = await get(endpoint);
       
       if (success && data) {
+        // Backend returns { users: [...] } for institute-specific student endpoints
+        const students = data.users || data.students || data.data || (Array.isArray(data) ? data : [data]);
+        
         // Filter by batch if batchId is provided
-        const students = Array.isArray(data) ? data : [data];
         const filteredStudents = batchId 
           ? students.filter(student => student.batchId === batchId)
           : students;
@@ -133,13 +273,20 @@ export const newUserService = {
     }
   },
 
-  // Get teachers
-  async getTeachers() {
+  // Get teachers - using institute-specific endpoint
+  async getTeachers(instituteId) {
     try {
-      const { data, error, success } = await get('/inst-admin/teachers');
+      // Use institute-specific endpoint if instituteId is provided
+      const endpoint = instituteId 
+        ? `/institute/${instituteId}/users/teachers`
+        : '/teachers';
+      
+      const { data, error, success } = await get(endpoint);
+      
       
       if (success && data) {
-        const teachers = Array.isArray(data) ? data : [data];
+        // Backend returns { users: [...] } for institute-specific teacher endpoints
+        const teachers = data.users || data.teachers || data.data || (Array.isArray(data) ? data : [data]);
         return { data: teachers, error: null };
       }
       
@@ -175,10 +322,17 @@ export const newUserService = {
         instituteId: teacherData.instituteId,
       };
 
-      const { data, error, success } = await post('/inst-admin/register/teacher', registerData);
+      // Use institute-specific endpoint if instituteId is provided
+      const endpoint = teacherData.instituteId 
+        ? `/institute/${teacherData.instituteId}/users/teachers`
+        : '/teachers';
+
+      const { data, error, success } = await post(endpoint, registerData);
       
       if (success && data) {
-        return { data, error: null };
+        // Backend may return user object directly or wrapped
+        const userData = data.user || data;
+        return { data: userData, error: null };
       }
       
       return { data: null, error };
@@ -200,7 +354,12 @@ export const newUserService = {
         instituteId: studentData.instituteId,
       };
 
-      const { data, error, success } = await post('/inst-admin/register/student', registerData);
+      // Use institute-specific endpoint if instituteId is provided
+      const endpoint = studentData.instituteId 
+        ? `/institute/${studentData.instituteId}/users/students`
+        : '/students';
+
+      const { data, error, success } = await post(endpoint, registerData);
       
       if (success && data) {
         return { data, error: null };
@@ -213,9 +372,9 @@ export const newUserService = {
   },
 
   // Get student peers
-  async getStudentPeers() {
+  async getStudentPeers(instituteId) {
     try {
-      const { data, error, success } = await get('/student/peers');
+      const { data, error, success } = await get('/students/peers');
       
       if (success && data) {
         const peers = Array.isArray(data) ? data : [data];
@@ -228,10 +387,14 @@ export const newUserService = {
     }
   },
 
-  // Get institute teachers (student view)
-  async getInstituteTeachers() {
+  // Get institute teachers (by institute ID)
+  async getInstituteTeachers(instituteId) {
     try {
-      const { data, error, success } = await get('/student/teachers');
+      const endpoint = instituteId 
+        ? `/teachers/institute/${instituteId}`
+        : '/teachers';
+        
+      const { data, error, success } = await get(endpoint);
       
       if (success && data) {
         const teachers = Array.isArray(data) ? data : [data];

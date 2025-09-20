@@ -54,15 +54,20 @@ export const newAuthService = {
   // Get user profile
   async getProfile() {
     try {
+      console.log('🔄 Requesting user profile...');
       const { data, error, success } = await get('/auth/profile');
       
       if (success && data) {
+        console.log('✅ Profile retrieved successfully');
         return { data, error: null };
       }
       
+      console.log('❌ Profile request failed:', error);
       return { data: null, error };
     } catch (error) {
-      return { data: null, error };
+      console.error('❌ Profile request exception:', error);
+      // Don't let profile errors crash the app
+      return { data: null, error: error.message || 'Profile request failed' };
     }
   },
 

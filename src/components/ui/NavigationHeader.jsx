@@ -3,15 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Icon from '../AppIcon';
 import Button from './Button';
+import Select from './Select';
 
 const NavigationHeader = ({ 
   userRole = 'student', 
   userName = 'John Doe', 
   userAvatar = null,
+  currentUser = null,
   onLogout = () => {},
   onMenuToggle = () => {},
   showMenuToggle = false,
-  notifications = 0
+  onSidebarToggle = () => {},
+  showSidebarToggle = false,
+  sidebarCollapsed = false,
+  notifications = 0,
+  // Institute dropdown props
+  institutes = [],
+  selectedInstitute = null,
+  onInstituteChange = () => {},
+  institutesLoading = false,
+  showInstituteDropdown = false
 }) => {
   const navigate = useNavigate();
   const { user, userProfile, signOut } = useAuth();
@@ -70,15 +81,33 @@ const NavigationHeader = ({
   };
 
   // Use auth context data if available, otherwise fall back to props
-  const displayName = user?.user_metadata?.full_name || userProfile?.full_name || userName;
-  const displayRole = userProfile?.role || userRole;
-  const displayAvatar = userProfile?.avatar_url || userAvatar;
+  const displayName = currentUser?.name || 
+                     userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : 
+                     user?.user_metadata?.full_name || 
+                     userProfile?.full_name || 
+                     userName;
+  const displayRole = currentUser?.role || userProfile?.role || userRole;
+  const displayAvatar = currentUser?.avatar || userProfile?.avatar_url || userAvatar;
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-[1000]">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-[1001]">
       <div className="flex items-center justify-between h-full px-4">
         {/* Left Section - Logo and Menu Toggle */}
         <div className="flex items-center space-x-4">
+          {/* Desktop Sidebar Toggle */}
+          {showSidebarToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSidebarToggle}
+              className="hidden lg:flex hover:bg-muted"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <Icon name="Menu" size={20} />
+            </Button>
+          )}
+
+          {/* Mobile Menu Toggle */}
           {showMenuToggle && (
             <Button
               variant="ghost"
@@ -90,21 +119,49 @@ const NavigationHeader = ({
             </Button>
           )}
           
-          {/* Logo */}
+          {/* Institute Dropdown (Super Admin) or Logo (Other roles) */}
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <svg
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-primary-foreground"
-                fill="currentColor"
-              >
-                <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
-                <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none"/>
-              </svg>
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-semibold text-foreground">TestMaster</h1>
-            </div>
+            {showInstituteDropdown ? (
+              <div className="flex items-center">
+                {institutesLoading ? (
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-muted rounded-lg">
+                    <Icon name="Loader2" size={16} className="animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading institutes...</span>
+                  </div>
+                ) : (
+                  <div className="min-w-[280px] relative">
+                    <div className="relative">
+                      <Select
+                        value={selectedInstitute?.id || 'all'}
+                        onChange={onInstituteChange}
+                        placeholder="Select Institute"
+                        options={institutes.map(institute => ({
+                          value: institute.id,
+                          label: `${institute.name}${institute.code !== 'ALL' ? ` (${institute.code})` : ''}`
+                        }))}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-5 h-5 text-primary-foreground"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                    <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                </div>
+                <div className={`transition-opacity duration-300 ${sidebarCollapsed && showSidebarToggle ? 'hidden lg:block' : 'hidden sm:block'}`}>
+                  <h1 className="text-lg font-semibold text-foreground">TestMaster</h1>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

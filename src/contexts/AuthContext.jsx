@@ -84,14 +84,28 @@ export const AuthProvider = ({ children }) => {
 
       // If login successful, load user profile
       if (data) {
-        const { data: profileResponse } = await newAuthService.getProfile();
-        if (profileResponse) {
-          // The API returns { user: { ... } }, so we need profileResponse.user
-          const userProfile = profileResponse.user || profileResponse;
-          setUser(userProfile);
-          setUserProfile(userProfile);
-          // Return user profile data along with login data
-          return { data: { ...data, user: userProfile, profile: userProfile }, error: null };
+        try {
+          const { data: profileResponse, error: profileError } = await newAuthService.getProfile();
+          if (profileResponse && !profileError) {
+            // The API returns { user: { ... } }, so we need profileResponse.user
+            const userProfile = profileResponse.user || profileResponse;
+            setUser(userProfile);
+            setUserProfile(userProfile);
+            // Return user profile data along with login data
+            return { data: { ...data, user: userProfile, profile: userProfile }, error: null };
+          } else {
+            console.warn('⚠️ Failed to load user profile after login:', profileError);
+            // Continue with login success even if profile fails
+            setUser(data.user || data);
+            setUserProfile(data.user || data);
+            return { data, error: null };
+          }
+        } catch (profileErr) {
+          console.error('❌ Profile loading error after login:', profileErr);
+          // Continue with login success even if profile fails
+          setUser(data.user || data);
+          setUserProfile(data.user || data);
+          return { data, error: null };
         }
       }
       

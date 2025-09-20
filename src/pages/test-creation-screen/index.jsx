@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import NavigationHeader from '../../components/ui/NavigationHeader';
-import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
+import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import FilterPanel from './components/FilterPanel';
@@ -13,8 +11,6 @@ import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
 
 const TestCreationScreen = () => {
-  const navigate = useNavigate();
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isFilterPanelCollapsed, setIsFilterPanelCollapsed] = useState(false);
   const [isStatsSidebarVisible, setIsStatsSidebarVisible] = useState(true);
   const [isQuestionBankModalOpen, setIsQuestionBankModalOpen] = useState(false);
@@ -115,13 +111,6 @@ const TestCreationScreen = () => {
     return () => clearTimeout(autoSaveTimer);
   }, [testMetadata, selectedQuestions]);
 
-  const handleNavigation = (path) => {
-    navigate(path);
-  };
-
-  const handleLogout = () => {
-    navigate('/login-screen');
-  };
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -273,29 +262,9 @@ const TestCreationScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation Header */}
-      <NavigationHeader
-        userRole="teacher"
-        userName="Dr. Priya Sharma"
-        userAvatar="https://randomuser.me/api/portraits/women/32.jpg"
-        onLogout={handleLogout}
-        onMenuToggle={() => setIsMobileNavOpen(!isMobileNavOpen)}
-        showMenuToggle={true}
-        notifications={3}
-      />
-      {/* Role-based Navigation */}
-      <RoleBasedNavigation
-        userRole="teacher"
-        activeRoute="/test-creation-screen"
-        onNavigate={handleNavigation}
-        isCollapsed={false}
-        isMobile={window.innerWidth < 1024}
-        isOpen={isMobileNavOpen}
-        onToggle={() => setIsMobileNavOpen(!isMobileNavOpen)}
-      />
+    <PageLayout title="Test Creation">
       {/* Main Content */}
-      <div className="lg:ml-64 pt-16">
+      <div>
         {/* Test Metadata Panel */}
         <TestMetadataPanel
           metadata={testMetadata}
@@ -474,7 +443,7 @@ const TestCreationScreen = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 
