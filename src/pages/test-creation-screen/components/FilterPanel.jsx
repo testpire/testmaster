@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import Select from '../../../components/ui/Select';
 import { Checkbox } from '../../../components/ui/Checkbox';
 
 const FilterPanel = ({ 
@@ -14,88 +13,16 @@ const FilterPanel = ({
 }) => {
   const [localFilters, setLocalFilters] = useState(filters);
 
-  const subjectOptions = [
-    { value: 'physics', label: 'Physics' },
-    { value: 'chemistry', label: 'Chemistry' },
-    { value: 'mathematics', label: 'Mathematics' },
-    { value: 'biology', label: 'Biology' },
-    { value: 'english', label: 'English' },
-    { value: 'general-knowledge', label: 'General Knowledge' }
-  ];
-
-  const chapterOptions = {
-    physics: [
-      { value: 'mechanics', label: 'Mechanics' },
-      { value: 'thermodynamics', label: 'Thermodynamics' },
-      { value: 'optics', label: 'Optics' },
-      { value: 'electricity', label: 'Electricity & Magnetism' },
-      { value: 'modern-physics', label: 'Modern Physics' }
-    ],
-    chemistry: [
-      { value: 'organic', label: 'Organic Chemistry' },
-      { value: 'inorganic', label: 'Inorganic Chemistry' },
-      { value: 'physical', label: 'Physical Chemistry' },
-      { value: 'coordination', label: 'Coordination Compounds' }
-    ],
-    mathematics: [
-      { value: 'algebra', label: 'Algebra' },
-      { value: 'calculus', label: 'Calculus' },
-      { value: 'geometry', label: 'Coordinate Geometry' },
-      { value: 'trigonometry', label: 'Trigonometry' },
-      { value: 'statistics', label: 'Statistics & Probability' }
-    ],
-    biology: [
-      { value: 'cell-biology', label: 'Cell Biology' },
-      { value: 'genetics', label: 'Genetics' },
-      { value: 'ecology', label: 'Ecology' },
-      { value: 'human-physiology', label: 'Human Physiology' }
-    ]
-  };
-
-  const topicOptions = {
-    mechanics: [
-      { value: 'kinematics', label: 'Kinematics' },
-      { value: 'dynamics', label: 'Dynamics' },
-      { value: 'work-energy', label: 'Work & Energy' },
-      { value: 'rotational-motion', label: 'Rotational Motion' }
-    ],
-    organic: [
-      { value: 'hydrocarbons', label: 'Hydrocarbons' },
-      { value: 'alcohols', label: 'Alcohols & Phenols' },
-      { value: 'aldehydes', label: 'Aldehydes & Ketones' },
-      { value: 'carboxylic-acids', label: 'Carboxylic Acids' }
-    ],
-    algebra: [
-      { value: 'quadratic', label: 'Quadratic Equations' },
-      { value: 'sequences', label: 'Sequences & Series' },
-      { value: 'permutations', label: 'Permutations & Combinations' },
-      { value: 'binomial', label: 'Binomial Theorem' }
-    ]
-  };
 
   const difficultyLevels = [
-    { value: 'easy', label: 'Easy', color: 'success' },
-    { value: 'moderate', label: 'Moderate', color: 'warning' },
-    { value: 'tough', label: 'Tough', color: 'error' }
+    { value: 'easy', label: 'EASY', color: 'success' },
+    { value: 'medium', label: 'MEDIUM', color: 'warning' },
+    { value: 'hard', label: 'HARD', color: 'error' }
   ];
 
-  const questionTypes = [
-    { value: 'mcq', label: 'Multiple Choice (MCQ)' },
-    { value: 'integer', label: 'Integer Type' },
-    { value: 'subjective', label: 'Subjective' }
-  ];
 
   const handleLocalFilterChange = (key, value) => {
     const updatedFilters = { ...localFilters, [key]: value };
-    
-    // Reset dependent filters when parent changes
-    if (key === 'subject') {
-      updatedFilters.chapter = '';
-      updatedFilters.topic = '';
-    } else if (key === 'chapter') {
-      updatedFilters.topic = '';
-    }
-    
     setLocalFilters(updatedFilters);
     onFilterChange(updatedFilters);
   };
@@ -109,22 +36,10 @@ const FilterPanel = ({
     handleLocalFilterChange('difficulty', updatedDifficulties);
   };
 
-  const handleQuestionTypeToggle = (type) => {
-    const currentTypes = localFilters?.questionTypes || [];
-    const updatedTypes = currentTypes?.includes(type)
-      ? currentTypes?.filter(t => t !== type)
-      : [...currentTypes, type];
-    
-    handleLocalFilterChange('questionTypes', updatedTypes);
-  };
 
   const getActiveFiltersCount = () => {
     let count = 0;
-    if (localFilters?.subject) count++;
-    if (localFilters?.chapter) count++;
-    if (localFilters?.topic) count++;
     if (localFilters?.difficulty?.length > 0) count++;
-    if (localFilters?.questionTypes?.length > 0) count++;
     return count;
   };
 
@@ -172,49 +87,6 @@ const FilterPanel = ({
         </div>
       </div>
       <div className="p-4 space-y-6">
-        {/* Subject Selection */}
-        <div>
-          <Select
-            label="Subject"
-            placeholder="Select subject"
-            options={subjectOptions}
-            value={localFilters?.subject || ''}
-            onChange={(value) => handleLocalFilterChange('subject', value)}
-            searchable
-            clearable
-          />
-        </div>
-
-        {/* Chapter Selection */}
-        {localFilters?.subject && (
-          <div>
-            <Select
-              label="Chapter"
-              placeholder="Select chapter"
-              options={chapterOptions?.[localFilters?.subject] || []}
-              value={localFilters?.chapter || ''}
-              onChange={(value) => handleLocalFilterChange('chapter', value)}
-              searchable
-              clearable
-            />
-          </div>
-        )}
-
-        {/* Topic Selection */}
-        {localFilters?.chapter && (
-          <div>
-            <Select
-              label="Topic"
-              placeholder="Select topic"
-              options={topicOptions?.[localFilters?.chapter] || []}
-              value={localFilters?.topic || ''}
-              onChange={(value) => handleLocalFilterChange('topic', value)}
-              searchable
-              clearable
-            />
-          </div>
-        )}
-
         {/* Difficulty Level */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-3">
@@ -227,23 +99,6 @@ const FilterPanel = ({
                 label={level?.label}
                 checked={(localFilters?.difficulty || [])?.includes(level?.value)}
                 onChange={() => handleDifficultyToggle(level?.value)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Question Types */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-3">
-            Question Types
-          </label>
-          <div className="space-y-2">
-            {questionTypes?.map((type) => (
-              <Checkbox
-                key={type?.value}
-                label={type?.label}
-                checked={(localFilters?.questionTypes || [])?.includes(type?.value)}
-                onChange={() => handleQuestionTypeToggle(type?.value)}
               />
             ))}
           </div>

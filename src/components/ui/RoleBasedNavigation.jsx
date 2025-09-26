@@ -41,8 +41,8 @@ const RoleBasedNavigation = ({
         roles: ['inst-admin']
       },
       {
-        label: 'Test Creation',
-        path: '/test-creation-screen',
+        label: 'Test Management',
+        path: '/test-management',
         icon: 'FileText',
         roles: ['inst-admin']
       },
@@ -229,7 +229,7 @@ const RoleBasedNavigation = ({
   // Desktop Sidebar Navigation
   if (!isMobile) {
     return (
-      <nav className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-card border-r border-border z-[999] transition-all duration-300 ease-out ${
+      <nav className={`hidden lg:block fixed left-0 top-16 h-[calc(100vh-4rem)] bg-card border-r border-border z-[999] transition-all duration-300 ease-out ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">

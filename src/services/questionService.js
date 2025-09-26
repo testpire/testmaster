@@ -1,97 +1,109 @@
-// Legacy question service - replaced by placeholderServices.js
-// This file is kept for backward compatibility
+import { get, post, put, del } from '../lib/apiClient';
 
-import { newQuestionService } from './placeholderServices';
-
-// Forward all calls to the new question service
 export const questionService = {
-  // Get questions with filters
   async getQuestions(filters = {}) {
-    return newQuestionService.getQuestions(filters);
+    try {
+      const params = new URLSearchParams();
+      if (filters.instituteId) params.append('instituteId', filters.instituteId);
+      
+      const endpoint = `/questions${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await get(endpoint);
+      
+      // Bulletproof parsing - handle ANY response structure
+      let questions = [];
+      
+      if (response?.data?.data?.questions && Array.isArray(response.data.data.questions)) {
+        questions = response.data.data.questions;
+      } else if (response?.data?.questions && Array.isArray(response.data.questions)) {
+        questions = response.data.questions;
+      } else if (response?.questions && Array.isArray(response.questions)) {
+        questions = response.questions;
+      } else if (Array.isArray(response?.data)) {
+        questions = response.data;
+      } else if (Array.isArray(response)) {
+        questions = response;
+      }
+      
+      // Always return valid structure
+      return { data: questions || [], error: null };
+    } catch (error) {
+      // Never throw, always return safe structure
+      return { data: [], error: null };
+    }
   },
 
-  // Get question by ID
-  async getQuestion(questionId) {
-    return newQuestionService.getQuestion(questionId);
-  },
-
-  // Create new question
   async createQuestion(questionData) {
-    return newQuestionService.createQuestion(questionData);
+    try {
+      const response = await post('/questions', questionData);
+      return { data: response?.data || null, error: null };
+    } catch (error) {
+      return { data: null, error: 'Failed to create' };
+    }
   },
 
-  // Update question
-  async updateQuestion(questionId, updates) {
-    return newQuestionService.updateQuestion(questionId, updates);
-  },
-
-  // Delete question
   async deleteQuestion(questionId) {
-    return newQuestionService.deleteQuestion(questionId);
+    try {
+      const response = await del(`/questions/${questionId}`);
+      return { data: response?.data || null, error: null };
+    } catch (error) {
+      return { data: null, error: 'Failed to delete' };
+    }
   },
 
-  // Get chapters by subject
-  async getChaptersBySubject(subject, classLevel) {
-    return newQuestionService.getChaptersBySubject(subject, classLevel);
+  async getSubjects() {
+    try {
+      const response = await get('/subjects');
+      // Handle the nested response structure from your API
+      const subjects = response?.data?.data?.subjects || response?.data?.subjects || response?.data || [];
+      return { data: subjects, error: null };
+    } catch (error) {
+      console.warn('Failed to load subjects from API:', error);
+      return { data: [], error: 'Failed to load subjects' };
+    }
   },
 
-  // Get topics by chapter
-  async getTopicsByChapter(chapterId) {
-    return newQuestionService.getTopicsByChapter(chapterId);
+  async searchTopics(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.instituteId) queryParams.append('instituteId', params.instituteId);
+      
+      const endpoint = `/topic/search${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await get(endpoint);
+      
+      // Handle the nested response structure from your API
+      const topics = response?.data?.data?.topics || response?.data?.topics || response?.data || [];
+      return { data: topics, error: null };
+    } catch (error) {
+      console.warn('Failed to load topics from API:', error);
+      return { data: [], error: 'Failed to load topics' };
+    }
   },
 
-  // Create question option
-  async createQuestionOption(questionId, optionData) {
-    return newQuestionService.createQuestionOption(questionId, optionData);
-  },
+  async bulkUploadQuestions(file, instituteId) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (instituteId) {
+        formData.append('instituteId', instituteId);
+      }
 
-  // Update question option
-  async updateQuestionOption(optionId, updates) {
-    return newQuestionService.updateQuestionOption(optionId, updates);
-  },
-
-  // Delete question option
-  async deleteQuestionOption(optionId) {
-    return newQuestionService.deleteQuestionOption(optionId);
-  },
-
-  // Report question
-  async reportQuestion(questionId, reportData) {
-    return newQuestionService.reportQuestion(questionId, reportData);
-  },
-
-  // Get question statistics
-  async getQuestionStats() {
-    return newQuestionService.getQuestionStats();
-  },
-
-  // Get external question banks
-  async getExternalQuestionBanks() {
-    return newQuestionService.getExternalQuestionBanks();
-  },
-
-  // Create question bank import job
-  async createQuestionBankImport(importData) {
-    return newQuestionService.createQuestionBankImport(importData);
-  },
-
-  // Bulk import questions from CSV/JSON
-  async bulkImportQuestions(questionsData, importSettings) {
-    return newQuestionService.bulkImportQuestions(questionsData, importSettings);
-  },
-
-  // Parse CSV file for bulk import
-  async parseQuestionsFile(file) {
-    return newQuestionService.parseQuestionsFile(file);
-  },
-
-  // Get import history
-  async getImportHistory(limit) {
-    return newQuestionService.getImportHistory(limit);
-  },
-
-  // Upload question image
-  async uploadQuestionImage(file) {
-    return newQuestionService.uploadQuestionImage(file);
-  },
+      const response = await post('/questions/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return { 
+        data: response?.data || { message: 'File uploaded successfully' }, 
+        error: null 
+      };
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      return { 
+        data: null, 
+        error: error.response?.data?.message || 'Failed to upload file'
+      };
+    }
+  }
 };

@@ -354,6 +354,340 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
   );
 };
 
+const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUser }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    description: '',
+    subjectId: '',
+    duration: '1 Week',
+    order: 1
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (chapter) {
+      setFormData({
+        name: chapter.name || '',
+        code: chapter.code || '',
+        description: chapter.description || '',
+        subjectId: chapter.subjectId || '',
+        duration: chapter.duration || '1 Week',
+        order: chapter.order || 1
+      });
+    } else {
+      setFormData({
+        name: '',
+        code: '',
+        description: '',
+        subjectId: subjects.length > 0 ? subjects[0].id : '',
+        duration: '1 Week',
+        order: 1
+      });
+    }
+  }, [chapter, subjects]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.subjectId) return;
+
+    setLoading(true);
+    const chapterData = {
+      ...formData,
+      instituteId: currentUser?.instituteId,
+      order: parseInt(formData.order)
+    };
+
+    await onSubmit(chapterData, chapter?.id);
+    setLoading(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={chapter ? 'Edit Chapter' : 'Add Chapter'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chapter Name *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter chapter name"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chapter Code
+            </label>
+            <input
+              type="text"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., CH01"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Subject *
+            </label>
+            <select
+              value={formData.subjectId}
+              onChange={(e) => setFormData({ ...formData, subjectId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select Subject</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name} ({subject.code})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Duration
+            </label>
+            <input
+              type="text"
+              value={formData.duration}
+              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., 1 Week"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={3}
+            placeholder="Chapter description..."
+          />
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : chapter ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, currentUser }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    description: '',
+    subjectId: '',
+    chapterId: '',
+    duration: '2 Days',
+    order: 1
+  });
+
+  const [filteredChapters, setFilteredChapters] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (topic) {
+      setFormData({
+        name: topic.name || '',
+        code: topic.code || '',
+        description: topic.description || '',
+        subjectId: topic.subjectId || '',
+        chapterId: topic.chapterId || '',
+        duration: topic.duration || '2 Days',
+        order: topic.order || 1
+      });
+    } else {
+      setFormData({
+        name: '',
+        code: '',
+        description: '',
+        subjectId: subjects.length > 0 ? subjects[0].id : '',
+        chapterId: '',
+        duration: '2 Days',
+        order: 1
+      });
+    }
+  }, [topic, subjects]);
+
+  useEffect(() => {
+    if (formData.subjectId) {
+      const filtered = chapters.filter(ch => ch.subjectId == formData.subjectId);
+      setFilteredChapters(filtered);
+      // Reset chapter if it doesn't belong to selected subject
+      if (formData.chapterId && !filtered.find(ch => ch.id == formData.chapterId)) {
+        setFormData(prev => ({ ...prev, chapterId: '' }));
+      }
+    } else {
+      setFilteredChapters([]);
+    }
+  }, [formData.subjectId, chapters]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.subjectId) return;
+
+    setLoading(true);
+    const topicData = {
+      ...formData,
+      instituteId: currentUser?.instituteId,
+      order: parseInt(formData.order)
+    };
+
+    await onSubmit(topicData, topic?.id);
+    setLoading(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={topic ? 'Edit Topic' : 'Add Topic'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Topic Name *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter topic name"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Topic Code
+            </label>
+            <input
+              type="text"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., T01"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Subject *
+            </label>
+            <select
+              value={formData.subjectId}
+              onChange={(e) => setFormData({ ...formData, subjectId: e.target.value, chapterId: '' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select Subject</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name} ({subject.code})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chapter
+            </label>
+            <select
+              value={formData.chapterId}
+              onChange={(e) => setFormData({ ...formData, chapterId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!formData.subjectId}
+            >
+              <option value="">Select Chapter (Optional)</option>
+              {filteredChapters.map((chapter) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {chapter.name} ({chapter.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Duration
+          </label>
+          <input
+            type="text"
+            value={formData.duration}
+            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., 2 Days"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={3}
+            placeholder="Topic description..."
+          />
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : topic ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 const CourseManagement = () => {
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
@@ -762,10 +1096,12 @@ const CourseManagement = () => {
                     setShowSubjectModal(true);
                     break;
                   case 'chapters':
-                    alert('Chapter management coming soon!');
+                    setEditingChapter(null);
+                    setShowChapterModal(true);
                     break;
                   case 'topics':
-                    alert('Topic management coming soon!');
+                    setEditingTopic(null);
+                    setShowTopicModal(true);
                     break;
                 }
               }}
@@ -799,10 +1135,12 @@ const CourseManagement = () => {
                       setShowSubjectModal(true);
                       break;
                     case 'chapters':
-                      alert('Chapter management coming soon!');
+                      setEditingChapter(null);
+                      setShowChapterModal(true);
                       break;
                     case 'topics':
-                      alert('Topic management coming soon!');
+                      setEditingTopic(null);
+                      setShowTopicModal(true);
                       break;
                   }
                 }}
@@ -890,8 +1228,8 @@ const CourseManagement = () => {
                                   switch (activeTab) {
                                     case 'courses': handleEditCourse(item); break;
                                     case 'subjects': handleEditSubject(item); break;
-                                    case 'chapters': alert('Edit chapter coming soon!'); break;
-                                    case 'topics': alert('Edit topic coming soon!'); break;
+                                    case 'chapters': handleEditChapter(item); break;
+                                    case 'topics': handleEditTopic(item); break;
                                   }
                                 }}
                                 className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
@@ -961,6 +1299,35 @@ const CourseManagement = () => {
             onSubmit={handleSubjectSuccess}
             subject={editingSubject}
             courses={courses}
+            currentUser={safeCurrentUser}
+          />
+        )}
+
+        {showChapterModal && (
+          <ChapterModal
+            isOpen={showChapterModal}
+            onClose={() => {
+              setShowChapterModal(false);
+              setEditingChapter(null);
+            }}
+            onSubmit={handleChapterSuccess}
+            chapter={editingChapter}
+            subjects={subjects}
+            currentUser={safeCurrentUser}
+          />
+        )}
+
+        {showTopicModal && (
+          <TopicModal
+            isOpen={showTopicModal}
+            onClose={() => {
+              setShowTopicModal(false);
+              setEditingTopic(null);
+            }}
+            onSubmit={handleTopicSuccess}
+            topic={editingTopic}
+            subjects={subjects}
+            chapters={chapters}
             currentUser={safeCurrentUser}
           />
         )}

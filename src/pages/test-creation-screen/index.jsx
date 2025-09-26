@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -9,15 +10,24 @@ import TestStatsSidebar from './components/TestStatsSidebar';
 import QuestionBankModal from './components/QuestionBankModal';
 import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
+import { questionService } from '../../services/questionService';
 
 const TestCreationScreen = () => {
+  const { user, userProfile } = useAuth();
+  const currentUser = userProfile || user;
+  
   const [isFilterPanelCollapsed, setIsFilterPanelCollapsed] = useState(false);
   const [isStatsSidebarVisible, setIsStatsSidebarVisible] = useState(true);
   const [isQuestionBankModalOpen, setIsQuestionBankModalOpen] = useState(false);
   const [isManualQuestionModalOpen, setIsManualQuestionModalOpen] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved');
-
+  
+  // Loading and error states
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
   // Test data state
   const [testMetadata, setTestMetadata] = useState({
     title: '',
@@ -36,108 +46,102 @@ const TestCreationScreen = () => {
   });
 
   const [filters, setFilters] = useState({
-    subject: '',
-    chapter: '',
-    topic: '',
-    difficulty: [],
-    questionTypes: []
+    difficulty: []
   });
 
-  const [selectedQuestions, setSelectedQuestions] = useState([
-    {
-      id: 'q_001',
-      content: `A particle moves in a straight line with constant acceleration. If it covers 20m in the first 2 seconds and 60m in the next 4 seconds, find the initial velocity and acceleration.`,
-      type: 'mcq',
-      difficulty: 'moderate',
-      subject: 'physics',
-      chapter: 'mechanics',
-      topic: 'kinematics',
-      marks: 4,
-      estimatedTime: 3,
-      negativeMarks: 1,
-      options: [
-        { text: 'u = 5 m/s, a = 5 m/s²', isCorrect: true },
-        { text: 'u = 10 m/s, a = 2.5 m/s²', isCorrect: false },
-        { text: 'u = 2.5 m/s, a = 7.5 m/s²', isCorrect: false },
-        { text: 'u = 7.5 m/s, a = 2.5 m/s²', isCorrect: false }
-      ]
-    },
-    {
-      id: 'q_002',
-      content: `Calculate the pH of a solution formed by mixing 100 mL of 0.1 M HCl with 50 mL of 0.2 M NaOH.`,
-      type: 'integer',
-      difficulty: 'tough',
-      subject: 'chemistry',
-      chapter: 'acids-bases',
-      topic: 'ph-calculations',
-      marks: 4,
-      estimatedTime: 4,
-      negativeMarks: 1,
-      answer: '7'
-    },
-    {
-      id: 'q_003',
-      content: `Find the value of k for which the quadratic equation kx² + 4x + 1 = 0 has real and equal roots.`,
-      type: 'mcq',
-      difficulty: 'easy',
-      subject: 'mathematics',
-      chapter: 'quadratic-equations',
-      topic: 'discriminant',
-      marks: 4,
-      estimatedTime: 2,
-      negativeMarks: 1,
-      options: [
-        { text: 'k = 4', isCorrect: true },
-        { text: 'k = 2', isCorrect: false },
-        { text: 'k = 1', isCorrect: false },
-        { text: 'k = 8', isCorrect: false }
-      ]
+  // State for questions - starts empty, loads from API
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+
+  // Load questions from backend
+  const loadQuestions = async () => {
+    if (!currentUser?.instituteId || loading) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const result = await questionService.getQuestions({
+        instituteId: currentUser.instituteId
+      });
+      
+      const { data } = result;
+      
+      // Set questions from API response or empty array if no data
+      setSelectedQuestions(data && Array.isArray(data) ? data : []);
+    } catch (err) {
+      // On error, show empty state
+      setSelectedQuestions([]);
+      setError(null);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
-  // Auto-save functionality
+  // Load questions when component mounts
   useEffect(() => {
-    const autoSaveTimer = setTimeout(() => {
-      if (testMetadata?.title || selectedQuestions?.length > 0) {
-        setAutoSaveStatus('saving');
-        
-        // Simulate auto-save
-        setTimeout(() => {
-          setAutoSaveStatus('saved');
-        }, 1000);
+    if (currentUser?.instituteId) {
+      loadQuestions();
+    }
+  }, [currentUser?.instituteId]);
+
+  // Enhanced handlers with API integration
+  const handleQuestionCreated = () => {
+    setIsManualQuestionModalOpen(false);
+    setEditingQuestion(null); // Clear editing state
+    // Refresh questions from API, but don't break if it fails
+    if (currentUser?.instituteId && !loading) {
+      loadQuestions();
+    }
+  };
+  
+  const handleDeleteQuestion = async (questionId) => {
+    if (!questionId) return;
+    
+    // Optimistically update UI first
+    setSelectedQuestions(prev => prev.filter(q => q.id !== questionId));
+    
+    // Try to delete from backend, but don't revert UI if it fails
+    try {
+      await questionService.deleteQuestion(questionId);
+    } catch (err) {
+      // Silent fail - UI already updated optimistically
+    }
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    const newFilters = { ...filters };
+    if (filterType === 'difficulty') {
+      if (newFilters?.difficulty?.includes(value)) {
+        newFilters.difficulty = newFilters.difficulty?.filter(d => d !== value);
+      } else {
+        newFilters.difficulty = [...(newFilters.difficulty || []), value];
       }
-    }, 2000);
-
-    return () => clearTimeout(autoSaveTimer);
-  }, [testMetadata, selectedQuestions]);
-
-
-  const handleFilterChange = (newFilters) => {
+    } else {
+      newFilters[filterType] = value;
+    }
     setFilters(newFilters);
   };
 
   const handleApplyFilters = () => {
-    // In a real app, this would fetch filtered questions from the backend
-    console.log('Applying filters:', filters);
+    // Filters updated
   };
 
   const handleClearFilters = () => {
     setFilters({
-      subject: '',
-      chapter: '',
-      topic: '',
-      difficulty: [],
-      questionTypes: []
+      difficulty: []
     });
   };
 
-  const handleMetadataChange = (newMetadata) => {
+  const handleTestMetadataChange = (field, value) => {
+    const newMetadata = { ...testMetadata };
+    newMetadata[field] = value;
     setTestMetadata(newMetadata);
   };
 
   const handleQuestionEdit = (question) => {
-    // In a real app, this would open a question editor modal
-    console.log('Editing question:', question);
+    // Set the editing question for the ManualQuestionModal
+    setEditingQuestion(question);
+    setIsManualQuestionModalOpen(true);
   };
 
   const handleQuestionRemove = (index) => {
@@ -145,101 +149,47 @@ const TestCreationScreen = () => {
   };
 
   const handleQuestionReplace = (question) => {
-    // In a real app, this would open a replacement question selector
-    console.log('Replacing question:', question);
+    // Replace question
   };
 
   const handleQuestionMoveUp = (index) => {
     if (index > 0) {
       setSelectedQuestions(prev => {
         const newQuestions = [...prev];
-        [newQuestions[index - 1], newQuestions[index]] = [newQuestions?.[index], newQuestions?.[index - 1]];
+        [newQuestions[index], newQuestions[index - 1]] = [newQuestions[index - 1], newQuestions[index]];
         return newQuestions;
       });
     }
   };
 
   const handleQuestionMoveDown = (index) => {
-    if (index < selectedQuestions?.length - 1) {
-      setSelectedQuestions(prev => {
+    setSelectedQuestions(prev => {
+      if (index < prev.length - 1) {
         const newQuestions = [...prev];
-        [newQuestions[index], newQuestions[index + 1]] = [newQuestions?.[index + 1], newQuestions?.[index]];
+        [newQuestions[index], newQuestions[index + 1]] = [newQuestions[index + 1], newQuestions[index]];
         return newQuestions;
-      });
-    }
+      }
+      return prev;
+    });
   };
 
-  const handleAddQuestionsFromBank = (questions) => {
-    setSelectedQuestions(prev => [...prev, ...questions]);
-  };
-
-  const handleManualQuestionAdded = (question) => {
-    // Transform the question to match the expected format
-    const transformedQuestion = {
-      id: question?.id,
-      content: question?.question_text,
-      type: question?.question_type,
-      difficulty: question?.difficulty_level,
-      subject: question?.subject,
-      chapter: question?.chapter?.name || 'Unknown Chapter',
-      topic: question?.topic?.name || 'Unknown Topic',
-      marks: question?.marks || 4,
-      estimatedTime: Math.ceil(question?.marks / 2) || 2,
-      negativeMarks: question?.negative_marks || 0,
-      explanation: question?.explanation,
-      ...(question?.question_type === 'mcq' && question?.options && {
-        options: question?.options?.map((option) => ({
-          text: option?.option_text,
-          isCorrect: option?.is_correct
-        })),
-        correctAnswer: question?.options?.findIndex(option => option?.is_correct) || 0
-      }),
-      ...(question?.question_type === 'integer_type' && {
-        correctAnswer: question?.correct_integer_answer || 0
-      })
-    };
-
-    setSelectedQuestions(prev => [...prev, transformedQuestion]);
-  };
-
-  const handleBulkQuestionsImported = (importedQuestions) => {
-    // Convert imported questions to the format expected by the test creation screen
-    const formattedQuestions = importedQuestions?.map((question) => ({
-      id: question?.id,
-      content: question?.question_text,
-      type: question?.question_type,
-      difficulty: question?.difficulty_level,
-      subject: question?.subject,
-      chapter: question?.chapter?.name || 'Unknown Chapter',
-      topic: question?.topic?.name || 'Unknown Topic',
-      marks: question?.marks || 4,
-      estimatedTime: Math.ceil((question?.marks || 4) / 2),
-      negativeMarks: question?.negative_marks || 0,
-      explanation: question?.explanation,
-      // Add options if they exist
-      ...(question?.options && {
-        options: question?.options?.map((option) => ({
-          text: option?.option_text,
-          isCorrect: option?.is_correct
-        }))
-      })
-    }));
-
-    // Add to selected questions
-    setSelectedQuestions(prev => [...prev, ...formattedQuestions]);
-  };
-
-  const handleSaveDraft = () => {
-    setAutoSaveStatus('saving');
-    setTimeout(() => {
-      setAutoSaveStatus('saved');
-      // Show success message
+  // Auto-save functionality
+  useEffect(() => {
+    const autoSaveTimer = setTimeout(() => {
+      if (testMetadata?.title || selectedQuestions?.length > 0) {
+        setAutoSaveStatus('saving');
+        
+        setTimeout(() => {
+          setAutoSaveStatus('saved');
+        }, 1000);
+      }
     }, 1000);
-  };
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [testMetadata, selectedQuestions]);
 
   const handlePreviewTest = () => {
-    // In a real app, this would open a test preview modal
-    console.log('Previewing test with metadata:', testMetadata, 'and questions:', selectedQuestions);
+    // Preview test
   };
 
   const handlePublishTest = () => {
@@ -252,141 +202,142 @@ const TestCreationScreen = () => {
       alert('Please add at least one question before publishing');
       return;
     }
+    
+    alert(`Test "${testMetadata?.title}" would be published with ${selectedQuestions?.length} questions`);
+  };
 
-    setAutoSaveStatus('saving');
-    setTimeout(() => {
-      setAutoSaveStatus('saved');
-      alert('Test published successfully!');
-      // In a real app, navigate to test management or dashboard
-    }, 1500);
+  const handleSaveDraft = () => {
+    alert('Test saved as draft');
   };
 
   return (
-    <PageLayout title="Test Creation">
-      {/* Main Content */}
-      <div>
-        {/* Test Metadata Panel */}
-        <TestMetadataPanel
-          metadata={testMetadata}
-          onMetadataChange={handleMetadataChange}
-          onSave={handleSaveDraft}
-          onPreview={handlePreviewTest}
-          onPublish={handlePublishTest}
-          autoSaveStatus={autoSaveStatus}
-          isPublished={false}
-        />
+    <PageLayout title="Test Management" activeRoute="/test-management">
+      <div className="h-full flex flex-col lg:flex-row">
+        {/* Filter Panel - Mobile responsive */}
+        <div className={`bg-card border-r border-border lg:border-b-0 border-b transition-all duration-300 ${
+          isFilterPanelCollapsed 
+            ? 'hidden lg:block lg:w-12' 
+            : 'w-full lg:w-80 max-h-48 lg:max-h-none overflow-y-auto'
+        }`}>
+          <FilterPanel
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onApplyFilters={handleApplyFilters}
+            onClearFilters={handleClearFilters}
+            isCollapsed={isFilterPanelCollapsed}
+            onToggleCollapse={() => setIsFilterPanelCollapsed(!isFilterPanelCollapsed)}
+          />
+        </div>
 
-        {/* Main Workspace */}
-        <div className="flex h-[calc(100vh-12rem)]">
-          {/* Filter Panel */}
-          <div className={`${isFilterPanelCollapsed ? 'w-0' : 'w-80'} transition-all duration-300 hidden lg:block`}>
-            <FilterPanel
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onApplyFilters={handleApplyFilters}
-              onClearFilters={handleClearFilters}
-              isCollapsed={isFilterPanelCollapsed}
-              onToggleCollapse={() => setIsFilterPanelCollapsed(!isFilterPanelCollapsed)}
-            />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header Section - Mobile responsive */}
+          <div className="bg-background border-b border-border px-4 lg:px-6 py-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4">
+                <div className="flex items-center space-x-3">
+                  {/* Mobile Filter Toggle */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsFilterPanelCollapsed(!isFilterPanelCollapsed)}
+                    className="lg:hidden"
+                    title={isFilterPanelCollapsed ? "Show filters" : "Hide filters"}
+                  >
+                    <Icon name="Filter" size={20} />
+                  </Button>
+                  <h1 className="text-xl lg:text-2xl font-bold text-foreground">Test Questions</h1>
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1 lg:mt-0">
+                  <span>{selectedQuestions?.length || 0} Questions</span>
+                  <div className="w-1 h-1 bg-muted-foreground rounded-full"></div>
+                  <span className={`${
+                    autoSaveStatus === 'saving' ? 'text-warning' :
+                    autoSaveStatus === 'saved' ? 'text-success' : 'text-muted-foreground'
+                  }`}>
+                    {autoSaveStatus === 'saving' ? 'Saving...' :
+                     autoSaveStatus === 'saved' ? 'All changes saved' : 'Unsaved changes'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsQuestionBankModalOpen(true)}
+                  iconName="Database"
+                  iconPosition="left"
+                  className="text-sm"
+                >
+                  <span className="hidden sm:inline">Question Bank</span>
+                  <span className="sm:hidden">Bank</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setIsBulkImportModalOpen(true)}
+                  iconName="Upload"
+                  iconPosition="left"
+                  className="text-sm"
+                >
+                  <span className="hidden sm:inline">Bulk Import</span>
+                  <span className="sm:hidden">Import</span>
+                </Button>
+
+                <Button
+                  variant="primary"
+                  onClick={() => setIsManualQuestionModalOpen(true)}
+                  iconName="Plus"
+                  iconPosition="left"
+                  className="text-sm"
+                >
+                  <span className="hidden sm:inline">Add Manual Question</span>
+                  <span className="sm:hidden">Add Question</span>
+                </Button>
+              </div>
+            </div>
           </div>
 
-          {/* Mobile Filter Panel */}
-          <div className="lg:hidden">
-            <FilterPanel
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onApplyFilters={handleApplyFilters}
-              onClearFilters={handleClearFilters}
-              isCollapsed={true}
-              onToggleCollapse={() => setIsFilterPanelCollapsed(!isFilterPanelCollapsed)}
-            />
-          </div>
-
-          {/* Questions Workspace */}
-          <div className={`flex-1 ${isStatsSidebarVisible ? 'mr-80' : ''} transition-all duration-300`}>
-            <div className="h-full overflow-y-auto p-6">
-              {/* Workspace Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <h1 className="text-2xl font-bold text-foreground">Test Questions</h1>
-                  <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
-                    {selectedQuestions?.length} Questions
+          {/* Content */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Questions List */}
+            <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+              {loading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading questions...</p>
                   </div>
                 </div>
+              )}
 
-                <div className="flex items-center space-x-2">
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
+                  <p className="text-destructive">{error}</p>
+                </div>
+              )}
+
+              {!loading && !error && selectedQuestions?.length === 0 && (
+                <div className="text-center py-12">
+                  <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Found</h3>
+                  <p className="text-gray-600 mb-4">Start by adding your first question or adjust your filters.</p>
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsQuestionBankModalOpen(true)}
-                    iconName="Database"
-                    iconPosition="left"
-                  >
-                    Question Bank
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsBulkImportModalOpen(true)}
-                    iconName="Upload"
-                    iconPosition="left"
-                  >
-                    Bulk Import
-                  </Button>
-                  
-                  <Button
-                    variant="secondary"
-                    size="sm"
+                    variant="primary"
                     onClick={() => setIsManualQuestionModalOpen(true)}
                     iconName="Plus"
                     iconPosition="left"
                   >
-                    Add Manual Question
+                    Add First Question
                   </Button>
                 </div>
-              </div>
+              )}
 
-              {/* Questions List */}
-              {selectedQuestions?.length === 0 ? (
-                <div className="text-center py-16">
-                  <Icon name="FileText" size={64} className="mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-foreground mb-2">No Questions Added</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    Start building your test by adding questions from the question bank, bulk importing from files, or create new ones manually.
-                  </p>
-                  <div className="flex items-center justify-center space-x-3">
-                    <Button
-                      variant="primary"
-                      onClick={() => setIsQuestionBankModalOpen(true)}
-                      iconName="Database"
-                      iconPosition="left"
-                    >
-                      Browse Question Bank
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsBulkImportModalOpen(true)}
-                      iconName="Upload"
-                      iconPosition="left"
-                    >
-                      Bulk Import Questions
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsManualQuestionModalOpen(true)}
-                      iconName="Plus"
-                      iconPosition="left"
-                    >
-                      Create New Question
-                    </Button>
-                  </div>
-                </div>
-              ) : (
+              {!loading && selectedQuestions?.length > 0 && (
                 <div className="space-y-4">
-                  {selectedQuestions?.map((question, index) => (
+                  {selectedQuestions.map((question, index) => (
                     <QuestionCard
-                      key={question?.id}
+                      key={question?.id || index}
                       question={question}
                       index={index}
                       onEdit={handleQuestionEdit}
@@ -394,6 +345,7 @@ const TestCreationScreen = () => {
                       onReplace={handleQuestionReplace}
                       onMoveUp={handleQuestionMoveUp}
                       onMoveDown={handleQuestionMoveDown}
+                      onDelete={() => handleDeleteQuestion(question?.id)}
                     />
                   ))}
                 </div>
@@ -401,47 +353,53 @@ const TestCreationScreen = () => {
             </div>
           </div>
         </div>
-      </div>
-      {/* Test Statistics Sidebar */}
-      <TestStatsSidebar
-        questions={selectedQuestions}
-        metadata={testMetadata}
-        isVisible={isStatsSidebarVisible}
-        onToggle={() => setIsStatsSidebarVisible(!isStatsSidebarVisible)}
-      />
-      {/* Question Bank Modal */}
-      <QuestionBankModal
-        isOpen={isQuestionBankModalOpen}
-        onClose={() => setIsQuestionBankModalOpen(false)}
-        onAddQuestions={handleAddQuestionsFromBank}
-        filters={filters}
-      />
-      {/* Manual Question Modal */}
-      <ManualQuestionModal
-        isOpen={isManualQuestionModalOpen}
-        onClose={() => setIsManualQuestionModalOpen(false)}
-        onQuestionAdded={handleManualQuestionAdded}
-      />
-      {/* Bulk Import Modal */}
-      <BulkImportModal
-        isOpen={isBulkImportModalOpen}
-        onClose={() => setIsBulkImportModalOpen(false)}
-        onQuestionsImported={handleBulkQuestionsImported}
-      />
-      {/* Mobile Filter Modal */}
-      {!isFilterPanelCollapsed && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1020] lg:hidden">
-          <div className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-80 bg-card border-r border-border shadow-lg">
-            <FilterPanel
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onApplyFilters={handleApplyFilters}
-              onClearFilters={handleClearFilters}
-              isCollapsed={false}
-              onToggleCollapse={() => setIsFilterPanelCollapsed(true)}
+
+        {/* Right Sidebar - Hidden on mobile */}
+        {isStatsSidebarVisible && (
+          <div className="hidden lg:block w-80 bg-card border-l border-border overflow-y-auto">
+            <TestStatsSidebar
+              questions={selectedQuestions}
+              testMetadata={testMetadata}
+              onClose={() => setIsStatsSidebarVisible(false)}
             />
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {isQuestionBankModalOpen && (
+        <QuestionBankModal
+          isOpen={isQuestionBankModalOpen}
+          onClose={() => setIsQuestionBankModalOpen(false)}
+          onQuestionsSelected={(questions) => {
+            setSelectedQuestions(prev => [...prev, ...questions]);
+            setIsQuestionBankModalOpen(false);
+          }}
+        />
+      )}
+
+      {isManualQuestionModalOpen && (
+        <ManualQuestionModal
+          isOpen={isManualQuestionModalOpen}
+          onClose={() => {
+            setIsManualQuestionModalOpen(false);
+            setEditingQuestion(null);
+          }}
+          onQuestionAdded={handleQuestionCreated}
+          currentUser={currentUser}
+          editingQuestion={editingQuestion}
+        />
+      )}
+
+      {isBulkImportModalOpen && (
+        <BulkImportModal
+          isOpen={isBulkImportModalOpen}
+          onClose={() => setIsBulkImportModalOpen(false)}
+          onQuestionsImported={(questions) => {
+            setSelectedQuestions(prev => [...prev, ...questions]);
+            setIsBulkImportModalOpen(false);
+          }}
+        />
       )}
     </PageLayout>
   );

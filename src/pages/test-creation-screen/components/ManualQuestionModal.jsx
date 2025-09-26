@@ -6,31 +6,32 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 
-const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion = null }) => {
+const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion = null, currentUser = null }) => {
   const { userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [chapters, setChapters] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
 
   const [questionData, setQuestionData] = useState({
     questionText: '',
+    questionImagePath: '',
     questionType: 'mcq',
-    subject: 'physics',
-    chapterId: '',
-    topicId: '',
-    difficultyLevel: 'moderate',
+    subject: '',
+    topic: '',
+    difficultyLevel: 'EASY',
     examType: 'jee',
     classLevel: 11,
     marks: 4,
     negativeMarks: 1,
     explanation: '',
     options: [
-      { label: 'A', text: '', isCorrect: false },
-      { label: 'B', text: '', isCorrect: false },
-      { label: 'C', text: '', isCorrect: false },
-      { label: 'D', text: '', isCorrect: false }
+      { label: 'A', text: '', optionImagePath: '', isCorrect: false },
+      { label: 'B', text: '', optionImagePath: '', isCorrect: false },
+      { label: 'C', text: '', optionImagePath: '', isCorrect: false },
+      { label: 'D', text: '', optionImagePath: '', isCorrect: false }
     ],
     correctIntegerAnswer: '',
     isConceptual: false,
@@ -38,46 +39,34 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     isPyq: false
   });
 
-  // Load chapters when subject changes
-  useEffect(() => {
-    if (questionData?.subject) {
-      loadChapters(questionData?.subject, questionData?.classLevel);
-    }
-  }, [questionData?.subject, questionData?.classLevel]);
-
-  // Load topics when chapter changes
-  useEffect(() => {
-    if (questionData?.chapterId) {
-      loadTopics(questionData?.chapterId);
-    }
-  }, [questionData?.chapterId]);
 
   // Populate form when editing
   useEffect(() => {
     if (editingQuestion && isOpen) {
       setQuestionData({
-        questionText: editingQuestion?.question_text || '',
+        questionText: editingQuestion?.text || editingQuestion?.question_text || '',
+        questionImagePath: editingQuestion?.questionImagePath || '',
         questionType: editingQuestion?.question_type || 'mcq',
-        subject: editingQuestion?.subject || 'physics',
-        chapterId: editingQuestion?.chapter_id || '',
-        topicId: editingQuestion?.topic_id || '',
-        difficultyLevel: editingQuestion?.difficulty_level || 'moderate',
+        subject: editingQuestion?.subject || '',
+        topic: editingQuestion?.topicId || editingQuestion?.topic || '',
+        difficultyLevel: editingQuestion?.difficultyLevel || editingQuestion?.difficulty_level || 'EASY',
         examType: editingQuestion?.exam_type || 'jee',
         classLevel: editingQuestion?.class_level || 11,
         marks: editingQuestion?.marks || 4,
-        negativeMarks: editingQuestion?.negative_marks || 1,
+        negativeMarks: editingQuestion?.negativeMarks || editingQuestion?.negative_marks || 1,
         explanation: editingQuestion?.explanation || '',
         options: editingQuestion?.options?.length > 0 
           ? editingQuestion?.options?.map(opt => ({
-              label: opt?.option_label,
-              text: opt?.option_text,
-              isCorrect: opt?.is_correct
+              label: opt?.option_label || opt?.label,
+              text: opt?.text || opt?.option_text,
+              optionImagePath: opt?.optionImagePath || '',
+              isCorrect: opt?.isCorrect || opt?.is_correct
             }))
           : [
-              { label: 'A', text: '', isCorrect: false },
-              { label: 'B', text: '', isCorrect: false },
-              { label: 'C', text: '', isCorrect: false },
-              { label: 'D', text: '', isCorrect: false }
+              { label: 'A', text: '', optionImagePath: '', isCorrect: false },
+              { label: 'B', text: '', optionImagePath: '', isCorrect: false },
+              { label: 'C', text: '', optionImagePath: '', isCorrect: false },
+              { label: 'D', text: '', optionImagePath: '', isCorrect: false }
             ],
         correctIntegerAnswer: editingQuestion?.correct_integer_answer || '',
         isConceptual: editingQuestion?.is_conceptual || false,
@@ -88,21 +77,21 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       // Reset form for new question
       setQuestionData({
         questionText: '',
+        questionImagePath: '',
         questionType: 'mcq',
-        subject: 'physics',
-        chapterId: '',
-        topicId: '',
-        difficultyLevel: 'moderate',
+        subject: '',
+        topic: '',
+        difficultyLevel: 'EASY',
         examType: 'jee',
         classLevel: 11,
         marks: 4,
         negativeMarks: 1,
         explanation: '',
         options: [
-          { label: 'A', text: '', isCorrect: false },
-          { label: 'B', text: '', isCorrect: false },
-          { label: 'C', text: '', isCorrect: false },
-          { label: 'D', text: '', isCorrect: false }
+          { label: 'A', text: '', optionImagePath: '', isCorrect: false },
+          { label: 'B', text: '', optionImagePath: '', isCorrect: false },
+          { label: 'C', text: '', optionImagePath: '', isCorrect: false },
+          { label: 'D', text: '', optionImagePath: '', isCorrect: false }
         ],
         correctIntegerAnswer: '',
         isConceptual: false,
@@ -112,41 +101,86 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     }
   }, [editingQuestion, isOpen]);
 
-  const loadChapters = async (subject, classLevel) => {
+  // Load subjects from backend
+  useEffect(() => {
+    if (isOpen) {
+      loadSubjects();
+    }
+  }, [isOpen]);
+
+  // Load topics when subject changes
+  useEffect(() => {
+    if (questionData.subject && isOpen) {
+      loadTopics(questionData.subject);
+    } else {
+      setTopics([]);
+    }
+  }, [questionData.subject, isOpen]);
+
+  const loadSubjects = async () => {
     try {
-      const { data, error } = await questionService?.getChaptersBySubject(subject, classLevel);
+      console.log('🔍 ManualQuestionModal: Loading subjects...');
+      const { data, error } = await questionService.getSubjects();
+      console.log('🔍 ManualQuestionModal: Received subjects data:', data);
+      
       if (error) {
-        console.error('Error loading chapters:', error);
-        setChapters([]);
+        console.error('❌ Error loading subjects:', error);
+        setSubjects([]);
         return;
       }
-      setChapters(data || []);
+      
+      setSubjects(data || []);
+      console.log('✅ ManualQuestionModal: Subjects set successfully:', data?.length || 0, 'subjects');
     } catch (error) {
-      console.error('Error loading chapters:', error);
-      setChapters([]);
+      console.error('Error loading subjects:', error);
+      setSubjects([]);
     }
   };
 
-  const loadTopics = async (chapterId) => {
+  const loadTopics = async (subjectId) => {
+    if (!subjectId) {
+      setTopics([]);
+      return;
+    }
+
     try {
-      const { data, error } = await questionService?.getTopicsByChapter(chapterId);
+      setLoadingTopics(true);
+      console.log('🔍 ManualQuestionModal: Loading topics for subject:', subjectId, 'institute:', currentUser?.instituteId);
+      
+      // Use searchTopics with both subjectId and instituteId for better filtering
+      const { data, error } = await questionService.searchTopics({
+        subjectId: subjectId,
+        instituteId: currentUser?.instituteId
+      });
+      console.log('🔍 ManualQuestionModal: Received topics data:', data);
+      
       if (error) {
-        console.error('Error loading topics:', error);
+        console.error('❌ Error loading topics:', error);
         setTopics([]);
         return;
       }
+      
       setTopics(data || []);
+      console.log('✅ ManualQuestionModal: Topics set successfully:', data?.length || 0, 'topics');
     } catch (error) {
       console.error('Error loading topics:', error);
       setTopics([]);
+    } finally {
+      setLoadingTopics(false);
     }
   };
 
   const handleInputChange = (field, value) => {
-    setQuestionData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setQuestionData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Reset topic when subject changes
+      if (field === 'subject') {
+        newData.topic = '';
+      }
+      
+      return newData;
+    });
   };
 
   const handleOptionChange = (index, field, value) => {
@@ -206,33 +240,24 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     setSuccess('');
 
     try {
-      const questionPayload = {
-        questionText: questionData?.questionText,
-        questionType: questionData?.questionType,
-        subject: questionData?.subject,
-        chapterId: questionData?.chapterId || null,
-        topicId: questionData?.topicId || null,
-        difficultyLevel: questionData?.difficultyLevel,
-        examType: questionData?.examType,
-        classLevel: questionData?.classLevel,
-        marks: parseInt(questionData?.marks),
-        negativeMarks: parseFloat(questionData?.negativeMarks),
-        explanation: questionData?.explanation,
-        isConceptual: questionData?.isConceptual,
-        isTheoretical: questionData?.isTheoretical,
-        isPyq: questionData?.isPyq,
-        createdBy: userProfile?.id,
-        ...(questionData?.questionType === 'mcq' && {
-          options: questionData?.options?.map((opt, index) => ({
-            text: opt?.text,
-            label: opt?.label,
-            isCorrect: opt?.isCorrect
-          }))
-        }),
-        ...(questionData?.questionType === 'integer_type' && {
-          correctIntegerAnswer: parseInt(questionData?.correctIntegerAnswer)
-        })
-      };
+        const questionPayload = {
+          text: questionData?.questionText,
+          questionImagePath: questionData?.questionImagePath || '',
+          difficultyLevel: questionData?.difficultyLevel?.toUpperCase() || 'EASY',
+          topicId: questionData?.topic ? parseInt(questionData?.topic) : null,
+          instituteId: currentUser?.instituteId || userProfile?.instituteId,
+          questionType: questionData?.questionType,
+          marks: parseInt(questionData?.marks) || 4,
+          negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
+          explanation: questionData?.explanation || '',
+          ...(questionData?.questionType === 'mcq' && {
+            options: questionData?.options?.map((opt) => ({
+              text: opt?.text || '',
+              optionImagePath: opt?.optionImagePath || '',
+              isCorrect: opt?.isCorrect || false
+            }))
+          })
+        };
 
       let result;
       if (editingQuestion) {
@@ -320,12 +345,25 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                 label="Subject *"
                 value={questionData?.subject}
                 onChange={(value) => handleInputChange('subject', value)}
-                options={[
-                  { value: 'physics', label: 'Physics' },
-                  { value: 'chemistry', label: 'Chemistry' },
-                  { value: 'mathematics', label: 'Mathematics' },
-                  { value: 'biology', label: 'Biology' }
-                ]}
+                options={subjects?.map(subject => ({
+                  value: subject?.id?.toString() || subject?.code,
+                  label: `${subject?.name}${subject?.code ? ` (${subject?.code})` : ''}`
+                })) || []}
+                placeholder="Select subject"
+                searchable
+              />
+
+              <Select
+                label="Topic"
+                value={questionData?.topic}
+                onChange={(value) => handleInputChange('topic', value)}
+                options={topics?.map(topic => ({
+                  value: topic?.id?.toString() || topic?.code,
+                  label: `${topic?.name}${topic?.code ? ` (${topic?.code})` : ''}`
+                })) || []}
+                placeholder={loadingTopics ? "Loading topics..." : "Select topic"}
+                disabled={!questionData?.subject || loadingTopics}
+                searchable
               />
 
               <Select
@@ -344,9 +382,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                 value={questionData?.difficultyLevel}
                 onChange={(value) => handleInputChange('difficultyLevel', value)}
                 options={[
-                  { value: 'easy', label: 'Easy' },
-                  { value: 'moderate', label: 'Moderate' },
-                  { value: 'difficult', label: 'Difficult' }
+                  { value: 'EASY', label: 'EASY' },
+                  { value: 'MEDIUM', label: 'MEDIUM' },
+                  { value: 'HARD', label: 'HARD' }
                 ]}
               />
             </div>
@@ -398,34 +436,6 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
               </div>
             </div>
 
-            {/* Chapter and Topic */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Chapter"
-                value={questionData?.chapterId}
-                onChange={(value) => handleInputChange('chapterId', value)}
-                options={[
-                  { value: '', label: 'Select Chapter' },
-                  ...chapters?.map(chapter => ({
-                    value: chapter?.id,
-                    label: chapter?.name
-                  }))
-                ]}
-              />
-
-              <Select
-                label="Topic"
-                value={questionData?.topicId}
-                onChange={(value) => handleInputChange('topicId', value)}
-                options={[
-                  { value: '', label: 'Select Topic' },
-                  ...topics?.map(topic => ({
-                    value: topic?.id,
-                    label: topic?.name
-                  }))
-                ]}
-              />
-            </div>
 
             {/* Question Text */}
             <div>
@@ -442,38 +452,109 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
               />
             </div>
 
+            {/* Question Image */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Question Image Path
+              </label>
+              <Input
+                type="text"
+                value={questionData?.questionImagePath}
+                onChange={(e) => handleInputChange('questionImagePath', e?.target?.value)}
+                placeholder="Enter image URL or path (optional)"
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Optional: URL or path to question image
+              </p>
+            </div>
+
             {/* MCQ Options */}
             {questionData?.questionType === 'mcq' && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-3">
                   Answer Options *
                 </label>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {questionData?.options?.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="correctAnswer"
-                        checked={option?.isCorrect}
-                        onChange={() => handleCorrectAnswerChange(index)}
-                        className="w-4 h-4 text-primary focus:ring-primary border-border"
-                      />
-                      <span className="text-sm font-medium text-foreground min-w-[20px]">
-                        {option?.label})
-                      </span>
-                      <Input
-                        value={option?.text}
-                        onChange={(e) => handleOptionChange(index, 'text', e?.target?.value)}
-                        placeholder={`Option ${option?.label}`}
-                        className="flex-1"
-                        required
-                      />
+                    <div 
+                      key={index} 
+                      className={`border rounded-lg p-4 transition-all duration-200 ${
+                        option?.isCorrect 
+                          ? 'border-success bg-success/5 shadow-sm' 
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      {/* Option Header */}
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="relative">
+                          <input
+                            type="radio"
+                            name="correctAnswer"
+                            checked={option?.isCorrect}
+                            onChange={() => handleCorrectAnswerChange(index)}
+                            className="w-5 h-5 text-success focus:ring-success border-border cursor-pointer"
+                          />
+                          {option?.isCorrect && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-success rounded-full flex items-center justify-center">
+                              <Icon name="Check" size={8} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-bold text-foreground min-w-[24px] bg-muted rounded px-2 py-1">
+                            {option?.label}
+                          </span>
+                          {option?.isCorrect && (
+                            <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded-full font-medium">
+                              ✓ Correct Answer
+                            </span>
+                          )}
+                        </div>
+                        
+                        <Input
+                          value={option?.text}
+                          onChange={(e) => handleOptionChange(index, 'text', e?.target?.value)}
+                          placeholder={`Enter text for option ${option?.label}`}
+                          className={`flex-1 ${option?.isCorrect ? 'border-success' : ''}`}
+                          required
+                        />
+                      </div>
+                      
+                      {/* Option Image */}
+                      <div className="ml-8">
+                        <Input
+                          value={option?.optionImagePath}
+                          onChange={(e) => handleOptionChange(index, 'optionImagePath', e?.target?.value)}
+                          placeholder={`Image URL for option ${option?.label} (optional)`}
+                          className="w-full"
+                        />
+                        {option?.optionImagePath && (
+                          <p className="text-xs text-success mt-1">
+                            ✓ Image attached
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Select the radio button to mark the correct answer
-                </p>
+                
+                {/* Helper Text */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                  <div className="flex items-start space-x-2">
+                    <Icon name="Info" size={16} className="text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">
+                        How to mark the correct answer:
+                      </p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Click the radio button (○) next to the option you want to mark as correct. 
+                        The selected option will be highlighted in green with a "✓ Correct Answer" badge.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

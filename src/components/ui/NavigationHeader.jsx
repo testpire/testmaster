@@ -80,12 +80,13 @@ const NavigationHeader = ({
     }
   };
 
-  // Use auth context data if available, otherwise fall back to props
+  // Use auth context data if available, otherwise fall back to props - with safe null checks
   const displayName = currentUser?.name || 
-                     userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : 
+                     (userProfile?.firstName ? `${userProfile?.firstName} ${userProfile?.lastName || ''}`.trim() : null) ||
                      user?.user_metadata?.full_name || 
                      userProfile?.full_name || 
-                     userName;
+                     userName || 
+                     'User';
   const displayRole = currentUser?.role || userProfile?.role || userRole;
   const displayAvatar = currentUser?.avatar || userProfile?.avatar_url || userAvatar;
 

@@ -29,6 +29,7 @@ const Routes = () => {
         <RouterRoutes>
           <Route path="/" element={<SimpleLogin />} />
           <Route path="/login" element={<SimpleLogin />} />
+          <Route path="/login-screen" element={<SimpleLogin />} />
           <Route path="/login-original" element={<LoginScreen />} />
           <Route path="/signup" element={<SimpleSignup />} />
           <Route path="/super-admin-dashboard" element={<SuperAdminDashboard />} />
@@ -37,6 +38,7 @@ const Routes = () => {
           <Route path="/student-management-screen" element={<StudentManagementScreen />} />
           <Route path="/course-and-batch-management-screen" element={<CourseAndBatchManagementScreen />} />
           <Route path="/test-creation-screen" element={<TestCreationScreen />} />
+          <Route path="/test-management" element={<TestCreationScreen />} />
           <Route path="/test-taking-interface" element={<TestTakingInterface />} />
           <Route path="/student-dashboard" element={<StudentDashboard />} />
           <Route path="/analytics-and-reports-screen" element={<AnalyticsAndReportsScreen />} />

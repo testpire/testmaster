@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Base API configuration
-//const API_BASE_URL = 'http://localhost:8080/api';
-const API_BASE_URL = 'https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api';
+const API_BASE_URL = 'http://localhost:8080/api';
+//const API_BASE_URL = 'https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -113,29 +113,77 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for comprehensive error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      console.warn('Authentication failed (401), clearing token and redirecting to login');
-      setAuthToken(null);
-      // Redirect to login page
-      window.location.href = '/login';
-    } else if (error.response?.status === 500 && 
-               error.response?.data?.message?.includes?.('JWT') || 
-               error.message?.includes?.('JWT')) {
-      // JWT parsing error on backend
-      console.error('Backend JWT parsing error, clearing token');
-      setAuthToken(null);
-      // Don't auto-redirect on 500 errors, let user handle it
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Prevent infinite loops
+    if (originalRequest._isRetry) {
+      return Promise.reject(error);
     }
+    
+    // Authentication errors - handle immediately and smoothly
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.warn('🔒 Authentication failed, redirecting to login');
+      setAuthToken(null);
+      clearAuthState();
+      
+      // Mark this as an auth redirect to prevent other error handlers
+      error.isAuthRedirect = true;
+      
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        // Immediate redirect without timeout to prevent error pages
+        window.location.replace('/login-screen');
+      }
+      
+      // Return a resolved promise with auth error info to prevent error boundaries
+      return Promise.resolve({
+        data: { error: 'Authentication required' },
+        status: error.response.status,
+        isAuthError: true
+      });
+    }
+    
+    // JWT parsing errors
+    if (error.response?.status === 500 && 
+        (error.response?.data?.message?.includes?.('JWT') || 
+         error.message?.includes?.('JWT'))) {
+      console.warn('🔑 JWT parsing error on backend, clearing token');
+      setAuthToken(null);
+      clearAuthState();
+      return Promise.reject(error);
+    }
+    
+    // Network errors - attempt retry for GET requests
+    if (!error.response && originalRequest.method?.toLowerCase() === 'get' && !originalRequest._isRetry) {
+      console.warn('🌐 Network error, attempting retry...');
+      originalRequest._isRetry = true;
+      
+      // Wait a bit before retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      try {
+        return apiClient(originalRequest);
+      } catch (retryError) {
+        console.warn('🌐 Retry failed');
+        return Promise.reject(retryError);
+      }
+    }
+    
+    // Server errors - don't crash the app
+    if (error.response?.status >= 500) {
+      console.warn('🚨 Server error, handling gracefully');
+      error.isServerError = true;
+    }
+    
     return Promise.reject(error);
   }
 );
 
-// Generic API helper functions
+// Enhanced API helper functions with comprehensive error handling
 export const apiRequest = async (method, url, data = null, config = {}) => {
   try {
     const response = await apiClient({
@@ -151,12 +199,40 @@ export const apiRequest = async (method, url, data = null, config = {}) => {
       success: true,
     };
   } catch (error) {
-    console.error(`API ${method.toUpperCase()} ${url} error:`, error);
+    // Don't spam console with network errors during recovery
+    if (!error.isServerError && !error.response?.status) {
+      console.warn(`🌐 API ${method.toUpperCase()} ${url} network error (handled gracefully)`);
+    } else if (error.response?.status >= 500) {
+      console.warn(`🚨 API ${method.toUpperCase()} ${url} server error: ${error.response.status} (handled gracefully)`);
+    } else {
+      console.error(`❌ API ${method.toUpperCase()} ${url} error:`, error.response?.data || error.message);
+    }
     
-    const errorMessage = error.response?.data?.message || 
-                        error.response?.data?.error || 
-                        error.message || 
-                        'An unexpected error occurred';
+    let errorMessage;
+    
+    // Handle different error types gracefully
+    if (!error.response) {
+      // Network error
+      errorMessage = 'Connection issue. Please check your internet connection.';
+    } else if (error.response.status >= 500) {
+      // Server error
+      errorMessage = 'Server is temporarily unavailable. Please try again in a moment.';
+    } else if (error.response.status === 404) {
+      // Not found
+      errorMessage = 'Requested resource not found.';
+    } else if (error.response.status === 403) {
+      // Forbidden
+      errorMessage = 'You do not have permission to access this resource.';
+    } else if (error.response.status === 401) {
+      // Unauthorized
+      errorMessage = 'Your session has expired. Please log in again.';
+    } else {
+      // Other errors
+      errorMessage = error.response?.data?.message || 
+                    error.response?.data?.error || 
+                    error.message || 
+                    'An unexpected error occurred';
+    }
     
     return {
       data: null,
@@ -164,6 +240,8 @@ export const apiRequest = async (method, url, data = null, config = {}) => {
         message: errorMessage,
         status: error.response?.status,
         code: error.response?.data?.code,
+        isNetworkError: !error.response,
+        isServerError: error.response?.status >= 500,
       },
       success: false,
     };
