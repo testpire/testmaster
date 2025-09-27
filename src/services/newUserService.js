@@ -17,33 +17,22 @@ export const newUserService = {
     }
   },
 
-  // Get all users with filters - role-based
+  // Get all users with filters - role-based (DEPRECATED: use getStudentsByBatch() or getTeachers() instead)
   async getUsers(filters = {}) {
     try {
       const role = filters.role || 'STUDENT';
-      let endpoint = `/users/${role.toUpperCase()}`;
       
-      // Add search functionality if available
-      if (filters.search) {
-        endpoint = `/users/${role.toUpperCase()}/search?searchTerm=${encodeURIComponent(filters.search)}`;
+      // Delegate to specific methods that use proper POST APIs
+      if (role.toUpperCase() === 'TEACHER') {
+        const { data, pagination, error } = await this.getTeachers({ page: 0, size: 1000 }); // Large size for backward compatibility
+        return { data, error };
+      } else if (role.toUpperCase() === 'STUDENT') {
+        const { data, pagination, error } = await this.getStudentsByBatch(null, { page: 0, size: 1000 }); // Large size for backward compatibility
+        return { data, error };
+      } else {
+        // For other roles, return empty (this was mainly used for students/teachers)
+        return { data: [], error: null };
       }
-
-      const { data, error, success } = await get(endpoint);
-      
-      if (success && data) {
-        // Backend may return wrapped structure based on role
-        let users;
-        if (role.toUpperCase() === 'TEACHER') {
-          users = data.teachers || data.data || (Array.isArray(data) ? data : [data]);
-        } else if (role.toUpperCase() === 'STUDENT') {
-          users = data.students || data.data || (Array.isArray(data) ? data : [data]);
-        } else {
-          users = data.users || data.data || (Array.isArray(data) ? data : [data]);
-        }
-        return { data: users, error: null };
-      }
-      
-      return { data: [], error };
     } catch (error) {
       return { data: [], error };
     }
@@ -214,11 +203,34 @@ export const newUserService = {
         password: userData.password,
         firstName: userData.fullName?.split(' ')[0] || userData.firstName,
         lastName: userData.fullName?.split(' ').slice(1).join(' ') || userData.lastName,
-        role: userData.role?.toUpperCase() || 'STUDENT',
-        instituteId: userData.instituteId,
       };
 
-      const { data, error, success } = await post('/users/register', registerData);
+      // Include instituteId if provided (for super admin creating users for different institutes)
+      if (userData.instituteId) {
+        registerData.instituteId = userData.instituteId;
+      }
+
+      const role = userData.role?.toUpperCase() || 'STUDENT';
+      let endpoint;
+      let payload = { ...registerData };
+      
+      // Use specific endpoint based on role
+      if (role === 'INST_ADMIN' || role === 'INSTITUTE_ADMIN') {
+        endpoint = '/users/register';
+        // For institute admin, include role in payload and ensure instituteId is provided
+        payload.role = 'INST_ADMIN';
+        if (!payload.instituteId) {
+          return { data: null, error: 'Institute ID is required for institute admin creation' };
+        }
+      } else if (role === 'TEACHER') {
+        endpoint = '/teachers';
+      } else if (role === 'STUDENT') {
+        endpoint = '/students';
+      } else {
+        endpoint = '/students'; // Default fallback
+      }
+
+      const { data, error, success } = await post(endpoint, payload);
       
       if (success && data) {
         return { data, error: null };
@@ -245,54 +257,138 @@ export const newUserService = {
     }
   },
 
-  // Get students by batch - using institute-specific endpoint
-  async getStudentsByBatch(batchId, instituteId) {
+  // Get students by batch - using students search API (instituteId from JWT token)
+  async getStudentsByBatch(batchId = null, pagination = { page: 0, size: 20 }) {
     try {
-      // Use institute-specific endpoint if instituteId is provided
-      const endpoint = instituteId 
-        ? `/institute/${instituteId}/users/students`
-        : '/students';
-      
-      const { data, error, success } = await get(endpoint);
-      
-      if (success && data) {
-        // Backend returns { users: [...] } for institute-specific student endpoints
-        const students = data.users || data.students || data.data || (Array.isArray(data) ? data : [data]);
-        
-        // Filter by batch if batchId is provided
-        const filteredStudents = batchId 
-          ? students.filter(student => student.batchId === batchId)
-          : students;
-          
-        return { data: filteredStudents, error: null };
+      const payload = {
+        criteria: {},
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20
+        },
+        sorting: {
+          field: 'createdAt',
+          direction: 'desc'
+        }
+      };
+
+      // Add batch filter if provided
+      if (batchId) {
+        payload.criteria.batchId = batchId;
       }
       
-      return { data: [], error };
+      const { data, error, success } = await post('/students/search/advanced', payload);
+      
+      if (success && data) {
+        // Handle double-nested response: data.data.students or data.students  
+        const nestedData = data.data || data;
+        const students = nestedData.students || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
+        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || students.length;
+        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+        const hasMore = currentPage < totalPages - 1;
+        
+        return { 
+          data: students, 
+          pagination: {
+            currentPage,
+            totalPages,
+            totalElements,
+            hasMore,
+            size: payload.pagination.size
+          },
+          error: null 
+        };
+      }
+      
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     } catch (error) {
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     }
   },
 
-  // Get teachers - using institute-specific endpoint
-  async getTeachers(instituteId) {
+  // Get teachers - using teachers search API (instituteId from JWT token)
+  async getTeachers(pagination = { page: 0, size: 20 }) {
     try {
-      // Use institute-specific endpoint if instituteId is provided
-      const endpoint = instituteId 
-        ? `/institute/${instituteId}/users/teachers`
-        : '/teachers';
+      const payload = {
+        criteria: {},
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20
+        },
+        sorting: {
+          field: 'createdAt',
+          direction: 'desc'
+        }
+      };
       
-      const { data, error, success } = await get(endpoint);
-      
+      const { data, error, success } = await post('/teachers/search/advanced', payload);
       
       if (success && data) {
-        // Backend returns { users: [...] } for institute-specific teacher endpoints
-        const teachers = data.users || data.teachers || data.data || (Array.isArray(data) ? data : [data]);
-        return { data: teachers, error: null };
+        // Handle double-nested response: data.data.teachers or data.teachers
+        const nestedData = data.data || data;
+        const teachers = nestedData.teachers || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
+        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || teachers.length;
+        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+        const hasMore = currentPage < totalPages - 1;
+        
+        return { 
+          data: teachers, 
+          pagination: {
+            currentPage,
+            totalPages,
+            totalElements,
+            hasMore,
+            size: payload.pagination.size
+          },
+          error: null 
+        };
       }
       
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     } catch (error) {
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     }
   },
 
@@ -318,21 +414,50 @@ export const newUserService = {
         password: teacherData.password,
         firstName: teacherData.fullName?.split(' ')[0] || teacherData.firstName,
         lastName: teacherData.fullName?.split(' ').slice(1).join(' ') || teacherData.lastName,
-        role: 'TEACHER',
-        instituteId: teacherData.instituteId,
+        // role is implied by the endpoint, no need to send it
       };
 
-      // Use institute-specific endpoint if instituteId is provided
-      const endpoint = teacherData.instituteId 
-        ? `/institute/${teacherData.instituteId}/users/teachers`
-        : '/teachers';
+      // Include instituteId if provided (for super admin creating teachers for different institutes)
+      if (teacherData.instituteId) {
+        registerData.instituteId = teacherData.instituteId;
+      }
 
-      const { data, error, success } = await post(endpoint, registerData);
+      // Use teachers endpoint for creation
+      const { data, error, success } = await post('/teachers', registerData);
       
       if (success && data) {
         // Backend may return user object directly or wrapped
         const userData = data.user || data;
         return { data: userData, error: null };
+      }
+      
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Register institute admin (super admin function)
+  async registerInstituteAdmin(adminData) {
+    try {
+      const registerData = {
+        username: adminData.username || adminData.email,
+        email: adminData.email,
+        password: adminData.password,
+        firstName: adminData.fullName?.split(' ')[0] || adminData.firstName,
+        lastName: adminData.fullName?.split(' ').slice(1).join(' ') || adminData.lastName,
+        role: 'INST_ADMIN',
+        instituteId: adminData.instituteId
+      };
+
+      if (!registerData.instituteId) {
+        return { data: null, error: 'Institute ID is required for institute admin creation' };
+      }
+
+      const { data, error, success } = await post('/users/register', registerData);
+      
+      if (success && data) {
+        return { data, error: null };
       }
       
       return { data: null, error };
@@ -350,16 +475,16 @@ export const newUserService = {
         password: studentData.password,
         firstName: studentData.fullName?.split(' ')[0] || studentData.firstName,
         lastName: studentData.fullName?.split(' ').slice(1).join(' ') || studentData.lastName,
-        role: 'STUDENT',
-        instituteId: studentData.instituteId,
+        // role is implied by the endpoint, no need to send it
       };
 
-      // Use institute-specific endpoint if instituteId is provided
-      const endpoint = studentData.instituteId 
-        ? `/institute/${studentData.instituteId}/users/students`
-        : '/students';
+      // Include instituteId if provided (for super admin creating students for different institutes)
+      if (studentData.instituteId) {
+        registerData.instituteId = studentData.instituteId;
+      }
 
-      const { data, error, success } = await post(endpoint, registerData);
+      // Use students endpoint for creation
+      const { data, error, success } = await post('/students', registerData);
       
       if (success && data) {
         return { data, error: null };

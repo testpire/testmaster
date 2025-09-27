@@ -77,9 +77,18 @@ const PageLayout = ({
         return;
       }
       
-      // Generic error recovery - redirect to dashboard if user is still authenticated
-      if (user && currentUser && !errorMsg.toLowerCase().includes('auth')) {
-        console.log('🔄 User still authenticated, redirecting to dashboard');
+      // Only redirect for critical rendering errors, not API errors or data issues
+      if (user && currentUser && 
+          !errorMsg.toLowerCase().includes('auth') &&
+          !errorMsg.toLowerCase().includes('api') &&
+          !errorMsg.toLowerCase().includes('failed to load') &&
+          !errorMsg.toLowerCase().includes('no data') &&
+          !errorMsg.toLowerCase().includes('empty') &&
+          (errorMsg.toLowerCase().includes('render') || 
+           errorMsg.toLowerCase().includes('component') ||
+           errorMsg.toLowerCase().includes('undefined') ||
+           errorMsg.toLowerCase().includes('null'))) {
+        console.log('🔄 Critical rendering error - redirecting to dashboard');
         const dashboardPath = currentUser.role === 'SUPER_ADMIN' ? '/super-admin-dashboard' :
                              currentUser.role === 'INST_ADMIN' ? '/inst-admin-dashboard' :
                              '/teacher-dashboard';

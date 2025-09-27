@@ -2,33 +2,79 @@ import { get, post, put, del } from '../lib/apiClient';
 
 export const newInstituteService = {
   // Get all institutes (Super Admin only)
-  async getInstitutes(filters = {}) {
+  async getInstitutes(filters = {}, pagination = { page: 0, size: 20 }) {
     try {
-      let endpoint = '/institute';
-      
+      const payload = {
+        criteria: {},
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20
+        },
+        sorting: {
+          field: 'createdAt',
+          direction: 'desc'
+        }
+      };
+
       // Add search functionality if available
-      if (filters.search) {
-        endpoint = `/institute/search?searchTerm=${encodeURIComponent(filters.search)}`;
+      if (filters.search && filters.search.trim() !== '') {
+        payload.criteria.name = filters.search.trim();
       }
 
-      const { data, error, success } = await get(endpoint);
+      const { data, error, success } = await post('/institutes/search/advanced', payload);
       
       if (success && data) {
-        // Backend returns { institutes: [...] } or { data: [...] } structure
-        const institutes = data.institutes || data.data || (Array.isArray(data) ? data : [data]);
-        return { data: institutes, error: null };
+        // Handle double-nested response: data.data.institutes or data.institutes
+        const nestedData = data.data || data;
+        const institutes = nestedData.institutes || nestedData.content || (Array.isArray(nestedData) ? nestedData : []);
+        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || institutes.length;
+        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+        const hasMore = currentPage < totalPages - 1;
+        
+        return { 
+          data: institutes, 
+          pagination: {
+            currentPage,
+            totalPages,
+            totalElements,
+            hasMore,
+            size: payload.pagination.size
+          },
+          error: null 
+        };
       }
       
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     } catch (error) {
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     }
   },
 
   // Get institute by ID
   async getInstitute(instituteId) {
     try {
-      const { data, error, success } = await get(`/institute/${instituteId}`);
+      const { data, error, success } = await get(`/institutes/${instituteId}`);
       
       if (success && data) {
         return { data, error: null };
@@ -43,7 +89,7 @@ export const newInstituteService = {
   // Get institute by code
   async getInstituteByCode(code) {
     try {
-      const { data, error, success } = await get(`/institute/code/${code}`);
+      const { data, error, success } = await get(`/institutes/code/${code}`);
       
       if (success && data) {
         return { data, error: null };
@@ -72,7 +118,7 @@ export const newInstituteService = {
         description: instituteData.description,
       };
 
-      const { data, error, success } = await post('/institute', createData);
+      const { data, error, success } = await post('/institutes', createData);
       
       if (success && data) {
         return { data, error: null };
@@ -101,7 +147,7 @@ export const newInstituteService = {
         description: updates.description,
       };
 
-      const { data, error, success } = await put(`/institute/${instituteId}`, updateData);
+      const { data, error, success } = await put(`/institutes/${instituteId}`, updateData);
       
       if (success && data) {
         return { data, error: null };
@@ -116,7 +162,7 @@ export const newInstituteService = {
   // Delete institute (Super Admin only)
   async deleteInstitute(instituteId) {
     try {
-      const { error, success } = await del(`/institute/${instituteId}`);
+      const { error, success } = await del(`/institutes/${instituteId}`);
       
       if (success) {
         return { error: null };
@@ -129,19 +175,72 @@ export const newInstituteService = {
   },
 
   // Search institutes
-  async searchInstitutes(searchTerm) {
+  async searchInstitutes(searchTerm, pagination = { page: 0, size: 20 }) {
     try {
-      const { data, error, success } = await get(`/institute/search?searchTerm=${encodeURIComponent(searchTerm)}`);
+      const payload = {
+        criteria: {},
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20
+        },
+        sorting: {
+          field: 'createdAt',
+          direction: 'desc'
+        }
+      };
+
+      // Add search term to criteria if provided
+      if (searchTerm && searchTerm.trim() !== '') {
+        payload.criteria.name = searchTerm.trim(); // Assuming institutes are searched by name
+      }
+
+      const { data, error, success } = await post('/institutes/search/advanced', payload);
       
       if (success && data) {
-        // Backend returns { institutes: [...] } or { data: [...] } structure
-        const institutes = data.institutes || data.data || (Array.isArray(data) ? data : [data]);
-        return { data: institutes, error: null };
+        // Handle double-nested response: data.data.institutes or data.institutes
+        const nestedData = data.data || data;
+        const institutes = nestedData.institutes || nestedData.content || (Array.isArray(nestedData) ? nestedData : []);
+        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || institutes.length;
+        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+        const hasMore = currentPage < totalPages - 1;
+        
+        return { 
+          data: institutes, 
+          pagination: {
+            currentPage,
+            totalPages,
+            totalElements,
+            hasMore,
+            size: payload.pagination.size
+          },
+          error: null 
+        };
       }
       
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     } catch (error) {
-      return { data: [], error };
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error 
+      };
     }
   },
 

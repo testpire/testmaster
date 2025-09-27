@@ -41,7 +41,7 @@ const RoleBasedNavigation = ({
         roles: ['inst-admin']
       },
       {
-        label: 'Test Management',
+        label: 'Question Management',
         path: '/test-management',
         icon: 'FileText',
         roles: ['inst-admin']
@@ -61,15 +61,27 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
-        label: 'Student Management',
-        path: '/student-management-screen',
+        label: 'Teacher Management',
+        path: '/teacher-management',
         icon: 'Users',
         roles: ['super-admin']
       },
       {
+        label: 'Student Management',
+        path: '/student-management',
+        icon: 'GraduationCap',
+        roles: ['super-admin']
+      },
+      {
         label: 'Course Management',
-        path: '/course-and-batch-management-screen',
+        path: '/course-management',
         icon: 'BookOpen',
+        roles: ['super-admin']
+      },
+      {
+        label: 'Question Management',
+        path: '/test-management',
+        icon: 'FileText',
         roles: ['super-admin']
       },
       {
@@ -83,45 +95,6 @@ const RoleBasedNavigation = ({
         path: '/analytics-and-reports-screen',
         icon: 'BarChart3',
         roles: ['super-admin']
-      },
-      {
-        label: 'divider',
-        type: 'divider'
-      },
-      {
-        label: 'User Management',
-        action: 'show-user-management',
-        icon: 'TreePine',
-        roles: ['super-admin'],
-        type: 'action'
-      },
-      {
-        label: 'Create Institute',
-        action: 'show-institute-modal',
-        icon: 'Building',
-        roles: ['super-admin'],
-        type: 'action'
-      },
-      {
-        label: 'Create Teacher',
-        action: 'show-teacher-modal',
-        icon: 'GraduationCap',
-        roles: ['super-admin'],
-        type: 'action'
-      },
-      {
-        label: 'Create Student',
-        action: 'show-student-modal',
-        icon: 'User',
-        roles: ['super-admin'],
-        type: 'action'
-      },
-      {
-        label: 'Create Institute Admin',
-        action: 'show-institute-admin-modal',
-        icon: 'Shield',
-        roles: ['super-admin'],
-        type: 'action'
       }
     ],
     'teacher': [

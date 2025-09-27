@@ -32,8 +32,8 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
       setError('');
       setUploadResult(null);
 
-      const instituteId = userProfile?.instituteId;
-      const { data, error: uploadError } = await questionService.bulkUploadQuestions(selectedFile, instituteId);
+      // instituteId is now extracted from JWT token on backend
+      const { data, error: uploadError } = await questionService.bulkUploadQuestions(selectedFile);
       
       if (uploadError) {
         setError(uploadError);

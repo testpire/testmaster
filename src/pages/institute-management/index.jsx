@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
+import CreateInstituteModal from '../super-admin-dashboard/components/CreateInstituteModal';
 
 const InstituteManagement = () => {
   const { user, userProfile } = useAuth();
+  
+  // Try to get SuperAdmin context (will be null if not in super admin routes)
+  let superAdminContext = null;
+  try {
+    superAdminContext = useSuperAdmin();
+  } catch (e) {
+    // Context not available - user is not a super admin or not in super admin routes
+  }
 
   // Institute admin management states
   const [instituteAdmins, setInstituteAdmins] = useState([]);
@@ -18,6 +28,7 @@ const InstituteManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateInstituteModal, setShowCreateInstituteModal] = useState(false);
 
   // Institute selection states
   const [allInstitutes, setAllInstitutes] = useState([]);
@@ -126,6 +137,19 @@ const InstituteManagement = () => {
     loadInstituteAdmins(); // Reload the list
   };
 
+  const handleInstituteCreateSuccess = (instituteData) => {
+    setShowCreateInstituteModal(false);
+    // Refresh institutes list in SuperAdminContext
+    if (superAdminContext?.fetchInstitutes) {
+      superAdminContext.fetchInstitutes();
+    } else {
+      // Fallback: refresh local institutes
+      fetchInstitutes();
+    }
+    // Optionally show success message
+    console.log('Institute created successfully:', instituteData);
+  };
+
   const handleEditSuccess = () => {
     setShowEditModal(false);
     setEditingAdmin(null);
@@ -174,10 +198,10 @@ const InstituteManagement = () => {
     <PageLayout 
       title="Institute Management"
       showInstituteDropdown={currentUser.role === 'super-admin'}
-      institutes={allInstitutes}
-      selectedInstitute={selectedInstitute}
-      onInstituteChange={handleInstituteChange}
-      institutesLoading={institutesLoading}
+      institutes={superAdminContext?.allInstitutes || allInstitutes}
+      selectedInstitute={superAdminContext?.selectedInstitute || selectedInstitute}
+      onInstituteChange={superAdminContext?.handleInstituteChange || handleInstituteChange}
+      institutesLoading={superAdminContext?.institutesLoading || institutesLoading}
     >
       <div className="p-6">
           {/* Page Header */}
@@ -185,27 +209,39 @@ const InstituteManagement = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Institute Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {selectedInstitute ? 
-                  `Manage institute admins for ${selectedInstitute.name}` : 
+                {(superAdminContext?.selectedInstitute || selectedInstitute) ? 
+                  `Manage institute admins for ${(superAdminContext?.selectedInstitute || selectedInstitute).name}` : 
                   'Select an institute to manage its admins'
                 }
               </p>
             </div>
             
-            {/* Create Institute Admin Button */}
-            {selectedInstitute && (
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Create Institute Button */}
               <Button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                onClick={() => setShowCreateInstituteModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
               >
-                <Icon name="Plus" size={16} />
-                Add Institute Admin
+                <Icon name="Building" size={16} />
+                Add Institute
               </Button>
-            )}
+              
+              {/* Create Institute Admin Button */}
+              {(superAdminContext?.selectedInstitute || selectedInstitute) && (
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                >
+                  <Icon name="Plus" size={16} />
+                  Add Institute Admin
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Institute Selection Status */}
-          {!selectedInstitute && !institutesLoading && (
+          {!(superAdminContext?.selectedInstitute || selectedInstitute) && !(superAdminContext?.institutesLoading || institutesLoading) && (
             <div className="bg-card rounded-lg border border-border p-8 text-center">
               <Icon name="Building2" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-lg font-semibold text-foreground mb-2">Select an Institute</h3>
@@ -216,7 +252,7 @@ const InstituteManagement = () => {
           )}
 
           {/* Search Bar */}
-          {selectedInstitute && (
+          {(superAdminContext?.selectedInstitute || selectedInstitute) && (
             <div className="mb-6">
               <div className="relative max-w-md">
                 <Icon
@@ -344,7 +380,7 @@ const InstituteManagement = () => {
           )}
 
           {/* Stats Footer */}
-          {selectedInstitute && !loading && !error && filteredAdmins.length > 0 && (
+          {(superAdminContext?.selectedInstitute || selectedInstitute) && !loading && !error && filteredAdmins.length > 0 && (
             <div className="mt-6 text-sm text-muted-foreground">
               Showing {filteredAdmins.length} of {instituteAdmins.length} institute admins
               {searchTerm && ` matching "${searchTerm}"`}
@@ -358,8 +394,8 @@ const InstituteManagement = () => {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
         userRole="INST_ADMIN"
-        defaultInstituteId={selectedInstitute?.id}
-        defaultInstitute={selectedInstitute}
+        defaultInstituteId={(superAdminContext?.selectedInstitute || selectedInstitute)?.id}
+        defaultInstitute={superAdminContext?.selectedInstitute || selectedInstitute}
       />
 
       {/* Edit Institute Admin Modal */}
@@ -372,12 +408,19 @@ const InstituteManagement = () => {
           }}
           onSuccess={handleEditSuccess}
           userRole="INST_ADMIN"
-          defaultInstituteId={selectedInstitute?.id}
-          defaultInstitute={selectedInstitute}
+          defaultInstituteId={(superAdminContext?.selectedInstitute || selectedInstitute)?.id}
+          defaultInstitute={superAdminContext?.selectedInstitute || selectedInstitute}
           editMode={true}
           existingUser={editingAdmin}
         />
       )}
+
+      {/* Create Institute Modal */}
+      <CreateInstituteModal
+        isOpen={showCreateInstituteModal}
+        onClose={() => setShowCreateInstituteModal(false)}
+        onSuccess={handleInstituteCreateSuccess}
+      />
     </PageLayout>
   );
 };

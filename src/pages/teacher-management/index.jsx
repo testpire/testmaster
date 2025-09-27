@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
@@ -9,6 +10,14 @@ import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal
 
 const TeacherManagement = () => {
   const { user, userProfile } = useAuth();
+  
+  // Try to get SuperAdmin context (will be null if not in super admin routes)
+  let superAdminContext = null;
+  try {
+    superAdminContext = useSuperAdmin();
+  } catch (e) {
+    // Context not available - user is not a super admin or not in super admin routes
+  }
 
   // Teacher management states
   const [teachers, setTeachers] = useState([]);
@@ -50,6 +59,13 @@ const TeacherManagement = () => {
     }
   }, [user, userProfile]);
 
+  // Reload teachers when selected institute changes (for super admin)
+  useEffect(() => {
+    if (currentUser.role === 'super-admin' && superAdminContext?.selectedInstitute) {
+      loadTeachers();
+    }
+  }, [superAdminContext?.selectedInstitute]);
+
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;
 
@@ -77,9 +93,14 @@ const TeacherManagement = () => {
     setError(null);
 
     try {
-      // Get teachers for this institute using institute-specific endpoint
-      const { data, error } = await newUserService.getTeachers(currentUser.instituteId);
+      let searchParams = {};
       
+      // For super admin, filter by selected institute if available
+      if (currentUser.role === 'super-admin' && superAdminContext?.selectedInstitute) {
+        searchParams.instituteId = superAdminContext.selectedInstitute.id;
+      }
+
+      const { data, error } = await newUserService.getTeachers({ page: 0, size: 20 }, searchParams);
       
       if (error) {
         setError(typeof error === 'string' ? error : error.message || 'Failed to load teachers');
@@ -87,11 +108,8 @@ const TeacherManagement = () => {
         return;
       }
 
-      // Data is already filtered by the API to include only this institute's teachers
-      const instituteTeachers = data || [];
-      
-
-      setTeachers(instituteTeachers);
+      const teachers = data || [];
+      setTeachers(teachers);
       setLoading(false);
     } catch (err) {
       console.error('Error loading teachers:', err);
@@ -151,7 +169,14 @@ const TeacherManagement = () => {
   });
 
   return (
-    <PageLayout title="Teacher Management">
+    <PageLayout 
+      title="Teacher Management"
+      showInstituteDropdown={currentUser.role === 'super-admin'}
+      institutes={superAdminContext?.allInstitutes || []}
+      selectedInstitute={superAdminContext?.selectedInstitute || null}
+      onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
+      institutesLoading={superAdminContext?.institutesLoading || false}
+    >
       <div className="p-6">
 
 
@@ -160,9 +185,15 @@ const TeacherManagement = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Teacher Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {instituteData.institute ? 
-                  `Manage teachers for ${instituteData.institute.name}` : 
-                  'Manage teachers for your institute'
+                {currentUser.role === 'super-admin' ? 
+                  (superAdminContext?.selectedInstitute ? 
+                    `Manage teachers for ${superAdminContext.selectedInstitute.name}` : 
+                    'Select an institute to manage teachers'
+                  ) :
+                  (instituteData.institute ? 
+                    `Manage teachers for ${instituteData.institute.name}` : 
+                    'Manage teachers for your institute'
+                  )
                 }
               </p>
             </div>
@@ -316,8 +347,8 @@ const TeacherManagement = () => {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
         userRole="TEACHER"
-        defaultInstituteId={currentUser.instituteId}
-        defaultInstitute={instituteData.institute}
+        defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
+        defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
       />
 
       {/* Edit Teacher Modal */}
@@ -330,8 +361,8 @@ const TeacherManagement = () => {
           }}
           onSuccess={handleEditSuccess}
           userRole="TEACHER"
-          defaultInstituteId={currentUser.instituteId}
-          defaultInstitute={instituteData.institute}
+          defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
+          defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
           editMode={true}
           existingUser={editingTeacher}
         />

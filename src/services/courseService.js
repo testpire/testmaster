@@ -1,39 +1,64 @@
 import { get, post, put, del } from '../lib/apiClient';
 
 export const courseService = {
-  // Course operations
-  async getCourses(instituteId) {
+  // Helper method to search specific entity types
+  async searchEntityAdvanced(endpoint, criteria = {}, pagination = { page: 0, size: 20 }) {
     try {
-      const endpoint = instituteId ? `/course/institute/${instituteId}` : '/course';
-      const response = await get(endpoint);
-      const { data, error, success } = response || {};
-      
-      if (success && data) {
-        let courses = [];
-        if (data.courses && Array.isArray(data.courses)) {
-          courses = data.courses;
-        } else if (data.data && data.data.courses && Array.isArray(data.data.courses)) {
-          courses = data.data.courses;
-        } else if (Array.isArray(data)) {
-          courses = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          courses = data.data;
-        } else if (typeof data === 'object' && data !== null) {
-          courses = [data];
+      const payload = {
+        criteria: criteria,
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20
+        },
+        sorting: {
+          field: 'createdAt',
+          direction: 'desc'
         }
-        return { data: courses, error: null };
-      }
+      };
+
+      const response = await post(endpoint, payload);
+      const data = response?.data?.data || response?.data || response;
+      const content = data?.content || data?.courses || data?.subjects || data?.chapters || data?.topics || data || [];
+      const totalElements = data?.totalElements || data?.total || content.length;
+      const totalPages = data?.totalPages || Math.ceil(totalElements / payload.pagination.size);
+      const currentPage = data?.number !== undefined ? data.number : pagination.page || 0;
+      const hasMore = currentPage < totalPages - 1;
       
-      return { data: [], error: error || 'Failed to fetch courses' };
+      return { 
+        data: content, 
+        pagination: {
+          currentPage,
+          totalPages,
+          totalElements,
+          hasMore,
+          size: payload.pagination.size
+        },
+        error: null 
+      };
     } catch (error) {
-      console.error('Error fetching courses:', error);
-      return { data: [], error: error.message || 'Network error while fetching courses' };
+      console.warn(`Failed to search ${endpoint}:`, error);
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          hasMore: false,
+          size: 20
+        },
+        error: null 
+      };
     }
+  },
+
+  // Course operations
+  async getCourses(pagination = { page: 0, size: 20 }) {
+    return await this.searchEntityAdvanced('/courses/search/advanced', {}, pagination);
   },
 
   async createCourse(courseData) {
     try {
-      const { data, error, success } = await post('/course', courseData);
+      const { data, error, success } = await post('/courses', courseData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating course:', error);
@@ -43,7 +68,7 @@ export const courseService = {
 
   async updateCourse(courseId, courseData) {
     try {
-      const { data, error, success } = await put(`/course/${courseId}`, courseData);
+      const { data, error, success } = await put(`/courses/${courseId}`, courseData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error updating course:', error);
@@ -53,7 +78,7 @@ export const courseService = {
 
   async deleteCourse(courseId) {
     try {
-      const { data, error, success } = await del(`/course/${courseId}`);
+      const { data, error, success } = await del(`/courses/${courseId}`);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error deleting course:', error);
@@ -62,46 +87,17 @@ export const courseService = {
   },
 
   // Subject operations
-  async getSubjects(courseId, instituteId) {
-    try {
-      let endpoint;
-      if (courseId) {
-        endpoint = `/subject/course/${courseId}`;
-      } else if (instituteId) {
-        endpoint = `/subject/institute/${instituteId}`;
-      } else {
-        endpoint = '/subject';
-      }
-      
-      const response = await get(endpoint);
-      const { data, error, success } = response || {};
-      
-      if (success && data) {
-        let subjects = [];
-        if (data.subjects && Array.isArray(data.subjects)) {
-          subjects = data.subjects;
-        } else if (data.data && data.data.subjects && Array.isArray(data.data.subjects)) {
-          subjects = data.data.subjects;
-        } else if (Array.isArray(data)) {
-          subjects = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          subjects = data.data;
-        } else if (typeof data === 'object' && data !== null) {
-          subjects = [data];
-        }
-        return { data: subjects, error: null };
-      }
-      
-      return { data: [], error: error || 'Failed to fetch subjects' };
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-      return { data: [], error: error.message || 'Network error while fetching subjects' };
+  async getSubjects(courseId = null, pagination = { page: 0, size: 20 }) {
+    const criteria = {};
+    if (courseId) {
+      criteria.courseId = courseId;
     }
+    return await this.searchEntityAdvanced('/subjects/search/advanced', criteria, pagination);
   },
 
   async createSubject(subjectData) {
     try {
-      const { data, error, success } = await post('/subject', subjectData);
+      const { data, error, success } = await post('/subjects', subjectData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating subject:', error);
@@ -111,7 +107,7 @@ export const courseService = {
 
   async updateSubject(subjectId, subjectData) {
     try {
-      const { data, error, success } = await put(`/subject/${subjectId}`, subjectData);
+      const { data, error, success } = await put(`/subjects/${subjectId}`, subjectData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error updating subject:', error);
@@ -121,7 +117,7 @@ export const courseService = {
 
   async deleteSubject(subjectId) {
     try {
-      const { data, error, success } = await del(`/subject/${subjectId}`);
+      const { data, error, success } = await del(`/subjects/${subjectId}`);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error deleting subject:', error);
@@ -130,46 +126,17 @@ export const courseService = {
   },
 
   // Chapter operations
-  async getChapters(subjectId, instituteId) {
-    try {
-      let endpoint;
-      if (subjectId) {
-        endpoint = `/chapter/subject/${subjectId}`;
-      } else if (instituteId) {
-        endpoint = `/chapter/institute/${instituteId}`;
-      } else {
-        endpoint = '/chapter';
-      }
-      
-      const response = await get(endpoint);
-      const { data, error, success } = response || {};
-      
-      if (success && data) {
-        let chapters = [];
-        if (data.chapters && Array.isArray(data.chapters)) {
-          chapters = data.chapters;
-        } else if (data.data && data.data.chapters && Array.isArray(data.data.chapters)) {
-          chapters = data.data.chapters;
-        } else if (Array.isArray(data)) {
-          chapters = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          chapters = data.data;
-        } else if (typeof data === 'object' && data !== null) {
-          chapters = [data];
-        }
-        return { data: chapters, error: null };
-      }
-      
-      return { data: [], error: error || 'Failed to fetch chapters' };
-    } catch (error) {
-      console.error('Error fetching chapters:', error);
-      return { data: [], error: error.message || 'Network error while fetching chapters' };
+  async getChapters(subjectId = null, pagination = { page: 0, size: 20 }) {
+    const criteria = {};
+    if (subjectId) {
+      criteria.subjectId = subjectId;
     }
+    return await this.searchEntityAdvanced('/chapters/search/advanced', criteria, pagination);
   },
 
   async createChapter(chapterData) {
     try {
-      const { data, error, success } = await post('/chapter', chapterData);
+      const { data, error, success } = await post('/chapters', chapterData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating chapter:', error);
@@ -179,7 +146,7 @@ export const courseService = {
 
   async updateChapter(chapterId, chapterData) {
     try {
-      const { data, error, success } = await put(`/chapter/${chapterId}`, chapterData);
+      const { data, error, success } = await put(`/chapters/${chapterId}`, chapterData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error updating chapter:', error);
@@ -189,7 +156,7 @@ export const courseService = {
 
   async deleteChapter(chapterId) {
     try {
-      const { data, error, success } = await del(`/chapter/${chapterId}`);
+      const { data, error, success } = await del(`/chapters/${chapterId}`);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error deleting chapter:', error);
@@ -198,46 +165,17 @@ export const courseService = {
   },
 
   // Topic operations
-  async getTopics(chapterId, instituteId) {
-    try {
-      let endpoint;
-      if (chapterId) {
-        endpoint = `/topic/chapter/${chapterId}`;
-      } else if (instituteId) {
-        endpoint = `/topic/institute/${instituteId}`;
-      } else {
-        endpoint = '/topic';
-      }
-      
-      const response = await get(endpoint);
-      const { data, error, success } = response || {};
-      
-      if (success && data) {
-        let topics = [];
-        if (data.topics && Array.isArray(data.topics)) {
-          topics = data.topics;
-        } else if (data.data && data.data.topics && Array.isArray(data.data.topics)) {
-          topics = data.data.topics;
-        } else if (Array.isArray(data)) {
-          topics = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          topics = data.data;
-        } else if (typeof data === 'object' && data !== null) {
-          topics = [data];
-        }
-        return { data: topics, error: null };
-      }
-      
-      return { data: [], error: error || 'Failed to fetch topics' };
-    } catch (error) {
-      console.error('Error fetching topics:', error);
-      return { data: [], error: error.message || 'Network error while fetching topics' };
+  async getTopics(chapterId = null, pagination = { page: 0, size: 20 }) {
+    const criteria = {};
+    if (chapterId) {
+      criteria.chapterId = chapterId;
     }
+    return await this.searchEntityAdvanced('/topics/search/advanced', criteria, pagination);
   },
 
   async createTopic(topicData) {
     try {
-      const { data, error, success } = await post('/topic', topicData);
+      const { data, error, success } = await post('/topics', topicData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating topic:', error);
@@ -247,7 +185,7 @@ export const courseService = {
 
   async updateTopic(topicId, topicData) {
     try {
-      const { data, error, success } = await put(`/topic/${topicId}`, topicData);
+      const { data, error, success } = await put(`/topics/${topicId}`, topicData);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error updating topic:', error);
@@ -257,7 +195,7 @@ export const courseService = {
 
   async deleteTopic(topicId) {
     try {
-      const { data, error, success } = await del(`/topic/${topicId}`);
+      const { data, error, success } = await del(`/topics/${topicId}`);
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error deleting topic:', error);

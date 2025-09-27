@@ -118,12 +118,16 @@ const CreateUserModal = ({
   const loadInstitutes = async () => {
     setLoadingInstitutes(true);
     try {
-      const { data, error } = await newInstituteService.getInstitutes();
+      const { data, pagination, error } = await newInstituteService.getInstitutes();
       if (data && !error) {
         setInstitutes(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to load institutes:', error);
+        setInstitutes([]);
       }
     } catch (err) {
       console.error('Failed to load institutes:', err);
+      setInstitutes([]);
     } finally {
       setLoadingInstitutes(false);
     }

@@ -12,7 +12,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [subjects, setSubjects] = useState([]);
+  const [chapters, setChapters] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [loadingChapters, setLoadingChapters] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(false);
 
   const [questionData, setQuestionData] = useState({
@@ -20,10 +22,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     questionImagePath: '',
     questionType: 'mcq',
     subject: '',
+    chapter: '',
     topic: '',
     difficultyLevel: 'EASY',
-    examType: 'jee',
-    classLevel: 11,
     marks: 4,
     negativeMarks: 1,
     explanation: '',
@@ -33,10 +34,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       { label: 'C', text: '', optionImagePath: '', isCorrect: false },
       { label: 'D', text: '', optionImagePath: '', isCorrect: false }
     ],
-    correctIntegerAnswer: '',
-    isConceptual: false,
-    isTheoretical: false,
-    isPyq: false
+    correctIntegerAnswer: ''
   });
 
 
@@ -47,11 +45,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
         questionImagePath: editingQuestion?.questionImagePath || '',
         questionType: editingQuestion?.question_type || 'mcq',
-        subject: editingQuestion?.subject || '',
+        subject: editingQuestion?.subjectId || editingQuestion?.subject || '',
+        chapter: editingQuestion?.chapterId || editingQuestion?.chapter || '',
         topic: editingQuestion?.topicId || editingQuestion?.topic || '',
         difficultyLevel: editingQuestion?.difficultyLevel || editingQuestion?.difficulty_level || 'EASY',
-        examType: editingQuestion?.exam_type || 'jee',
-        classLevel: editingQuestion?.class_level || 11,
         marks: editingQuestion?.marks || 4,
         negativeMarks: editingQuestion?.negativeMarks || editingQuestion?.negative_marks || 1,
         explanation: editingQuestion?.explanation || '',
@@ -68,10 +65,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
               { label: 'C', text: '', optionImagePath: '', isCorrect: false },
               { label: 'D', text: '', optionImagePath: '', isCorrect: false }
             ],
-        correctIntegerAnswer: editingQuestion?.correct_integer_answer || '',
-        isConceptual: editingQuestion?.is_conceptual || false,
-        isTheoretical: editingQuestion?.is_theoretical || false,
-        isPyq: editingQuestion?.is_pyq || false
+        correctIntegerAnswer: editingQuestion?.correct_integer_answer || ''
       });
     } else if (isOpen && !editingQuestion) {
       // Reset form for new question
@@ -80,10 +74,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         questionImagePath: '',
         questionType: 'mcq',
         subject: '',
+        chapter: '',
         topic: '',
         difficultyLevel: 'EASY',
-        examType: 'jee',
-        classLevel: 11,
         marks: 4,
         negativeMarks: 1,
         explanation: '',
@@ -93,10 +86,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
           { label: 'C', text: '', optionImagePath: '', isCorrect: false },
           { label: 'D', text: '', optionImagePath: '', isCorrect: false }
         ],
-        correctIntegerAnswer: '',
-        isConceptual: false,
-        isTheoretical: false,
-        isPyq: false
+        correctIntegerAnswer: ''
       });
     }
   }, [editingQuestion, isOpen]);
@@ -108,20 +98,30 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     }
   }, [isOpen]);
 
-  // Load topics when subject changes
+  // Load chapters when subject changes
   useEffect(() => {
     if (questionData.subject && isOpen) {
-      loadTopics(questionData.subject);
+      loadChapters(questionData.subject);
     } else {
+      setChapters([]);
       setTopics([]);
     }
   }, [questionData.subject, isOpen]);
 
+  // Load topics when chapter changes
+  useEffect(() => {
+    if (questionData.chapter && isOpen) {
+      loadTopics(questionData.chapter);
+    } else {
+      setTopics([]);
+    }
+  }, [questionData.chapter, isOpen]);
+
   const loadSubjects = async () => {
+    if (!currentUser) return;
+    
     try {
-      console.log('🔍 ManualQuestionModal: Loading subjects...');
       const { data, error } = await questionService.getSubjects();
-      console.log('🔍 ManualQuestionModal: Received subjects data:', data);
       
       if (error) {
         console.error('❌ Error loading subjects:', error);
@@ -129,39 +129,55 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         return;
       }
       
-      setSubjects(data || []);
-      console.log('✅ ManualQuestionModal: Subjects set successfully:', data?.length || 0, 'subjects');
+      // Extract subjects from nested structure - data is already the subjects array
+      const subjectsArray = data || [];
+      setSubjects(subjectsArray);
     } catch (error) {
       console.error('Error loading subjects:', error);
       setSubjects([]);
     }
   };
 
-  const loadTopics = async (subjectId) => {
+  const loadChapters = async (subjectId) => {
     if (!subjectId) {
+      setChapters([]);
+      return;
+    }
+
+    try {
+      setLoadingChapters(true);
+      
+      // Find the selected subject and extract its chapters
+      const selectedSubject = subjects.find(subject => subject.id?.toString() === subjectId?.toString());
+      if (selectedSubject && selectedSubject.chapters) {
+        setChapters(selectedSubject.chapters);
+      } else {
+        setChapters([]);
+      }
+    } catch (error) {
+      console.error('Error loading chapters:', error);
+      setChapters([]);
+    } finally {
+      setLoadingChapters(false);
+    }
+  };
+
+  const loadTopics = async (chapterId) => {
+    if (!chapterId) {
       setTopics([]);
       return;
     }
 
     try {
       setLoadingTopics(true);
-      console.log('🔍 ManualQuestionModal: Loading topics for subject:', subjectId, 'institute:', currentUser?.instituteId);
       
-      // Use searchTopics with both subjectId and instituteId for better filtering
-      const { data, error } = await questionService.searchTopics({
-        subjectId: subjectId,
-        instituteId: currentUser?.instituteId
-      });
-      console.log('🔍 ManualQuestionModal: Received topics data:', data);
-      
-      if (error) {
-        console.error('❌ Error loading topics:', error);
+      // Find the selected chapter and extract its topics
+      const selectedChapter = chapters.find(chapter => chapter.id?.toString() === chapterId?.toString());
+      if (selectedChapter && selectedChapter.topics) {
+        setTopics(selectedChapter.topics);
+      } else {
         setTopics([]);
-        return;
       }
-      
-      setTopics(data || []);
-      console.log('✅ ManualQuestionModal: Topics set successfully:', data?.length || 0, 'topics');
     } catch (error) {
       console.error('Error loading topics:', error);
       setTopics([]);
@@ -174,8 +190,14 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     setQuestionData(prev => {
       const newData = { ...prev, [field]: value };
       
-      // Reset topic when subject changes
+      // Reset chapter and topic when subject changes
       if (field === 'subject') {
+        newData.chapter = '';
+        newData.topic = '';
+      }
+      
+      // Reset topic when chapter changes
+      if (field === 'chapter') {
         newData.topic = '';
       }
       
@@ -340,13 +362,13 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
             )}
 
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Select
                 label="Subject *"
                 value={questionData?.subject}
                 onChange={(value) => handleInputChange('subject', value)}
                 options={subjects?.map(subject => ({
-                  value: subject?.id?.toString() || subject?.code,
+                  value: subject?.id?.toString(),
                   label: `${subject?.name}${subject?.code ? ` (${subject?.code})` : ''}`
                 })) || []}
                 placeholder="Select subject"
@@ -354,15 +376,28 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
               />
 
               <Select
-                label="Topic"
+                label="Chapter *"
+                value={questionData?.chapter}
+                onChange={(value) => handleInputChange('chapter', value)}
+                options={chapters?.map(chapter => ({
+                  value: chapter?.id?.toString(),
+                  label: `${chapter?.name}${chapter?.code ? ` (${chapter?.code})` : ''}`
+                })) || []}
+                placeholder={loadingChapters ? "Loading chapters..." : "Select chapter"}
+                disabled={!questionData?.subject || loadingChapters}
+                searchable
+              />
+
+              <Select
+                label="Topic *"
                 value={questionData?.topic}
                 onChange={(value) => handleInputChange('topic', value)}
                 options={topics?.map(topic => ({
-                  value: topic?.id?.toString() || topic?.code,
+                  value: topic?.id?.toString(),
                   label: `${topic?.name}${topic?.code ? ` (${topic?.code})` : ''}`
                 })) || []}
                 placeholder={loadingTopics ? "Loading topics..." : "Select topic"}
-                disabled={!questionData?.subject || loadingTopics}
+                disabled={!questionData?.chapter || loadingTopics}
                 searchable
               />
 
@@ -376,7 +411,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                   { value: 'subjective', label: 'Subjective' }
                 ]}
               />
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select
                 label="Difficulty Level *"
                 value={questionData?.difficultyLevel}
@@ -387,54 +424,27 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                   { value: 'HARD', label: 'HARD' }
                 ]}
               />
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Select
-                label="Exam Type *"
-                value={questionData?.examType}
-                onChange={(value) => handleInputChange('examType', value)}
-                options={[
-                  { value: 'jee', label: 'JEE' },
-                  { value: 'neet', label: 'NEET' },
-                  { value: 'cbse', label: 'CBSE' },
-                  { value: 'upsc', label: 'UPSC' },
-                  { value: 'ssc', label: 'SSC' },
-                  { value: 'custom', label: 'Custom' }
-                ]}
+              <Input
+                label="Marks"
+                type="number"
+                value={questionData?.marks}
+                onChange={(e) => handleInputChange('marks', e?.target?.value)}
+                min="1"
+                max="10"
               />
 
-              <Select
-                label="Class Level"
-                value={questionData?.classLevel?.toString()}
-                onChange={(value) => handleInputChange('classLevel', parseInt(value))}
-                options={[
-                  { value: '11', label: 'Class 11' },
-                  { value: '12', label: 'Class 12' },
-                  { value: '13', label: 'Undergraduate' }
-                ]}
+              <Input
+                label="Negative Marks"
+                type="number"
+                step="0.25"
+                value={questionData?.negativeMarks}
+                onChange={(e) => handleInputChange('negativeMarks', e?.target?.value)}
+                min="0"
+                max="5"
               />
-
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  label="Marks"
-                  type="number"
-                  value={questionData?.marks}
-                  onChange={(e) => handleInputChange('marks', e?.target?.value)}
-                  min="1"
-                  max="10"
-                />
-                <Input
-                  label="Negative Marks"
-                  type="number"
-                  step="0.25"
-                  value={questionData?.negativeMarks}
-                  onChange={(e) => handleInputChange('negativeMarks', e?.target?.value)}
-                  min="0"
-                  max="5"
-                />
-              </div>
             </div>
+
 
 
             {/* Question Text */}

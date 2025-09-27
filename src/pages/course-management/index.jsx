@@ -756,7 +756,7 @@ const CourseManagement = () => {
 
   const loadSubjects = useCallback(async (courseId = null) => {
     try {
-      const result = await courseService.getSubjects(courseId, safeCurrentUser?.instituteId);
+      const result = await courseService.getSubjects(courseId);
       const { data } = result || {};
       setSubjects(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -767,7 +767,7 @@ const CourseManagement = () => {
 
   const loadChapters = useCallback(async (subjectId = null) => {
     try {
-      const result = await courseService.getChapters(subjectId, safeCurrentUser?.instituteId);
+      const result = await courseService.getChapters(subjectId);
       const { data } = result || {};
       setChapters(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -778,7 +778,7 @@ const CourseManagement = () => {
 
   const loadTopics = useCallback(async (chapterId = null) => {
     try {
-      const result = await courseService.getTopics(chapterId, safeCurrentUser?.instituteId);
+      const result = await courseService.getTopics(chapterId);
       const { data } = result || {};
       setTopics(Array.isArray(data) ? data : []);
     } catch (err) {

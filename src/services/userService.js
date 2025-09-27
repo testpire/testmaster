@@ -31,13 +31,13 @@ export const userService = {
   },
 
   // Get students by batch
-  async getStudentsByBatch(batchId) {
-    return newUserService.getStudentsByBatch(batchId);
+  async getStudentsByBatch(batchId, pagination) {
+    return newUserService.getStudentsByBatch(batchId, pagination);
   },
 
   // Get teachers
-  async getTeachers() {
-    return newUserService.getTeachers();
+  async getTeachers(pagination) {
+    return newUserService.getTeachers(pagination);
   },
 
   // Upload profile photo

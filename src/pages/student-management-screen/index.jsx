@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/userService';
+import { newUserService } from '../../services/newUserService';
 import { batchService } from '../../services/batchService';
 import { courseService } from '../../services/courseService';
 import NavigationHeader from '../../components/ui/NavigationHeader';
@@ -58,23 +59,26 @@ const StudentManagementScreen = () => {
       setError('');
       setConnectionStatus('Connecting to database...');
       
-      // Test connection first
-      const { data: connectionTest, error: connectionError } = await userService?.getUsers({ role: 'student' });
+      // Test connection first using new student-specific API
+      const { data: connectionTest, error: connectionError } = await newUserService?.getStudentsByBatch(null, { page: 0, size: 1 });
       if (connectionError) {
         setConnectionStatus('Database connection failed');
-        throw new Error(`Database connection failed: ${connectionError?.message}`);
+        console.warn('Database connection failed:', connectionError);
+        // Still continue to try loading students as this might just be an empty result
       }
       setConnectionStatus('Loading student data...');
       
-      // Load students with batch and course information
-      const { data: studentsData, error: studentsError } = await userService?.getUsers({
-        role: 'student',
-        isActive: true
-      });
+      // Load students with batch and course information using new student-specific API
+      const { data: studentsData, error: studentsError } = await newUserService?.getStudentsByBatch(null);
       
       if (studentsError) {
         setConnectionStatus('Failed to load students');
-        throw new Error(`Failed to load students: ${studentsError?.message}`);
+        console.warn('Failed to load students:', studentsError);
+        // Don't throw error for empty results, just set empty array
+        setStudents([]);
+        setLoading(false);
+        setConnectionStatus('No students found');
+        return;
       }
 
       setConnectionStatus('Loading batch information...');

@@ -77,7 +77,7 @@ const StudentManagement = () => {
 
     try {
       // Get students for this institute using institute-specific endpoint
-      const { data, error } = await newUserService.getStudentsByBatch(null, currentUser.instituteId);
+      const { data, error } = await newUserService.getStudentsByBatch(null);
       
       if (error) {
         setError(typeof error === 'string' ? error : error.message || 'Failed to load students');

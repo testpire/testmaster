@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
 import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
+import ProtectedSuperAdminRoutes from "./components/ProtectedSuperAdminRoutes";
 import NotFound from "pages/NotFound";
 import StudentManagementScreen from './pages/student-management-screen';
 import AnalyticsAndReportsScreen from './pages/analytics-and-reports-screen';
@@ -32,20 +33,26 @@ const Routes = () => {
           <Route path="/login-screen" element={<SimpleLogin />} />
           <Route path="/login-original" element={<LoginScreen />} />
           <Route path="/signup" element={<SimpleSignup />} />
-          <Route path="/super-admin-dashboard" element={<SuperAdminDashboard />} />
+          
+          {/* Super Admin Routes - These routes get the selected institute context */}
+          <Route path="/super-admin-dashboard" element={<ProtectedSuperAdminRoutes><SuperAdminDashboard /></ProtectedSuperAdminRoutes>} />
+          <Route path="/teacher-management" element={<ProtectedSuperAdminRoutes><TeacherManagement /></ProtectedSuperAdminRoutes>} />
+          <Route path="/student-management" element={<ProtectedSuperAdminRoutes><StudentManagement /></ProtectedSuperAdminRoutes>} />
+          <Route path="/course-management" element={<ProtectedSuperAdminRoutes><CourseManagement /></ProtectedSuperAdminRoutes>} />
+          <Route path="/test-management" element={<ProtectedSuperAdminRoutes><TestCreationScreen /></ProtectedSuperAdminRoutes>} />
+          <Route path="/institute-management" element={<ProtectedSuperAdminRoutes><InstituteManagement /></ProtectedSuperAdminRoutes>} />
+          <Route path="/analytics-and-reports-screen" element={<ProtectedSuperAdminRoutes><AnalyticsAndReportsScreen /></ProtectedSuperAdminRoutes>} />
+          
+          {/* Institute Admin and other roles */}
           <Route path="/inst-admin-dashboard" element={<InstituteAdminDashboard />} />
           <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
+          
+          {/* Legacy/fallback routes */}
           <Route path="/student-management-screen" element={<StudentManagementScreen />} />
           <Route path="/course-and-batch-management-screen" element={<CourseAndBatchManagementScreen />} />
           <Route path="/test-creation-screen" element={<TestCreationScreen />} />
-          <Route path="/test-management" element={<TestCreationScreen />} />
           <Route path="/test-taking-interface" element={<TestTakingInterface />} />
-          <Route path="/student-dashboard" element={<StudentDashboard />} />
-          <Route path="/analytics-and-reports-screen" element={<AnalyticsAndReportsScreen />} />
-          <Route path="/teacher-management" element={<TeacherManagement />} />
-          <Route path="/student-management" element={<StudentManagement />} />
-          <Route path="/course-management" element={<CourseManagement />} />
-          <Route path="/institute-management" element={<InstituteManagement />} />
           {/* New features will be added here later */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>

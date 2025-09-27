@@ -186,8 +186,14 @@ apiClient.interceptors.response.use(
 // Enhanced API helper functions with comprehensive error handling
 export const apiRequest = async (method, url, data = null, config = {}) => {
   try {
+    // Ensure method is always uppercase and explicitly set
+    const httpMethod = method.toUpperCase();
+    
+    // Debug log to confirm HTTP method is being set  
+    console.log(`🌐 Making ${httpMethod} request to: ${url}`);
+    
     const response = await apiClient({
-      method,
+      method: httpMethod,  // Explicitly set HTTP method
       url,
       data,
       ...config,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
 import QuickActionPanel from '../../components/ui/QuickActionPanel';
@@ -15,7 +16,6 @@ import UserManagementTree from './components/UserManagementTree';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newDashboardService } from '../../services/newDashboardService';
-import { newInstituteService } from '../../services/newInstituteService';
 import { formatDisplayTime } from '../../utils/timeUtils';
 import useSidebar from '../../hooks/useSidebar';
 
@@ -23,13 +23,9 @@ const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const { sidebarCollapsed, toggleSidebar } = useSidebar();
+  const { allInstitutes, selectedInstitute, institutesLoading, handleInstituteChange, fetchInstitutes } = useSuperAdmin();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // Institute selection state
-  const [allInstitutes, setAllInstitutes] = useState([]);
-  const [selectedInstitute, setSelectedInstitute] = useState(null);
-  const [institutesLoading, setInstitutesLoading] = useState(true);
   
   // Modal states
   const [showInstituteModal, setShowInstituteModal] = useState(false);
@@ -72,39 +68,7 @@ const SuperAdminDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch all institutes for dropdown
-  const fetchInstitutes = async () => {
-    try {
-      setInstitutesLoading(true);
-      const result = await newInstituteService.getInstitutes();
-      
-      if (result.data && !result.error) {
-        const institutes = Array.isArray(result.data) ? result.data : [result.data];
-        
-        const allInstitutesWithDefault = [
-          { id: 'all', name: 'All Institutes', code: 'ALL' },
-          ...institutes
-        ];
-        
-        setAllInstitutes(allInstitutesWithDefault);
-        
-        // Set default selection to "All Institutes"
-        if (!selectedInstitute) {
-          setSelectedInstitute({ id: 'all', name: 'All Institutes', code: 'ALL' });
-        }
-      } else {
-        console.error('Error fetching institutes:', result.error);
-        setAllInstitutes([{ id: 'all', name: 'All Institutes', code: 'ALL' }]);
-        setSelectedInstitute({ id: 'all', name: 'All Institutes', code: 'ALL' });
-      }
-    } catch (error) {
-      console.error('Error fetching institutes:', error);
-      setAllInstitutes([{ id: 'all', name: 'All Institutes', code: 'ALL' }]);
-      setSelectedInstitute({ id: 'all', name: 'All Institutes', code: 'ALL' });
-    } finally {
-      setInstitutesLoading(false);
-    }
-  };
+  // Institutes are now managed by SuperAdminContext
 
   // Fetch dashboard statistics based on selected institute
   const fetchDashboardStats = async () => {
@@ -154,10 +118,7 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  // Load institutes on component mount
-  useEffect(() => {
-    fetchInstitutes();
-  }, []);
+  // Institutes are automatically loaded by SuperAdminContext
 
   // Fetch stats when selected institute changes
   useEffect(() => {
@@ -249,13 +210,7 @@ const SuperAdminDashboard = () => {
     navigate('/login-screen');
   };
 
-  // Institute selection handler
-  const handleInstituteChange = (instituteId) => {
-    const institute = allInstitutes.find(inst => inst.id === instituteId);
-    if (institute) {
-      setSelectedInstitute(institute);
-    }
-  };
+  // Institute selection is handled by SuperAdminContext
 
   // Modal handlers
   const handleInstituteCreated = (instituteData) => {
