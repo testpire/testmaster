@@ -72,18 +72,25 @@ export const newInstituteService = {
   },
 
   // Get institute by ID
-  async getInstitute(instituteId) {
+  async getInstitute(instituteId, config = {}) {
     try {
-      const { data, error, success } = await get(`/institutes/${instituteId}`);
-      
+      const { data, error, success } = await get(`/institutes/${instituteId}`, config);
+
       if (success && data) {
-        return { data, error: null };
+        // GET /institutes/{id} returns { message, success, data: {...institute} }
+        const institute = data.data || data.institute || data;
+        return { data: institute, error: null };
       }
-      
+
       return { data: null, error };
     } catch (error) {
       return { data: null, error };
     }
+  },
+
+  // Alias kept for callers that use getInstituteById
+  async getInstituteById(instituteId, config = {}) {
+    return this.getInstitute(instituteId, config);
   },
 
   // Get institute by code

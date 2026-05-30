@@ -7,8 +7,8 @@ import QuickActionPanel from '../../components/ui/QuickActionPanel';
 import StatsCard from '../super-admin-dashboard/components/StatsCard';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
-import { newDashboardService } from '../../services/newDashboardService';
 import { newInstituteService } from '../../services/newInstituteService';
+import { newUserService } from '../../services/newUserService';
 import { formatDisplayTime } from '../../utils/timeUtils';
 import useSidebar from '../../hooks/useSidebar';
 
@@ -64,29 +64,24 @@ const InstituteAdminDashboard = () => {
         throw new Error('Institute ID not found for user');
       }
 
-      // Fetch institute details and users
-      const [instituteResult, usersResult] = await Promise.all([
+      // Fetch institute details and institute-scoped counts.
+      // NOTE: do NOT use /super-admin/users here — it is super-admin only and
+      // would 403 for an institute admin. The search endpoints are JWT-scoped.
+      const [instituteResult, studentsResult, teachersResult] = await Promise.all([
         newInstituteService.getInstituteById(currentUser.instituteId),
-        newDashboardService.getAllUsers()
+        newUserService.getStudentsByBatch(null, { page: 0, size: 1 }),
+        newUserService.getTeachers({ page: 0, size: 1 }),
       ]);
 
       let institute = null;
-      let totalStudents = 0;
-      let totalTeachers = 0;
 
-      // Get institute details
+      // getInstitute already returns the unwrapped institute object
       if (instituteResult.data && !instituteResult.error) {
         institute = instituteResult.data;
       }
 
-      // Filter users by institute and count them
-      if (usersResult.data && Array.isArray(usersResult.data)) {
-        const instituteUsers = usersResult.data.filter(
-          user => user.instituteId === currentUser.instituteId
-        );
-        totalStudents = instituteUsers.filter(user => user.role === 'STUDENT').length;
-        totalTeachers = instituteUsers.filter(user => user.role === 'TEACHER').length;
-      }
+      const totalStudents = studentsResult?.pagination?.totalElements || 0;
+      const totalTeachers = teachersResult?.pagination?.totalElements || 0;
 
       setInstituteData({
         institute,
@@ -163,8 +158,8 @@ const InstituteAdminDashboard = () => {
       'add-student': '/student-management',
       'add-teacher': '/teacher-management',
       'create-course': '/course-management',
-      'create-test': '/test-creation-screen',
-      'view-analytics': '/analytics-and-reports-screen'
+      'create-test': '/question-bank',
+      'view-analytics': '/inst-admin-dashboard'
     };
 
     if (actionRoutes?.[actionId]) {
@@ -391,7 +386,7 @@ const InstituteAdminDashboard = () => {
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Recent Students</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/student-management-screen')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/student-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
                 </Button>
@@ -412,7 +407,7 @@ const InstituteAdminDashboard = () => {
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Recent Teachers</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/student-management-screen')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/teacher-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
                 </Button>

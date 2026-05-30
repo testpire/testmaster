@@ -525,10 +525,64 @@ export const newUserService = {
         const teachers = Array.isArray(data) ? data : [data];
         return { data: teachers, error: null };
       }
-      
+
       return { data: [], error };
     } catch (error) {
       return { data: [], error };
+    }
+  },
+
+  // ---- Self-service profile (student/teacher edit their own profile) ----
+
+  // Get the signed-in student's own profile
+  async getMyStudentProfile() {
+    try {
+      const { data, error, success } = await get('/students/profile');
+      if (success && data) {
+        return { data: data.student || data.data || data, error: null };
+      }
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Update the signed-in student's own profile
+  async updateMyStudentProfile(updates) {
+    try {
+      const { data, error, success } = await put('/students/profile', updates);
+      if (success) {
+        return { data: data?.student || data?.data || data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to update profile' } };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to update profile' } };
+    }
+  },
+
+  // Get the signed-in teacher's own profile
+  async getMyTeacherProfile() {
+    try {
+      const { data, error, success } = await get('/teachers/profile');
+      if (success && data) {
+        return { data: data.teacher || data.data || data, error: null };
+      }
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Update the signed-in teacher's own profile
+  async updateMyTeacherProfile(updates) {
+    try {
+      const { data, error, success } = await put('/teachers/profile', updates);
+      if (success) {
+        return { data: data?.teacher || data?.data || data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to update profile' } };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to update profile' } };
     }
   },
 };

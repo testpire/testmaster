@@ -193,11 +193,11 @@ const SuperAdminDashboard = () => {
 
   const handleQuickAction = (actionId) => {
     const actionRoutes = {
-      'add-student': '/student-management-screen',
-      'add-teacher': '/student-management-screen',
-      'create-course': '/course-and-batch-management-screen',
-      'create-test': '/test-creation-screen',
-      'view-analytics': '/analytics-and-reports-screen',
+      'add-student': '/student-management',
+      'add-teacher': '/teacher-management',
+      'create-course': '/course-management',
+      'create-test': '/question-bank',
+      'view-analytics': '/super-admin-dashboard',
       'system-settings': '/super-admin-dashboard'
     };
 

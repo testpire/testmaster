@@ -85,19 +85,49 @@ export const questionService = {
 
   async createQuestion(questionData) {
     try {
-      const response = await post('/questions', questionData);
-      return { data: response?.data || null, error: null };
+      const { data, error, success } = await post('/questions', questionData);
+      if (success) {
+        return { data: data?.data || data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to create question' } };
     } catch (error) {
-      return { data: null, error: 'Failed to create' };
+      return { data: null, error: { message: error?.message || 'Failed to create question' } };
+    }
+  },
+
+  async updateQuestion(questionId, questionData) {
+    try {
+      const { data, error, success } = await put(`/questions/${questionId}`, questionData);
+      if (success) {
+        return { data: data?.data || data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to update question' } };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to update question' } };
+    }
+  },
+
+  async getQuestionById(questionId) {
+    try {
+      const { data, error, success } = await get(`/questions/${questionId}`);
+      if (success) {
+        return { data: data?.data || data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to load question' } };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to load question' } };
     }
   },
 
   async deleteQuestion(questionId) {
     try {
-      const response = await del(`/questions/${questionId}`);
-      return { data: response?.data || null, error: null };
+      const { data, error, success } = await del(`/questions/${questionId}`);
+      if (success) {
+        return { data: data || null, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to delete question' } };
     } catch (error) {
-      return { data: null, error: 'Failed to delete' };
+      return { data: null, error: { message: error?.message || 'Failed to delete question' } };
     }
   },
 

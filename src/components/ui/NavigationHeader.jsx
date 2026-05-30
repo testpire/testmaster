@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
+import { newInstituteService } from '../../services/newInstituteService';
 
 const NavigationHeader = ({ 
   userRole = 'student', 
@@ -29,6 +30,26 @@ const NavigationHeader = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [instituteName, setInstituteName] = useState('');
+
+  // For non-super-admin roles, resolve the user's fixed institute name to show
+  // top-left. Uses skipAuthRedirect so a forbidden read can't force a logout.
+  const instituteId = userProfile?.instituteId || user?.instituteId;
+  useEffect(() => {
+    if (showInstituteDropdown || !instituteId) {
+      setInstituteName('');
+      return;
+    }
+    let mounted = true;
+    newInstituteService
+      .getInstituteById(instituteId, { skipAuthRedirect: true })
+      .then(({ data }) => {
+        const inst = data?.institute || data?.data || data;
+        if (mounted && inst?.name) setInstituteName(inst.name);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [showInstituteDropdown, instituteId]);
 
   const handleUserMenuToggle = () => {
     setShowUserMenu(!showUserMenu);
@@ -159,7 +180,12 @@ const NavigationHeader = ({
                   </svg>
                 </div>
                 <div className={`transition-opacity duration-300 ${sidebarCollapsed && showSidebarToggle ? 'hidden lg:block' : 'hidden sm:block'}`}>
-                  <h1 className="text-lg font-semibold text-foreground">TestMaster</h1>
+                  <h1 className="text-lg font-semibold text-foreground leading-tight">
+                    {instituteName || 'TestMaster'}
+                  </h1>
+                  {instituteName && (
+                    <p className="text-xs text-muted-foreground leading-tight">TestMaster</p>
+                  )}
                 </div>
               </>
             )}
@@ -254,25 +280,11 @@ const NavigationHeader = ({
                 </div>
                 <div className="py-2">
                   <button
-                    onClick={() => setShowUserMenu(false)}
+                    onClick={() => { setShowUserMenu(false); navigate('/profile'); }}
                     className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
                   >
                     <Icon name="User" size={16} />
                     <span>Profile</span>
-                  </button>
-                  <button
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                  >
-                    <Icon name="Settings" size={16} />
-                    <span>Settings</span>
-                  </button>
-                  <button
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                  >
-                    <Icon name="HelpCircle" size={16} />
-                    <span>Help & Support</span>
                   </button>
                   <div className="border-t border-border my-2"></div>
                   <button

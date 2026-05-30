@@ -9,17 +9,39 @@ export const newAuthService = {
         password,
       });
 
-      if (success && data) {
-        // Assuming the API returns a token in the response
-        const token = data.token || data.accessToken || data.access_token;
-        if (token) {
-          setAuthToken(token);
-        }
-        
+      // Network / non-2xx failure
+      if (!success || !data) {
+        return { data: null, error: error || { message: 'Login failed' } };
+      }
+
+      const token = data.token || data.accessToken || data.access_token;
+
+      // Happy path: a token was issued
+      if (token) {
+        setAuthToken(token);
         return { data, error: null };
       }
-      
-      return { data: null, error };
+
+      // Cognito challenge (e.g. NEW_PASSWORD_REQUIRED on first login):
+      // no token yet, but a challengeName + session are returned.
+      if (data.challengeName) {
+        return {
+          data,
+          challenge: {
+            name: data.challengeName,
+            session: data.session,
+            username,
+          },
+          error: null,
+        };
+      }
+
+      // Backend returns HTTP 200 with accessToken=null and a message on
+      // bad credentials — surface that message as an error.
+      return {
+        data: null,
+        error: { message: data.message || 'Invalid username or password' },
+      };
     } catch (error) {
       return { data: null, error };
     }
@@ -143,16 +165,65 @@ export const newAuthService = {
     return this.getProfile();
   },
 
-  // Reset password (placeholder - needs implementation based on available endpoints)
-  async resetPassword(email) {
-    // This needs to be implemented when password reset endpoint is available
-    return { error: { message: 'Password reset not yet implemented' } };
+  // Step 1 of password reset: request a confirmation code (Cognito emails it)
+  async forgotPassword(username) {
+    try {
+      const { data, error, success } = await postUnauthenticated('/auth/forgot-password', {
+        username,
+      });
+
+      if (success) {
+        return { data: data || { message: 'Confirmation code sent' }, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to send reset code' } };
+    } catch (error) {
+      return { data: null, error };
+    }
   },
 
-  // Update password (placeholder - needs implementation based on available endpoints)
-  async updatePassword(newPassword) {
-    // This needs to be implemented when update password endpoint is available
-    return { error: { message: 'Password update not yet implemented' } };
+  // Step 2 of password reset: confirm the code and set a new password
+  async confirmForgotPassword(username, confirmationCode, newPassword) {
+    try {
+      const { data, error, success } = await postUnauthenticated('/auth/confirm-forgot-password', {
+        username,
+        confirmationCode,
+        newPassword,
+      });
+
+      if (success) {
+        return { data: data || { message: 'Password reset successful' }, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to reset password' } };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Respond to the NEW_PASSWORD_REQUIRED challenge on first login
+  async setPassword(username, session, newPassword) {
+    try {
+      const { data, error, success } = await postUnauthenticated('/auth/set-password', {
+        username,
+        session,
+        newPassword,
+      });
+
+      if (success && data) {
+        const token = data.token || data.accessToken || data.access_token;
+        if (token) {
+          setAuthToken(token);
+        }
+        return { data, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to set password' } };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Reset password (compatibility alias)
+  async resetPassword(username) {
+    return this.forgotPassword(username);
   },
 
   // Update profile metadata (placeholder)

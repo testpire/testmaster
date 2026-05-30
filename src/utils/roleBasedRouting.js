@@ -18,7 +18,7 @@ export const getDashboardRoute = (role) => {
     case 'INST_ADMIN':
     case 'ADMIN':
     case 'INSTITUTE_ADMIN':
-      return '/teacher-dashboard'; // Use teacher dashboard for institute admins for now
+      return '/inst-admin-dashboard';
     
     case 'TEACHER':
     case 'INSTRUCTOR':

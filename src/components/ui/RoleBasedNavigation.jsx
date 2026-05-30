@@ -41,15 +41,15 @@ const RoleBasedNavigation = ({
         roles: ['inst-admin']
       },
       {
-        label: 'Question Management',
-        path: '/test-management',
+        label: 'Question Bank',
+        path: '/question-bank',
         icon: 'FileText',
         roles: ['inst-admin']
       },
       {
-        label: 'Analytics',
-        path: '/analytics-and-reports-screen',
-        icon: 'BarChart3',
+        label: 'Profile',
+        path: '/profile',
+        icon: 'User',
         roles: ['inst-admin']
       }
     ],
@@ -79,8 +79,8 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
-        label: 'Question Management',
-        path: '/test-management',
+        label: 'Question Bank',
+        path: '/question-bank',
         icon: 'FileText',
         roles: ['super-admin']
       },
@@ -91,9 +91,9 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
-        label: 'Analytics',
-        path: '/analytics-and-reports-screen',
-        icon: 'BarChart3',
+        label: 'Profile',
+        path: '/profile',
+        icon: 'User',
         roles: ['super-admin']
       }
     ],
@@ -105,21 +105,21 @@ const RoleBasedNavigation = ({
         roles: ['teacher']
       },
       {
-        label: 'Create Test',
-        path: '/test-creation-screen',
+        label: 'Question Bank',
+        path: '/question-bank',
         icon: 'FileText',
         roles: ['teacher']
       },
       {
         label: 'Students',
-        path: '/student-management-screen',
+        path: '/student-management',
         icon: 'Users',
         roles: ['teacher']
       },
       {
-        label: 'Analytics',
-        path: '/analytics-and-reports-screen',
-        icon: 'BarChart3',
+        label: 'Profile',
+        path: '/profile',
+        icon: 'User',
         roles: ['teacher']
       },
       {
@@ -149,15 +149,9 @@ const RoleBasedNavigation = ({
         roles: ['student']
       },
       {
-        label: 'Take Test',
-        path: '/test-taking-interface',
-        icon: 'PenTool',
-        roles: ['student']
-      },
-      {
-        label: 'My Progress',
-        path: '/analytics-and-reports-screen',
-        icon: 'TrendingUp',
+        label: 'Profile',
+        path: '/profile',
+        icon: 'User',
         roles: ['student']
       }
     ]
