@@ -1,6 +1,7 @@
 import React, { Component, useEffect } from "react";
 import Routes from "./Routes";
 import { AuthProvider } from './contexts/AuthContext';
+import { InstituteProvider } from './contexts/InstituteContext';
 
 // Global Error Boundary Component
 class GlobalErrorBoundary extends Component {
@@ -120,7 +121,9 @@ function App() {
     <GlobalErrorBoundary>
       <GlobalErrorSetup>
         <AuthProvider>
-          <Routes />
+          <InstituteProvider>
+            <Routes />
+          </InstituteProvider>
         </AuthProvider>
       </GlobalErrorSetup>
     </GlobalErrorBoundary>

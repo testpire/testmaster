@@ -125,7 +125,7 @@ const SuperAdminDashboard = () => {
     if (selectedInstitute) {
       fetchDashboardStats();
     }
-  }, [selectedInstitute]);
+  }, [selectedInstitute?.id]);
 
   // Create stats data from dashboard state
   const statsData = [

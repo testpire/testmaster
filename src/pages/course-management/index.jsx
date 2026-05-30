@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { courseService } from '../../services/courseService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
@@ -692,6 +693,14 @@ const CourseManagement = () => {
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
+  // Try to get SuperAdmin context for institute-change refetch
+  let superAdminContext = null;
+  try {
+    superAdminContext = useSuperAdmin();
+  } catch (e) {
+    // Not in super-admin context
+  }
+
   // State management
   const [courses, setCourses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -818,6 +827,13 @@ const CourseManagement = () => {
 
     initializeData();
   }, [user, userProfile, loadAllData]);
+
+  // Reload all data when super-admin switches institute
+  useEffect(() => {
+    if (superAdminContext?.selectedInstitute?.id) {
+      loadAllData();
+    }
+  }, [superAdminContext?.selectedInstitute?.id]);
 
   // Course CRUD operations
   const handleCourseSuccess = async (courseData, courseId = null) => {
@@ -1046,7 +1062,14 @@ const CourseManagement = () => {
   // Render with error boundary
   try {
     return (
-      <PageLayout title="Course Management">
+      <PageLayout
+        title="Course Management"
+        showInstituteDropdown={currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'super-admin'}
+        institutes={superAdminContext?.allInstitutes || []}
+        selectedInstitute={superAdminContext?.selectedInstitute || null}
+        onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
+        institutesLoading={superAdminContext?.institutesLoading || false}
+      >
         <div className="p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">

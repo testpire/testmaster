@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
@@ -9,6 +10,14 @@ import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal
 
 const StudentManagement = () => {
   const { user, userProfile } = useAuth();
+
+  // Try to get SuperAdmin context for institute-change refetch
+  let superAdminContext = null;
+  try {
+    superAdminContext = useSuperAdmin();
+  } catch (e) {
+    // Not in super-admin context
+  }
 
   // Student management states
   const [students, setStudents] = useState([]);
@@ -37,7 +46,7 @@ const StudentManagement = () => {
     instituteId: userProfile?.instituteId || user?.instituteId
   };
 
-  // Load institute data and students  
+  // Load institute data and students
   useEffect(() => {
     // Only load data if we have user authentication data
     if (user || userProfile) {
@@ -48,6 +57,13 @@ const StudentManagement = () => {
       setError('Loading user information...');
     }
   }, [user, userProfile]);
+
+  // Reload students when super-admin switches institute
+  useEffect(() => {
+    if (superAdminContext?.selectedInstitute?.id) {
+      loadStudents();
+    }
+  }, [superAdminContext?.selectedInstitute?.id]);
 
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;
@@ -149,7 +165,14 @@ const StudentManagement = () => {
   });
 
   return (
-    <PageLayout title="Student Management">
+    <PageLayout
+      title="Student Management"
+      showInstituteDropdown={currentUser.role === 'super-admin'}
+      institutes={superAdminContext?.allInstitutes || []}
+      selectedInstitute={superAdminContext?.selectedInstitute || null}
+      onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
+      institutesLoading={superAdminContext?.institutesLoading || false}
+    >
       <div className="p-6">
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

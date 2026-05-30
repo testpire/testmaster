@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base API configuration
 //const API_BASE_URL = 'http://localhost:8080/api';
-const API_BASE_URL = ' https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
+const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
 //const API_BASE_URL = 'http://13.201.96.213:8080/api';
 
 // Create axios instance
@@ -101,6 +101,13 @@ apiClient.interceptors.request.use(
         console.warn('Invalid JWT token detected, clearing...');
         localStorage.removeItem('authToken');
         setAuthToken(null);
+      }
+
+      // Inject X-Institute-Id header for SUPER_ADMIN only
+      const userRole = localStorage.getItem('userRole');
+      const activeInstituteId = localStorage.getItem('activeInstituteId');
+      if (userRole === 'SUPER_ADMIN' && activeInstituteId) {
+        config.headers['X-Institute-Id'] = activeInstituteId;
       }
     }
     
@@ -299,6 +306,9 @@ export const clearAuthState = () => {
       localStorage.removeItem(key);
     }
   });
+  // Clear institute context keys
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('activeInstituteId');
 };
 
 export default apiClient;

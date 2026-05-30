@@ -57,12 +57,19 @@ const InstituteManagement = () => {
     }
   }, [user, userProfile]);
 
+  // Sync superAdmin context selection → local state (so loadInstituteAdmins re-runs)
+  useEffect(() => {
+    if (superAdminContext?.selectedInstitute) {
+      setSelectedInstitute(superAdminContext.selectedInstitute);
+    }
+  }, [superAdminContext?.selectedInstitute?.id]);
+
   // Load institute admins when selected institute changes
   useEffect(() => {
     if (selectedInstitute) {
       loadInstituteAdmins();
     }
-  }, [selectedInstitute]);
+  }, [selectedInstitute?.id]);
 
   const fetchInstitutes = async () => {
     setInstitutesLoading(true);

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
 import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
 import ProtectedSuperAdminRoutes from "./components/ProtectedSuperAdminRoutes";
+import ProtectedManagementRoutes from "./components/ProtectedManagementRoutes";
 import NotFound from "pages/NotFound";
 import SimpleLogin from './pages/simple-login';
 import SuperAdminDashboard from './pages/super-admin-dashboard';
@@ -33,13 +34,15 @@ const Routes = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/set-password" element={<SetPassword />} />
 
-          {/* Super Admin Routes - These routes get the selected institute context */}
+          {/* Super Admin only routes */}
           <Route path="/super-admin-dashboard" element={<ProtectedSuperAdminRoutes><SuperAdminDashboard /></ProtectedSuperAdminRoutes>} />
-          <Route path="/teacher-management" element={<ProtectedSuperAdminRoutes><TeacherManagement /></ProtectedSuperAdminRoutes>} />
-          <Route path="/student-management" element={<ProtectedSuperAdminRoutes><StudentManagement /></ProtectedSuperAdminRoutes>} />
-          <Route path="/course-management" element={<ProtectedSuperAdminRoutes><CourseManagement /></ProtectedSuperAdminRoutes>} />
-          <Route path="/question-bank" element={<ProtectedSuperAdminRoutes><QuestionBank /></ProtectedSuperAdminRoutes>} />
           <Route path="/institute-management" element={<ProtectedSuperAdminRoutes><InstituteManagement /></ProtectedSuperAdminRoutes>} />
+
+          {/* Management routes shared between SUPER_ADMIN and INST_ADMIN */}
+          <Route path="/teacher-management" element={<ProtectedManagementRoutes><TeacherManagement /></ProtectedManagementRoutes>} />
+          <Route path="/student-management" element={<ProtectedManagementRoutes><StudentManagement /></ProtectedManagementRoutes>} />
+          <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
+          <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
 
           {/* Institute Admin and other roles */}
           <Route path="/inst-admin-dashboard" element={<InstituteAdminDashboard />} />

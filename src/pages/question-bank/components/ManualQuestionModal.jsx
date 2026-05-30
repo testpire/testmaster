@@ -273,10 +273,11 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
           negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
           explanation: questionData?.explanation || '',
           ...(questionData?.questionType === 'mcq' && {
-            options: questionData?.options?.map((opt) => ({
+            options: questionData?.options?.map((opt, index) => ({
               text: opt?.text || '',
               optionImagePath: opt?.optionImagePath || '',
-              isCorrect: opt?.isCorrect || false
+              isCorrect: opt?.isCorrect || false,
+              optionOrder: index + 1
             }))
           })
         };
