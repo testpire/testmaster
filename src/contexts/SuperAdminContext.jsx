@@ -1,70 +1,49 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { newInstituteService } from '../services/newInstituteService';
+/**
+ * SuperAdminContext — thin compatibility shim.
+ *
+ * All real state now lives in InstituteContext (src/contexts/InstituteContext.jsx).
+ * This module re-exports a useSuperAdmin() hook and SuperAdminProvider that simply
+ * forward to InstituteContext so existing callers keep working without changes.
+ */
+import React, { createContext, useContext } from 'react';
+import { useInstitute } from './InstituteContext';
 
-const SuperAdminContext = createContext();
+const SuperAdminContext = createContext(null);
 
 export const useSuperAdmin = () => {
-  const context = useContext(SuperAdminContext);
-  if (!context) {
-    throw new Error('useSuperAdmin must be used within a SuperAdminProvider');
-  }
-  return context;
+  // Always delegate to InstituteContext — InstituteProvider must be above in the tree
+  const instituteCtx = useInstitute();
+
+  return {
+    allInstitutes: instituteCtx.allInstitutes,
+    selectedInstitute: instituteCtx.activeInstitute,
+    institutesLoading: instituteCtx.institutesLoading,
+    handleInstituteChange: (instituteId) => {
+      const institute = instituteCtx.allInstitutes.find(
+        (inst) => String(inst.id) === String(instituteId)
+      );
+      if (institute) {
+        instituteCtx.setActiveInstitute(institute);
+      }
+    },
+    fetchInstitutes: instituteCtx.fetchInstitutes,
+    setSelectedInstitute: instituteCtx.setActiveInstitute,
+  };
 };
 
+/**
+ * SuperAdminProvider is kept for ProtectedSuperAdminRoutes which wraps children
+ * in it. Since InstituteProvider already lives above in App.jsx, this shim simply
+ * triggers the institute fetch (for the SUPER_ADMIN role) and renders children.
+ */
 export const SuperAdminProvider = ({ children }) => {
-  const [allInstitutes, setAllInstitutes] = useState([]);
-  const [selectedInstitute, setSelectedInstitute] = useState(null);
-  const [institutesLoading, setInstitutesLoading] = useState(true);
+  // Kick off institute fetch when this wrapper mounts (i.e. super-admin routes entered)
+  const instituteCtx = useInstitute();
 
-  // Load institutes on provider mount
-  const fetchInstitutes = async () => {
-    try {
-      setInstitutesLoading(true);
-      const { data, error } = await newInstituteService.getInstitutes();
-      
-      if (data && !error) {
-        const institutes = Array.isArray(data) ? data : [];
-        setAllInstitutes(institutes);
-        
-        // Auto-select first institute if none selected and institutes exist
-        if (!selectedInstitute && institutes.length > 0) {
-          setSelectedInstitute(institutes[0]);
-        }
-      } else {
-        console.error('Failed to load institutes:', error);
-        setAllInstitutes([]);
-      }
-    } catch (error) {
-      console.error('Error loading institutes:', error);
-      setAllInstitutes([]);
-    } finally {
-      setInstitutesLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInstitutes();
+  React.useEffect(() => {
+    // fetchInstitutes is a no-op for non-SUPER_ADMIN (checks localStorage role inside)
+    instituteCtx.fetchInstitutes();
   }, []);
 
-  const handleInstituteChange = (instituteId) => {
-    const institute = allInstitutes.find(inst => inst.id === parseInt(instituteId));
-    if (institute) {
-      setSelectedInstitute(institute);
-    }
-  };
-
-  const value = {
-    allInstitutes,
-    selectedInstitute,
-    institutesLoading,
-    handleInstituteChange,
-    fetchInstitutes,
-    setSelectedInstitute
-  };
-
-  return (
-    <SuperAdminContext.Provider value={value}>
-      {children}
-    </SuperAdminContext.Provider>
-  );
+  return <>{children}</>;
 };

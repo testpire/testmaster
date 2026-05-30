@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -11,6 +12,14 @@ import { questionService } from '../../services/questionService';
 const QuestionBank = () => {
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
+
+  // Try to get SuperAdmin context for institute-change refetch
+  let superAdminContext = null;
+  try {
+    superAdminContext = useSuperAdmin();
+  } catch (e) {
+    // Not in super-admin context
+  }
   
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isManualQuestionModalOpen, setIsManualQuestionModalOpen] = useState(false);
@@ -187,6 +196,13 @@ const QuestionBank = () => {
       loadQuestions(true); // Reset pagination when filters change
     }
   }, [currentUser, filters]);
+
+  // Reload questions when super-admin switches institute
+  useEffect(() => {
+    if (superAdminContext?.selectedInstitute?.id && currentUser) {
+      loadQuestions(true);
+    }
+  }, [superAdminContext?.selectedInstitute?.id]);
 
   // Infinite scroll effect
   useEffect(() => {
@@ -423,8 +439,18 @@ const QuestionBank = () => {
     </div>
   );
 
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'super-admin';
+
   return (
-    <PageLayout title="Question Bank" activeRoute="/question-bank">
+    <PageLayout
+      title="Question Bank"
+      activeRoute="/question-bank"
+      showInstituteDropdown={isSuperAdmin && !!(superAdminContext)}
+      institutes={superAdminContext?.allInstitutes || []}
+      selectedInstitute={superAdminContext?.selectedInstitute || null}
+      onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
+      institutesLoading={superAdminContext?.institutesLoading || false}
+    >
       <div className="h-full flex flex-col">
         {/* Header Section with Actions and Filters */}
         <div className="bg-background border-b border-border px-4 lg:px-6 py-4">

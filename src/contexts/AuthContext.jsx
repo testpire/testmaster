@@ -43,6 +43,10 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ Session found, user:', userProfile?.username || userProfile?.email, 'role:', userProfile?.role);
           setUser(userProfile);
           setUserProfile(userProfile);
+          // Keep localStorage role in sync on session restore
+          if (userProfile?.role) {
+            localStorage.setItem('userRole', userProfile.role);
+          }
         } else {
           console.log('❌ No user in session');
           if (mounted) {
@@ -97,20 +101,32 @@ export const AuthProvider = ({ children }) => {
             const userProfile = profileResponse.user || profileResponse;
             setUser(userProfile);
             setUserProfile(userProfile);
+            // Persist role so apiClient interceptor can read it without React context
+            if (userProfile?.role) {
+              localStorage.setItem('userRole', userProfile.role);
+            }
             // Return user profile data along with login data
             return { data: { ...data, user: userProfile, profile: userProfile }, error: null };
           } else {
             console.warn('⚠️ Failed to load user profile after login:', profileError);
             // Continue with login success even if profile fails
-            setUser(data.user || data);
-            setUserProfile(data.user || data);
+            const fallbackUser = data.user || data;
+            setUser(fallbackUser);
+            setUserProfile(fallbackUser);
+            if (fallbackUser?.role) {
+              localStorage.setItem('userRole', fallbackUser.role);
+            }
             return { data, error: null };
           }
         } catch (profileErr) {
           console.error('❌ Profile loading error after login:', profileErr);
           // Continue with login success even if profile fails
-          setUser(data.user || data);
-          setUserProfile(data.user || data);
+          const fallbackUser = data.user || data;
+          setUser(fallbackUser);
+          setUserProfile(fallbackUser);
+          if (fallbackUser?.role) {
+            localStorage.setItem('userRole', fallbackUser.role);
+          }
           return { data, error: null };
         }
       }
@@ -146,9 +162,12 @@ export const AuthProvider = ({ children }) => {
       if (error) {
         throw error;
       }
-      
+
       setUser(null);
       setUserProfile(null);
+      // Clear role and active-institute so the interceptor stops sending the header
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('activeInstituteId');
       return { error: null };
     } catch (error) {
       return { error };

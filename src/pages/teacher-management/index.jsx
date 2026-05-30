@@ -64,7 +64,7 @@ const TeacherManagement = () => {
     if (currentUser.role === 'super-admin' && superAdminContext?.selectedInstitute) {
       loadTeachers();
     }
-  }, [superAdminContext?.selectedInstitute]);
+  }, [superAdminContext?.selectedInstitute?.id]);
 
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;

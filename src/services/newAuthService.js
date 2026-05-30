@@ -58,7 +58,7 @@ export const newAuthService = {
         lastName: userData.name?.split(' ').slice(1).join(' ') || '',
         role: userData.role || 'STUDENT',
         phoneNumber: userData.phone_number,
-        instituteId: userData.instituteId || '1', // Default institute ID if not provided
+        instituteId: userData.instituteId, // Must be provided by caller — no silent default
       };
 
       const { data, error, success } = await postUnauthenticated('/auth/register/student', registerData);
@@ -248,7 +248,7 @@ export const newAuthService = {
       password,
       firstName: userData.fullName?.split(' ')[0] || userData.firstName || '',
       lastName: userData.fullName?.split(' ').slice(1).join(' ') || userData.lastName || '',
-      instituteId: userData.instituteId || '1', // Default institute ID
+      // No instituteId default — caller must supply a resolved id
       ...userData,
     });
   },

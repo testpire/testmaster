@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { newInstituteService } from '../../services/newInstituteService';
 
 const SimpleSignup = () => {
   const { signUp, loading } = useAuth();
@@ -10,16 +11,18 @@ const SimpleSignup = () => {
     email: '',
     phone_number: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    instituteCode: ''
   });
   const [error, setError] = useState('');
+  const [resolving, setResolving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     // Basic validation
-    if (!formData.name.trim() || !formData.email.trim() || !formData.phone_number.trim() || !formData.password.trim()) {
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone_number.trim() || !formData.password.trim() || !formData.instituteCode.trim()) {
       setError('Please fill in all fields');
       return;
     }
@@ -35,11 +38,30 @@ const SimpleSignup = () => {
     }
 
     try {
+      // Resolve institute code → id via the public endpoint before registering
+      setResolving(true);
+      const { data: instituteData, error: instituteError } = await newInstituteService.getInstituteByCode(formData.instituteCode.trim());
+      setResolving(false);
+
+      if (instituteError || !instituteData) {
+        setError('Invalid institute code. Please check with your institute and try again.');
+        return;
+      }
+
+      // Support both flat { id, ... } and nested { data: { id, ... } } responses
+      const institute = instituteData.data || instituteData;
+      const resolvedInstituteId = institute.id;
+      if (!resolvedInstituteId) {
+        setError('Could not resolve institute. Please contact support.');
+        return;
+      }
+
       const userData = {
         name: formData.name,
         username: formData.email, // Use email as username
         phone_number: formData.phone_number,
-        role: 'STUDENT'
+        role: 'STUDENT',
+        instituteId: resolvedInstituteId,
       };
 
       const { data, error } = await signUp(formData.email, formData.password, userData);
@@ -50,6 +72,7 @@ const SimpleSignup = () => {
         navigate('/login');
       }
     } catch (err) {
+      setResolving(false);
       setError('An unexpected error occurred');
     }
   };
@@ -58,6 +81,8 @@ const SimpleSignup = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError(''); // Clear error when user starts typing
   };
+
+  const isSubmitting = loading || resolving;
 
   return (
     <div style={{
@@ -115,7 +140,7 @@ const SimpleSignup = () => {
                 boxSizing: 'border-box'
               }}
               placeholder="Enter your name"
-              disabled={loading}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -142,7 +167,7 @@ const SimpleSignup = () => {
                 boxSizing: 'border-box'
               }}
               placeholder="Enter your email"
-              disabled={loading}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -169,7 +194,34 @@ const SimpleSignup = () => {
                 boxSizing: 'border-box'
               }}
               placeholder="Enter your phone number"
-              disabled={loading}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              Institute Code <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.instituteCode}
+              onChange={(e) => handleInputChange('instituteCode', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                boxSizing: 'border-box'
+              }}
+              placeholder="Enter your institute code (e.g. ACME2024)"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -196,7 +248,7 @@ const SimpleSignup = () => {
                 boxSizing: 'border-box'
               }}
               placeholder="Create a password (min 6 characters)"
-              disabled={loading}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -223,7 +275,7 @@ const SimpleSignup = () => {
                 boxSizing: 'border-box'
               }}
               placeholder="Confirm your password"
-              disabled={loading}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -243,21 +295,21 @@ const SimpleSignup = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             style={{
               width: '100%',
               padding: '0.75rem',
-              backgroundColor: loading ? '#9ca3af' : '#10b981',
+              backgroundColor: isSubmitting ? '#9ca3af' : '#10b981',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
               fontSize: '1rem',
               fontWeight: '500',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.2s'
             }}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {resolving ? 'Verifying institute...' : loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

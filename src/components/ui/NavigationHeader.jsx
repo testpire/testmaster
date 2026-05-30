@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useInstitute } from '../../contexts/InstituteContext';
 import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
 import { newInstituteService } from '../../services/newInstituteService';
 
-const NavigationHeader = ({ 
-  userRole = 'student', 
-  userName = 'John Doe', 
+const NavigationHeader = ({
+  userRole = 'student',
+  userName = 'John Doe',
   userAvatar = null,
   currentUser = null,
   onLogout = () => {},
@@ -18,15 +19,37 @@ const NavigationHeader = ({
   showSidebarToggle = false,
   sidebarCollapsed = false,
   notifications = 0,
-  // Institute dropdown props
-  institutes = [],
-  selectedInstitute = null,
-  onInstituteChange = () => {},
-  institutesLoading = false,
+  // Institute dropdown props (kept for backward-compat but overridden by context)
+  institutes: institutesProp = [],
+  selectedInstitute: selectedInstituteProp = null,
+  onInstituteChange: onInstituteChangeProp = () => {},
+  institutesLoading: institutesLoadingProp = false,
   showInstituteDropdown = false
 }) => {
   const navigate = useNavigate();
   const { user, userProfile, signOut } = useAuth();
+
+  // Pull live institute state from context (single source of truth)
+  const {
+    allInstitutes: ctxInstitutes,
+    activeInstitute: ctxActiveInstitute,
+    institutesLoading: ctxInstitutesLoading,
+    setActiveInstitute: ctxSetActiveInstitute,
+  } = useInstitute();
+
+  // Resolve effective values: context wins when the dropdown is shown (SUPER_ADMIN),
+  // otherwise fall back to the props passed by callers.
+  const institutes = showInstituteDropdown ? ctxInstitutes : institutesProp;
+  const selectedInstitute = showInstituteDropdown ? ctxActiveInstitute : selectedInstituteProp;
+  const institutesLoading = showInstituteDropdown ? ctxInstitutesLoading : institutesLoadingProp;
+  const onInstituteChange = showInstituteDropdown
+    ? (instituteId) => {
+        const institute = ctxInstitutes.find(
+          (inst) => String(inst.id) === String(instituteId)
+        );
+        if (institute) ctxSetActiveInstitute(institute);
+      }
+    : onInstituteChangeProp;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -169,16 +192,6 @@ const NavigationHeader = ({
               </div>
             ) : (
               <>
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-5 h-5 text-primary-foreground"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
-                    <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  </svg>
-                </div>
                 <div className={`transition-opacity duration-300 ${sidebarCollapsed && showSidebarToggle ? 'hidden lg:block' : 'hidden sm:block'}`}>
                   <h1 className="text-lg font-semibold text-foreground leading-tight">
                     {instituteName || 'TestMaster'}
