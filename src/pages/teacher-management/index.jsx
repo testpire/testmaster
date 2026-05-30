@@ -141,10 +141,13 @@ const TeacherManagement = () => {
     }
 
     try {
-      const { error } = await newUserService.deleteUser(teacherId);
+      const { error } = await newUserService.deleteUser(teacherId, 'TEACHER');
       
       if (error) {
-        alert('Failed to delete teacher: ' + error);
+        const message = typeof error === 'string'
+          ? error
+          : error?.message || error?.error || JSON.stringify(error);
+        alert('Failed to delete teacher: ' + message);
         return;
       }
 

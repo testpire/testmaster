@@ -21,8 +21,10 @@ export const newInstituteService = {
         payload.criteria.name = filters.search.trim();
       }
 
-      const { data, error, success } = await post('/institutes/search/advanced', payload);
-      
+      // Never scope the institute list by the active institute — a SUPER_ADMIN
+      // must always see every institute in order to switch between them.
+      const { data, error, success } = await post('/institutes/search/advanced', payload, { skipInstituteHeader: true });
+
       if (success && data) {
         // Handle double-nested response: data.data.institutes or data.institutes
         const nestedData = data.data || data;
@@ -31,9 +33,9 @@ export const newInstituteService = {
         const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
         const hasMore = currentPage < totalPages - 1;
-        
-        return { 
-          data: institutes, 
+
+        return {
+          data: institutes,
           pagination: {
             currentPage,
             totalPages,
@@ -41,12 +43,12 @@ export const newInstituteService = {
             hasMore,
             size: payload.pagination.size
           },
-          error: null 
+          error: null
         };
       }
-      
-      return { 
-        data: [], 
+
+      return {
+        data: [],
         pagination: {
           currentPage: 0,
           totalPages: 0,
@@ -54,11 +56,11 @@ export const newInstituteService = {
           hasMore: false,
           size: 20
         },
-        error 
+        error
       };
     } catch (error) {
-      return { 
-        data: [], 
+      return {
+        data: [],
         pagination: {
           currentPage: 0,
           totalPages: 0,
@@ -66,7 +68,7 @@ export const newInstituteService = {
           hasMore: false,
           size: 20
         },
-        error 
+        error
       };
     }
   },
@@ -201,8 +203,9 @@ export const newInstituteService = {
         payload.criteria.name = searchTerm.trim(); // Assuming institutes are searched by name
       }
 
-      const { data, error, success } = await post('/institutes/search/advanced', payload);
-      
+      // Search is also used to populate the switcher list — keep it unscoped.
+      const { data, error, success } = await post('/institutes/search/advanced', payload, { skipInstituteHeader: true });
+
       if (success && data) {
         // Handle double-nested response: data.data.institutes or data.institutes
         const nestedData = data.data || data;
@@ -211,9 +214,9 @@ export const newInstituteService = {
         const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
         const hasMore = currentPage < totalPages - 1;
-        
-        return { 
-          data: institutes, 
+
+        return {
+          data: institutes,
           pagination: {
             currentPage,
             totalPages,
@@ -221,7 +224,7 @@ export const newInstituteService = {
             hasMore,
             size: payload.pagination.size
           },
-          error: null 
+          error: null
         };
       }
       
