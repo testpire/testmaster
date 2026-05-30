@@ -103,10 +103,14 @@ apiClient.interceptors.request.use(
         setAuthToken(null);
       }
 
-      // Inject X-Institute-Id header for SUPER_ADMIN only
+      // Inject X-Institute-Id header for SUPER_ADMIN only.
+      // Callers can opt out via `skipInstituteHeader` — notably the institute
+      // list/search fetch, which must return the FULL set of institutes so a
+      // SUPER_ADMIN can always switch. Scoping that call by the active institute
+      // collapses the switcher to a single option and locks the dropdown.
       const userRole = localStorage.getItem('userRole');
       const activeInstituteId = localStorage.getItem('activeInstituteId');
-      if (userRole === 'SUPER_ADMIN' && activeInstituteId) {
+      if (userRole === 'SUPER_ADMIN' && activeInstituteId && !config.skipInstituteHeader) {
         config.headers['X-Institute-Id'] = activeInstituteId;
       }
     }
