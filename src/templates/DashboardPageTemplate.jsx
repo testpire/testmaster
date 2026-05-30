@@ -24,7 +24,7 @@ const DashboardPageTemplate = ({
     name: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'User',
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || userRole,
     email: userProfile?.email || user?.email,
-    avatar: userProfile?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    avatar: userProfile?.avatar || null,
     notifications: 5
   };
 

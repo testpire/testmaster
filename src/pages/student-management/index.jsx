@@ -41,7 +41,7 @@ const StudentManagement = () => {
     firstName: userProfile?.firstName || user?.firstName || 'Admin',
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'inst-admin',
     email: userProfile?.email || user?.email,
-    avatar: userProfile?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    avatar: userProfile?.avatar || null,
     notifications: 3,
     instituteId: userProfile?.instituteId || user?.instituteId
   };

@@ -43,7 +43,7 @@ const TeacherDashboard = () => {
     firstName: userProfile?.firstName || user?.firstName || 'Teacher',
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'teacher',
     email: userProfile?.email || user?.email,
-    avatar: userProfile?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    avatar: userProfile?.avatar || null,
     notifications: 0,
     instituteId: userProfile?.instituteId || user?.instituteId
   };

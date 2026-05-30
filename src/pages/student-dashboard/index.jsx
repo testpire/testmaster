@@ -25,7 +25,7 @@ const StudentDashboard = () => {
     firstName: profile?.firstName || 'Student',
     role: (profile?.role || 'student').toLowerCase().replace('_', '-'),
     email: profile?.email,
-    avatar: profile?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+    avatar: profile?.avatar || null,
     notifications: 0,
     instituteId: profile?.instituteId,
   };
