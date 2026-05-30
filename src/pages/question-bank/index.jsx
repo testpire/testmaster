@@ -8,7 +8,7 @@ import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
 import { questionService } from '../../services/questionService';
 
-const TestCreationScreen = () => {
+const QuestionBank = () => {
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
   
@@ -244,15 +244,17 @@ const TestCreationScreen = () => {
   
   const handleDeleteQuestion = async (questionId) => {
     if (!questionId) return;
-    
-    // Optimistically update UI first
+    if (!window.confirm('Delete this question? This cannot be undone.')) return;
+
+    // Optimistically remove from UI, keep a copy to restore on failure
+    const previous = selectedQuestions;
     setSelectedQuestions(prev => prev.filter(q => q.id !== questionId));
-    
-    // Try to delete from backend, but don't revert UI if it fails
-    try {
-      await questionService.deleteQuestion(questionId);
-    } catch (err) {
-      // Silent fail - UI already updated optimistically
+
+    const { error } = await questionService.deleteQuestion(questionId);
+    if (error) {
+      // Restore and surface the failure
+      setSelectedQuestions(previous);
+      setError(error.message || 'Failed to delete question');
     }
   };
 
@@ -422,14 +424,14 @@ const TestCreationScreen = () => {
   );
 
   return (
-    <PageLayout title="Question Management" activeRoute="/test-management">
+    <PageLayout title="Question Bank" activeRoute="/question-bank">
       <div className="h-full flex flex-col">
         {/* Header Section with Actions and Filters */}
         <div className="bg-background border-b border-border px-4 lg:px-6 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             {/* Title and Question Count */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4">
-              <h1 className="text-xl lg:text-2xl font-bold text-foreground">Question Management</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-foreground">Question Bank</h1>
               <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1 lg:mt-0">
                 <span>
                   {loading && selectedQuestions.length === 0 ? (
@@ -615,4 +617,4 @@ const TestCreationScreen = () => {
   );
 };
 
-export default TestCreationScreen;
+export default QuestionBank;

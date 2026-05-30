@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getDashboardRoute, getRoleDisplayName } from '../../utils/roleBasedRouting';
 
 const SimpleLogin = () => {
   const { signIn, loading, userProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
   });
   const [error, setError] = useState('');
+  const notice = location.state?.message || '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,9 +24,14 @@ const SimpleLogin = () => {
     }
 
     try {
-      const { data, error } = await signIn(credentials.username, credentials.password);
+      const { data, error, challenge } = await signIn(credentials.username, credentials.password);
       if (error) {
         setError(error.message || 'Login failed');
+      } else if (challenge) {
+        // First-login: Cognito requires the user to set a new password
+        navigate('/set-password', {
+          state: { username: challenge.username, session: challenge.session },
+        });
       } else {
         // Navigate based on user role from the API response (user.role)
         const userRole = data?.user?.role || data?.profile?.role || data?.role || 'STUDENT';
@@ -81,6 +88,20 @@ const SimpleLogin = () => {
             Sign in to your account
           </p>
         </div>
+
+        {notice && (
+          <div style={{
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#16a34a',
+            padding: '0.75rem',
+            borderRadius: '6px',
+            marginBottom: '1rem',
+            fontSize: '0.875rem'
+          }}>
+            {notice}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
@@ -172,7 +193,22 @@ const SimpleLogin = () => {
         </form>
 
         <div style={{
-          marginTop: '1.5rem',
+          marginTop: '1rem',
+          textAlign: 'center',
+          fontSize: '0.875rem'
+        }}>
+          <Link
+            to="/forgot-password"
+            style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}
+            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+          >
+            Forgot password?
+          </Link>
+        </div>
+
+        <div style={{
+          marginTop: '1rem',
           textAlign: 'center',
           fontSize: '0.875rem'
         }}>

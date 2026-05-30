@@ -8,7 +8,9 @@ import StatsCard from '../super-admin-dashboard/components/StatsCard';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
-import { newDashboardService } from '../../services/newDashboardService';
+import { courseService } from '../../services/courseService';
+import { questionService } from '../../services/questionService';
+import { newUserService } from '../../services/newUserService';
 import { formatDisplayTime } from '../../utils/timeUtils';
 import useSidebar from '../../hooks/useSidebar';
 
@@ -18,22 +20,22 @@ const TeacherDashboard = () => {
   const { sidebarCollapsed, toggleSidebar } = useSidebar();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Modal states
   const [showStudentModal, setShowStudentModal] = useState(false);
-  
+
   // Notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
-  // Teacher dashboard data state
-  const [teacherData, setTeacherData] = useState({
-    myStudents: 45,
-    myClasses: 8,
-    pendingTests: 3,
-    avgPerformance: 87.5,
-    loading: false,
-    error: null
+  // Real, API-derived counts for the teacher's institute
+  const [stats, setStats] = useState({
+    students: 0,
+    courses: 0,
+    subjects: 0,
+    questions: 0,
+    loading: true,
   });
+  const [courses, setCourses] = useState([]);
 
   // Get actual user data from authentication
   const currentUser = {
@@ -42,7 +44,7 @@ const TeacherDashboard = () => {
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'teacher',
     email: userProfile?.email || user?.email,
     avatar: userProfile?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-    notifications: 4,
+    notifications: 0,
     instituteId: userProfile?.instituteId || user?.instituteId
   };
 
@@ -55,88 +57,40 @@ const TeacherDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch teacher dashboard data
+  // Fetch real dashboard data (institute is scoped by the JWT on the backend)
   const fetchTeacherData = async () => {
+    setStats(prev => ({ ...prev, loading: true }));
     try {
-      setTeacherData(prev => ({ ...prev, loading: true, error: null }));
-
-      const [dashboardResult] = await Promise.all([
-        newDashboardService.getTeacherDashboard()
+      const [studentsRes, coursesRes, subjectsRes, questionsRes] = await Promise.all([
+        newUserService.getStudentsByBatch(null, { page: 0, size: 1 }),
+        courseService.getCourses({ page: 0, size: 100 }),
+        courseService.getSubjects(null, { page: 0, size: 1 }),
+        questionService.searchQuestions({ page: 0, size: 1 }),
       ]);
 
-      if (dashboardResult.data && !dashboardResult.error) {
-        setTeacherData({
-          myStudents: dashboardResult.data.myStudents || 45,
-          myClasses: dashboardResult.data.myClasses || 8,
-          pendingTests: dashboardResult.data.pendingTests || 3,
-          avgPerformance: dashboardResult.data.avgPerformance || 87.5,
-          loading: false,
-          error: null
-        });
-      } else {
-        // Use fallback data
-        setTeacherData({
-          myStudents: 45,
-          myClasses: 8,
-          pendingTests: 3,
-          avgPerformance: 87.5,
-          loading: false,
-          error: null
-        });
-      }
+      setCourses(coursesRes?.data || []);
+      setStats({
+        students: studentsRes?.pagination?.totalElements || 0,
+        courses: coursesRes?.pagination?.totalElements ?? (coursesRes?.data?.length || 0),
+        subjects: subjectsRes?.pagination?.totalElements || 0,
+        questions: questionsRes?.pagination?.totalElements || 0,
+        loading: false,
+      });
     } catch (error) {
       console.error('Error fetching teacher data:', error);
-      // Use fallback data even on error
-      setTeacherData({
-        myStudents: 45,
-        myClasses: 8,
-        pendingTests: 3,
-        avgPerformance: 87.5,
-        loading: false,
-        error: null
-      });
+      setStats(prev => ({ ...prev, loading: false }));
     }
   };
 
-  // Load teacher data on component mount
   useEffect(() => {
     fetchTeacherData();
   }, []);
 
-  // Create stats data from teacher state
   const statsData = [
-    {
-      title: 'My Students',
-      value: teacherData.loading ? '...' : teacherData.myStudents?.toString() || '0',
-      change: '+8%',
-      changeType: 'increase',
-      icon: 'Users',
-      color: 'primary'
-    },
-    {
-      title: 'My Classes',
-      value: teacherData.loading ? '...' : teacherData.myClasses?.toString() || '0',
-      change: '+2',
-      changeType: 'increase',
-      icon: 'BookOpen',
-      color: 'secondary'
-    },
-    {
-      title: 'Pending Tests',
-      value: teacherData.loading ? '...' : teacherData.pendingTests?.toString() || '0',
-      change: '-1',
-      changeType: 'decrease',
-      icon: 'FileText',
-      color: 'accent'
-    },
-    {
-      title: 'Avg Performance',
-      value: teacherData.loading ? '...' : `${teacherData.avgPerformance}%` || '0%',
-      change: '+3.2%',
-      changeType: 'increase',
-      icon: 'TrendingUp',
-      color: 'success'
-    }
+    { title: 'My Students', value: stats.loading ? '...' : String(stats.students), icon: 'Users', color: 'primary' },
+    { title: 'Courses', value: stats.loading ? '...' : String(stats.courses), icon: 'BookOpen', color: 'secondary' },
+    { title: 'Subjects', value: stats.loading ? '...' : String(stats.subjects), icon: 'Layers', color: 'accent' },
+    { title: 'Questions', value: stats.loading ? '...' : String(stats.questions), icon: 'FileText', color: 'success' },
   ];
 
   const handleNavigation = (path) => {
@@ -157,23 +111,23 @@ const TeacherDashboard = () => {
 
   const handleQuickAction = (actionId) => {
     const actionRoutes = {
-      'add-student': '/student-management-screen',
-      'add-teacher': '/student-management-screen',
-      'create-course': '/course-and-batch-management-screen',
-      'create-test': '/test-creation-screen',
-      'view-analytics': '/analytics-and-reports-screen'
+      'add-student': '/student-management',
+      'create-course': '/course-management',
+      'create-test': '/question-bank',
     };
-
+    if (actionId === 'show-student-modal') {
+      setShowStudentModal(true);
+      return;
+    }
     if (actionRoutes?.[actionId]) {
       navigate(actionRoutes?.[actionId]);
     }
   };
 
   const handleLogout = () => {
-    navigate('/login-screen');
+    navigate('/login');
   };
 
-  // Modal handlers
   const handleUserCreated = (userData) => {
     setNotification({
       show: true,
@@ -181,10 +135,8 @@ const TeacherDashboard = () => {
       type: 'success'
     });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
-    // Refresh data after creating user
     fetchTeacherData();
   };
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -239,7 +191,7 @@ const TeacherDashboard = () => {
                   {formatDisplayTime(currentTime)} • Teaching Portal
                 </p>
               </div>
-              
+
               <div className="flex items-center gap-2 mt-4 sm:mt-0">
                 <Button variant="outline" size="sm" onClick={fetchTeacherData}>
                   <Icon name="RefreshCw" size={16} />
@@ -256,8 +208,6 @@ const TeacherDashboard = () => {
                 key={index}
                 title={stat?.title}
                 value={stat?.value}
-                change={stat?.change}
-                changeType={stat?.changeType}
                 icon={stat?.icon}
                 color={stat?.color}
               />
@@ -266,22 +216,18 @@ const TeacherDashboard = () => {
 
           {/* Teacher Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {/* Create Test Card */}
+            {/* Question Bank Card */}
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Create Test</h3>
-                  <p className="text-sm text-muted-foreground">Design new assessments for your students</p>
+                  <h3 className="text-lg font-semibold text-foreground">Question Bank</h3>
+                  <p className="text-sm text-muted-foreground">Create and manage questions</p>
                 </div>
                 <Icon name="FileText" size={24} className="text-accent" />
               </div>
-              <Button 
-                onClick={() => navigate('/test-creation-screen')}
-                className="w-full"
-                variant="outline"
-              >
+              <Button onClick={() => navigate('/question-bank')} className="w-full" variant="outline">
                 <Icon name="Plus" size={16} />
-                Create Test
+                Open Question Bank
               </Button>
             </div>
 
@@ -290,101 +236,82 @@ const TeacherDashboard = () => {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">Add Student</h3>
-                  <p className="text-sm text-muted-foreground">Enroll new students to your classes</p>
+                  <p className="text-sm text-muted-foreground">Enroll new students</p>
                 </div>
                 <Icon name="User" size={24} className="text-blue-600" />
               </div>
-              <Button 
-                onClick={() => setShowStudentModal(true)}
-                className="w-full"
-                variant="outline"
-              >
+              <Button onClick={() => setShowStudentModal(true)} className="w-full" variant="outline">
                 <Icon name="Plus" size={16} />
                 Add Student
               </Button>
             </div>
 
-            {/* View Analytics Card */}
+            {/* Manage Courses Card */}
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Class Analytics</h3>
-                  <p className="text-sm text-muted-foreground">Monitor student performance</p>
+                  <h3 className="text-lg font-semibold text-foreground">Courses</h3>
+                  <p className="text-sm text-muted-foreground">Manage academic structure</p>
                 </div>
-                <Icon name="BarChart3" size={24} className="text-success" />
+                <Icon name="BookOpen" size={24} className="text-success" />
               </div>
-              <Button 
-                onClick={() => navigate('/analytics-and-reports-screen')}
-                className="w-full"
-                variant="outline"
-              >
+              <Button onClick={() => navigate('/course-management')} className="w-full" variant="outline">
                 <Icon name="Eye" size={16} />
-                View Analytics
+                Manage Courses
               </Button>
             </div>
           </div>
 
-          {/* Teacher Activity */}
+          {/* Courses list */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Recent Tests</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/test-creation-screen')}>
+                <h3 className="text-lg font-semibold text-foreground">Your Courses</h3>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/course-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
                 </Button>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-accent/10 rounded-full flex items-center justify-center">
-                    <Icon name="FileText" size={14} className="text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Mathematics Quiz - Chapter 5</p>
-                    <p className="text-xs text-muted-foreground">Created 2 days ago • 45 students</p>
-                  </div>
-                  <div className="text-sm text-success font-medium">87%</div>
-                </div>
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-accent/10 rounded-full flex items-center justify-center">
-                    <Icon name="FileText" size={14} className="text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Physics Lab Test</p>
-                    <p className="text-xs text-muted-foreground">Created 5 days ago • 38 students</p>
-                  </div>
-                  <div className="text-sm text-success font-medium">92%</div>
-                </div>
+                {stats.loading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : courses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No courses found for this institute.</p>
+                ) : (
+                  courses.slice(0, 5).map((course) => (
+                    <div key={course.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
+                        <Icon name="BookOpen" size={14} className="text-secondary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{course.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {course.code}{course.level ? ` • ${course.level}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Upcoming Classes</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/course-and-batch-management-screen')}>
-                  View All
-                  <Icon name="ArrowRight" size={14} className="ml-1" />
-                </Button>
+                <h3 className="text-lg font-semibold text-foreground">Quick Links</h3>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
-                    <Icon name="BookOpen" size={14} className="text-secondary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Advanced Mathematics</p>
-                    <p className="text-xs text-muted-foreground">Today at 10:00 AM • Room 204</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
-                    <Icon name="BookOpen" size={14} className="text-secondary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Physics Lab Session</p>
-                    <p className="text-xs text-muted-foreground">Tomorrow at 2:00 PM • Lab 3</p>
-                  </div>
-                </div>
+                <button onClick={() => navigate('/question-bank')} className="w-full flex items-center space-x-3 p-2 hover:bg-muted/50 rounded text-left">
+                  <Icon name="FileText" size={16} className="text-accent" />
+                  <span className="text-sm text-foreground">Manage Question Bank</span>
+                </button>
+                <button onClick={() => navigate('/student-management')} className="w-full flex items-center space-x-3 p-2 hover:bg-muted/50 rounded text-left">
+                  <Icon name="Users" size={16} className="text-primary" />
+                  <span className="text-sm text-foreground">Manage Students</span>
+                </button>
+                <button onClick={() => navigate('/profile')} className="w-full flex items-center space-x-3 p-2 hover:bg-muted/50 rounded text-left">
+                  <Icon name="User" size={16} className="text-blue-600" />
+                  <span className="text-sm text-foreground">My Profile</span>
+                </button>
               </div>
             </div>
           </div>
@@ -415,21 +342,11 @@ const TeacherDashboard = () => {
           gap: '8px',
           maxWidth: '400px'
         }}>
-          <Icon 
-            name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} 
-            size={20} 
-          />
+          <Icon name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} size={20} />
           {notification.message}
           <button
             onClick={() => setNotification({ show: false, message: '', type: 'success' })}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'white',
-              cursor: 'pointer',
-              marginLeft: '8px',
-              fontSize: '18px'
-            }}
+            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '8px', fontSize: '18px' }}
           >
             ×
           </button>

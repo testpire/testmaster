@@ -76,10 +76,16 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       setLoading(true);
-      const { data, error } = await newAuthService.signInWithPassword(email, password);
-      
+      const { data, error, challenge } = await newAuthService.signInWithPassword(email, password);
+
       if (error) {
         throw error;
+      }
+
+      // Cognito challenge (e.g. first-login NEW_PASSWORD_REQUIRED): no token yet.
+      // Surface it so the login page can route to the set-password flow.
+      if (challenge) {
+        return { data: null, challenge, error: null };
       }
 
       // If login successful, load user profile

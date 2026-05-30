@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 // Base API configuration
-const API_BASE_URL = 'http://13.201.96.213:8080/api';
-//const API_BASE_URL = 'https://testpire-svc.brz9vh5stea0g.ap-south-1.cs.amazonlightsail.com/api';
+//const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = ' https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
+//const API_BASE_URL = 'http://13.201.96.213:8080/api';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -124,27 +125,39 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Authentication errors - handle immediately and smoothly
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      console.warn('🔒 Authentication failed, redirecting to login');
+    // 401 = invalid/expired session -> clear token and redirect to login.
+    // (403 is handled separately below; a forbidden endpoint must NOT end the session.)
+    if (error.response?.status === 401) {
+      // Allow specific non-critical requests to opt out of the global redirect.
+      if (originalRequest?.skipAuthRedirect) {
+        return Promise.reject(error);
+      }
+      console.warn('🔒 Session invalid/expired, redirecting to login');
       setAuthToken(null);
       clearAuthState();
-      
+
       // Mark this as an auth redirect to prevent other error handlers
       error.isAuthRedirect = true;
-      
+
       // Only redirect if not already on login page
       if (!window.location.pathname.includes('/login')) {
-        // Immediate redirect without timeout to prevent error pages
         window.location.replace('/login-screen');
       }
-      
+
       // Return a resolved promise with auth error info to prevent error boundaries
       return Promise.resolve({
         data: { error: 'Authentication required' },
-        status: error.response.status,
+        status: 401,
         isAuthError: true
       });
+    }
+
+    // 403 = authenticated but not permitted for this role/resource.
+    // Do NOT clear the session or redirect — let the calling code degrade
+    // gracefully (e.g. hide a panel, show an inline message).
+    if (error.response?.status === 403) {
+      error.isForbidden = true;
+      return Promise.reject(error);
     }
     
     // JWT parsing errors
