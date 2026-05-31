@@ -335,8 +335,8 @@ const StudentManagement = () => {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
         userRole="STUDENT"
-        defaultInstituteId={currentUser.instituteId}
-        defaultInstitute={instituteData.institute}
+        defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
+        defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
       />
 
       {/* Edit Student Modal */}
@@ -349,8 +349,8 @@ const StudentManagement = () => {
           }}
           onSuccess={handleEditSuccess}
           userRole="STUDENT"
-          defaultInstituteId={currentUser.instituteId}
-          defaultInstitute={instituteData.institute}
+          defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
+          defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
           editMode={true}
           existingUser={editingStudent}
         />

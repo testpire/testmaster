@@ -159,6 +159,36 @@ export const questionService = {
     }
   },
 
+  // Upload a question/option image to S3 via the backend.
+  // Returns { key, url } — `key` is what gets stored on the question
+  // (questionImagePath / optionImagePath), `url` is the public URL for preview.
+  async uploadImage(file, topicId, isOption = false) {
+    try {
+      if (!topicId) {
+        return { data: null, error: { message: 'A topic must be selected before uploading an image' } };
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('topicId', topicId);
+      formData.append('option', isOption);
+
+      const { data, error, success } = await post('/questions/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (success) {
+        const payload = data?.data || data || {};
+        return { data: { key: payload.key, url: payload.url }, error: null };
+      }
+      return { data: null, error: error || { message: 'Failed to upload image' } };
+    } catch (error) {
+      return { data: null, error: { message: error?.response?.data?.message || error?.message || 'Failed to upload image' } };
+    }
+  },
+
   async bulkUploadQuestions(file) {
     try {
       const formData = new FormData();

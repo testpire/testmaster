@@ -66,14 +66,16 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
             return;
           }
 
-          result = await newUserService.updateUserProfile(user.id, { 
-            instituteId: selectedInstituteId 
+          result = await newUserService.updateUserProfile(user.id, {
+            ...formData,
+            role: user.role,
+            instituteId: selectedInstituteId
           });
           message = 'User moved to new institute successfully';
           break;
 
         case 'delete':
-          result = await newUserService.deleteUser(user.id);
+          result = await newUserService.deleteUser(user.id, user.role);
           message = 'User deleted successfully';
           break;
 

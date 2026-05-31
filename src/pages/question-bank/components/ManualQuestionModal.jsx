@@ -6,6 +6,94 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 
+// Mirror the backend allowlist / size cap (app.images.max-size-bytes default = 2 MB).
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+
+const validateImageFile = (file) => {
+  if (!file) return 'No file selected';
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return 'Only JPEG, PNG, WEBP, or GIF images are allowed';
+  }
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return 'Image must be 2 MB or smaller';
+  }
+  return null;
+};
+
+// Reusable image upload control: upload-first flow (file -> S3 -> key + preview url).
+const ImageUploadField = ({ previewUrl, uploading, disabled, disabledHint, onFileSelect, onClear }) => {
+  const inputRef = React.useRef(null);
+
+  const handleChange = (e) => {
+    const file = e?.target?.files?.[0];
+    if (file) onFileSelect(file);
+    // Reset so selecting the same file again still fires onChange
+    if (e?.target) e.target.value = '';
+  };
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={handleChange}
+        disabled={disabled || uploading}
+      />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || uploading}
+          onClick={() => inputRef?.current?.click()}
+        >
+          {uploading ? (
+            <span className="flex items-center space-x-1">
+              <Icon name="Loader2" size={14} className="animate-spin" />
+              <span>Uploading...</span>
+            </span>
+          ) : (
+            <span className="flex items-center space-x-1">
+              <Icon name="Upload" size={14} />
+              <span>{previewUrl ? 'Replace image' : 'Upload image'}</span>
+            </span>
+          )}
+        </Button>
+        {previewUrl && !uploading && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:text-red-700"
+            onClick={onClear}
+          >
+            <span className="flex items-center space-x-1">
+              <Icon name="Trash2" size={14} />
+              <span>Remove</span>
+            </span>
+          </Button>
+        )}
+      </div>
+      {disabled && disabledHint && (
+        <p className="text-xs text-amber-600 mt-1">{disabledHint}</p>
+      )}
+      {previewUrl && (
+        <div className="mt-2">
+          <img
+            src={previewUrl}
+            alt="Preview"
+            className="max-h-40 w-auto rounded-lg border border-border shadow-sm"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion = null, currentUser = null }) => {
   const { userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -16,10 +104,13 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
   const [topics, setTopics] = useState([]);
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [uploadingQuestionImage, setUploadingQuestionImage] = useState(false);
+  const [uploadingOptionIndex, setUploadingOptionIndex] = useState(null);
 
   const [questionData, setQuestionData] = useState({
     questionText: '',
     questionImagePath: '',
+    questionImagePreview: '',
     questionType: 'mcq',
     subject: '',
     chapter: '',
@@ -29,10 +120,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     negativeMarks: 1,
     explanation: '',
     options: [
-      { label: 'A', text: '', optionImagePath: '', isCorrect: false },
-      { label: 'B', text: '', optionImagePath: '', isCorrect: false },
-      { label: 'C', text: '', optionImagePath: '', isCorrect: false },
-      { label: 'D', text: '', optionImagePath: '', isCorrect: false }
+      { label: 'A', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+      { label: 'B', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+      { label: 'C', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+      { label: 'D', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false }
     ],
     correctIntegerAnswer: ''
   });
@@ -44,6 +135,8 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       setQuestionData({
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
         questionImagePath: editingQuestion?.questionImagePath || '',
+        // Backend already returns a full public URL, so it doubles as the preview.
+        questionImagePreview: editingQuestion?.questionImagePath || '',
         questionType: editingQuestion?.question_type || 'mcq',
         subject: editingQuestion?.subjectId || editingQuestion?.subject || '',
         chapter: editingQuestion?.chapterId || editingQuestion?.chapter || '',
@@ -52,18 +145,19 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         marks: editingQuestion?.marks || 4,
         negativeMarks: editingQuestion?.negativeMarks || editingQuestion?.negative_marks || 1,
         explanation: editingQuestion?.explanation || '',
-        options: editingQuestion?.options?.length > 0 
+        options: editingQuestion?.options?.length > 0
           ? editingQuestion?.options?.map(opt => ({
               label: opt?.option_label || opt?.label,
               text: opt?.text || opt?.option_text,
               optionImagePath: opt?.optionImagePath || '',
+              optionImagePreview: opt?.optionImagePath || '',
               isCorrect: opt?.isCorrect || opt?.is_correct
             }))
           : [
-              { label: 'A', text: '', optionImagePath: '', isCorrect: false },
-              { label: 'B', text: '', optionImagePath: '', isCorrect: false },
-              { label: 'C', text: '', optionImagePath: '', isCorrect: false },
-              { label: 'D', text: '', optionImagePath: '', isCorrect: false }
+              { label: 'A', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+              { label: 'B', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+              { label: 'C', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+              { label: 'D', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false }
             ],
         correctIntegerAnswer: editingQuestion?.correct_integer_answer || ''
       });
@@ -72,6 +166,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       setQuestionData({
         questionText: '',
         questionImagePath: '',
+        questionImagePreview: '',
         questionType: 'mcq',
         subject: '',
         chapter: '',
@@ -81,10 +176,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         negativeMarks: 1,
         explanation: '',
         options: [
-          { label: 'A', text: '', optionImagePath: '', isCorrect: false },
-          { label: 'B', text: '', optionImagePath: '', isCorrect: false },
-          { label: 'C', text: '', optionImagePath: '', isCorrect: false },
-          { label: 'D', text: '', optionImagePath: '', isCorrect: false }
+          { label: 'A', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+          { label: 'B', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+          { label: 'C', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
+          { label: 'D', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false }
         ],
         correctIntegerAnswer: ''
       });
@@ -221,6 +316,78 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         ...opt,
         isCorrect: i === index
       }))
+    }));
+  };
+
+  const handleQuestionImageUpload = async (file) => {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const topicId = questionData?.topic ? parseInt(questionData.topic) : null;
+    if (!topicId) {
+      setError('Please select a topic before uploading an image');
+      return;
+    }
+
+    setError('');
+    setUploadingQuestionImage(true);
+    const { data, error: uploadError } = await questionService.uploadImage(file, topicId, false);
+    setUploadingQuestionImage(false);
+
+    if (uploadError) {
+      setError(uploadError.message || 'Failed to upload image');
+      return;
+    }
+    setQuestionData(prev => ({
+      ...prev,
+      questionImagePath: data?.key || '',
+      questionImagePreview: data?.url || ''
+    }));
+  };
+
+  const handleClearQuestionImage = () => {
+    setQuestionData(prev => ({ ...prev, questionImagePath: '', questionImagePreview: '' }));
+  };
+
+  const handleOptionImageUpload = async (index, file) => {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const topicId = questionData?.topic ? parseInt(questionData.topic) : null;
+    if (!topicId) {
+      setError('Please select a topic before uploading an image');
+      return;
+    }
+
+    setError('');
+    setUploadingOptionIndex(index);
+    const { data, error: uploadError } = await questionService.uploadImage(file, topicId, true);
+    setUploadingOptionIndex(null);
+
+    if (uploadError) {
+      setError(uploadError.message || 'Failed to upload image');
+      return;
+    }
+    setQuestionData(prev => ({
+      ...prev,
+      options: prev?.options?.map((opt, i) =>
+        i === index
+          ? { ...opt, optionImagePath: data?.key || '', optionImagePreview: data?.url || '' }
+          : opt
+      )
+    }));
+  };
+
+  const handleClearOptionImage = (index) => {
+    setQuestionData(prev => ({
+      ...prev,
+      options: prev?.options?.map((opt, i) =>
+        i === index ? { ...opt, optionImagePath: '', optionImagePreview: '' } : opt
+      )
     }));
   };
 
@@ -466,17 +633,18 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
             {/* Question Image */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Question Image Path
+                Question Image
               </label>
-              <Input
-                type="text"
-                value={questionData?.questionImagePath}
-                onChange={(e) => handleInputChange('questionImagePath', e?.target?.value)}
-                placeholder="Enter image URL or path (optional)"
-                className="w-full"
+              <ImageUploadField
+                previewUrl={questionData?.questionImagePreview}
+                uploading={uploadingQuestionImage}
+                disabled={!questionData?.topic}
+                disabledHint="Select a topic first to enable image upload"
+                onFileSelect={handleQuestionImageUpload}
+                onClear={handleClearQuestionImage}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Optional: URL or path to question image
+                Optional: PNG, JPEG, WEBP or GIF, up to 2 MB
               </p>
             </div>
 
@@ -535,17 +703,14 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                       
                       {/* Option Image */}
                       <div className="ml-8">
-                        <Input
-                          value={option?.optionImagePath}
-                          onChange={(e) => handleOptionChange(index, 'optionImagePath', e?.target?.value)}
-                          placeholder={`Image URL for option ${option?.label} (optional)`}
-                          className="w-full"
+                        <ImageUploadField
+                          previewUrl={option?.optionImagePreview}
+                          uploading={uploadingOptionIndex === index}
+                          disabled={!questionData?.topic}
+                          disabledHint="Select a topic first to enable image upload"
+                          onFileSelect={(file) => handleOptionImageUpload(index, file)}
+                          onClear={() => handleClearOptionImage(index)}
                         />
-                        {option?.optionImagePath && (
-                          <p className="text-xs text-success mt-1">
-                            ✓ Image attached
-                          </p>
-                        )}
                       </div>
                     </div>
                   ))}

@@ -174,10 +174,13 @@ const InstituteManagement = () => {
     }
 
     try {
-      const { error } = await newUserService.deleteUser(adminId);
-      
+      const { error } = await newUserService.deleteUser(adminId, 'INST_ADMIN');
+
       if (error) {
-        alert('Failed to delete institute admin: ' + error);
+        const message = typeof error === 'string'
+          ? error
+          : error?.message || error?.error || JSON.stringify(error);
+        alert('Failed to delete institute admin: ' + message);
         return;
       }
 

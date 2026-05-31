@@ -4,6 +4,7 @@ import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
 import ProtectedSuperAdminRoutes from "./components/ProtectedSuperAdminRoutes";
 import ProtectedManagementRoutes from "./components/ProtectedManagementRoutes";
+import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "pages/NotFound";
 import SimpleLogin from './pages/simple-login';
 import SuperAdminDashboard from './pages/super-admin-dashboard';
@@ -44,13 +45,13 @@ const Routes = () => {
           <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
           <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
 
-          {/* Institute Admin and other roles */}
-          <Route path="/inst-admin-dashboard" element={<InstituteAdminDashboard />} />
-          <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
-          <Route path="/student-dashboard" element={<StudentDashboard />} />
+          {/* Institute Admin and other roles (role-guarded) */}
+          <Route path="/inst-admin-dashboard" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'INST_ADMIN', 'INSTITUTE_ADMIN', 'ADMIN']}><InstituteAdminDashboard /></ProtectedRoute>} />
+          <Route path="/teacher-dashboard" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherDashboard /></ProtectedRoute>} />
+          <Route path="/student-dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
 
-          {/* Shared */}
-          <Route path="/profile" element={<Profile />} />
+          {/* Shared — any authenticated user */}
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>

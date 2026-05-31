@@ -326,8 +326,8 @@ const InstituteAdminDashboard = () => {
                 </div>
                 <Icon name="GraduationCap" size={24} className="text-green-600" />
               </div>
-              <Button 
-                onClick={() => setShowTeacherModal(true)}
+              <Button
+                onClick={() => navigate('/teacher-management')}
                 className="w-full"
                 variant="outline"
               >
@@ -345,8 +345,8 @@ const InstituteAdminDashboard = () => {
                 </div>
                 <Icon name="User" size={24} className="text-blue-600" />
               </div>
-              <Button 
-                onClick={() => setShowStudentModal(true)}
+              <Button
+                onClick={() => navigate('/student-management')}
                 className="w-full"
                 variant="outline"
               >
