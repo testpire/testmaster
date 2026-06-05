@@ -230,6 +230,22 @@ export const newUserService = {
         endpoint = '/students'; // Default fallback
       }
 
+      // Forward student-specific fields (course, roll number, parent/personal
+      // details) so they are persisted on create — matching updateStudent.
+      if (role === 'STUDENT') {
+        payload.phone = userData.phone || '';
+        payload.course = userData.course || '';
+        payload.yearOfStudy = userData.yearOfStudy || 1;
+        payload.rollNumber = userData.rollNumber || '';
+        payload.parentName = userData.parentName || '';
+        payload.parentPhone = userData.parentPhone || '';
+        payload.parentEmail = userData.parentEmail || '';
+        payload.address = userData.address || '';
+        payload.dateOfBirth = userData.dateOfBirth ? `${userData.dateOfBirth}T00:00:00.000Z` : null;
+        payload.bloodGroup = userData.bloodGroup || '';
+        payload.emergencyContact = userData.emergencyContact || '';
+      }
+
       const { data, error, success } = await post(endpoint, payload);
       
       if (success && data) {

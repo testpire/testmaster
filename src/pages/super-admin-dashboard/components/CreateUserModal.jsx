@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { newUserService } from '../../../services/newUserService';
 import { newInstituteService } from '../../../services/newInstituteService';
+import { courseService } from '../../../services/courseService';
 
 const CreateUserModal = ({ 
   isOpen, 
@@ -42,8 +43,10 @@ const CreateUserModal = ({
     emergencyContact: ''
   });
   const [institutes, setInstitutes] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
   const [error, setError] = useState('');
 
   // Load institutes when modal opens
@@ -52,6 +55,13 @@ const CreateUserModal = ({
       loadInstitutes();
     }
   }, [isOpen]);
+
+  // Load courses for the student course dropdown (only needed for students)
+  useEffect(() => {
+    if (isOpen && userRole === 'STUDENT') {
+      loadCourses();
+    }
+  }, [isOpen, userRole]);
 
   // Update form data when props change
   useEffect(() => {
@@ -133,6 +143,20 @@ const CreateUserModal = ({
     }
   };
 
+  const loadCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      // Courses are scoped to the active institute via the apiClient interceptor.
+      const { data, error } = await courseService.getCourses({ page: 0, size: 100 });
+      setCourses(!error && Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load courses:', err);
+      setCourses([]);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -173,6 +197,35 @@ const CreateUserModal = ({
       // Only include password if it's provided (for new users or password changes)
       if (formData.password.trim()) {
         userData.password = formData.password;
+      }
+
+      // Carry role-specific fields through to the API. Without this the student
+      // course/roll/parent details (and teacher details) were silently dropped on
+      // both create and edit.
+      if (formData.role === 'STUDENT') {
+        Object.assign(userData, {
+          course: formData.course,
+          yearOfStudy: formData.yearOfStudy,
+          rollNumber: formData.rollNumber,
+          parentName: formData.parentName,
+          parentPhone: formData.parentPhone,
+          parentEmail: formData.parentEmail,
+          address: formData.address,
+          dateOfBirth: formData.dateOfBirth,
+          bloodGroup: formData.bloodGroup,
+          emergencyContact: formData.emergencyContact,
+          enabled: formData.enabled
+        });
+      } else if (formData.role === 'TEACHER') {
+        Object.assign(userData, {
+          department: formData.department,
+          subject: formData.subject,
+          qualification: formData.qualification,
+          experienceYears: formData.experienceYears,
+          specialization: formData.specialization,
+          bio: formData.bio,
+          enabled: formData.enabled
+        });
       }
 
       let result;
@@ -786,8 +839,7 @@ const CreateUserModal = ({
                     }}>
                       Course
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.course}
                       onChange={(e) => handleInputChange('course', e.target.value)}
                       style={{
@@ -798,9 +850,21 @@ const CreateUserModal = ({
                         fontSize: '1rem',
                         boxSizing: 'border-box'
                       }}
-                      placeholder="e.g., Computer Science"
-                      disabled={loading}
-                    />
+                      disabled={loading || loadingCourses}
+                    >
+                      <option value="">
+                        {loadingCourses ? 'Loading courses...' : 'Select a course'}
+                      </option>
+                      {/* Preserve a previously-saved course even if it's not in the list */}
+                      {formData.course && !courses.some((c) => c.name === formData.course) && (
+                        <option value={formData.course}>{formData.course}</option>
+                      )}
+                      {courses.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}{c.code ? ` (${c.code})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label style={{

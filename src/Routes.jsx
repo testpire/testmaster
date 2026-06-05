@@ -17,9 +17,11 @@ import TeacherManagement from './pages/teacher-management';
 import StudentManagement from './pages/student-management';
 import CourseManagement from './pages/course-management';
 import InstituteManagement from './pages/institute-management';
+import LeadManagement from './pages/lead-management';
 import ForgotPassword from './pages/forgot-password';
 import SetPassword from './pages/set-password';
 import Profile from './pages/profile';
+import AccessControl from './pages/access-control';
 
 const Routes = () => {
   return (
@@ -42,8 +44,10 @@ const Routes = () => {
           {/* Management routes shared between SUPER_ADMIN and INST_ADMIN */}
           <Route path="/teacher-management" element={<ProtectedManagementRoutes><TeacherManagement /></ProtectedManagementRoutes>} />
           <Route path="/student-management" element={<ProtectedManagementRoutes><StudentManagement /></ProtectedManagementRoutes>} />
+          <Route path="/lead-management" element={<ProtectedManagementRoutes><LeadManagement /></ProtectedManagementRoutes>} />
           <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
           <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
+          <Route path="/access-control" element={<ProtectedManagementRoutes><AccessControl /></ProtectedManagementRoutes>} />
 
           {/* Institute Admin and other roles (role-guarded) */}
           <Route path="/inst-admin-dashboard" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'INST_ADMIN', 'INSTITUTE_ADMIN', 'ADMIN']}><InstituteAdminDashboard /></ProtectedRoute>} />

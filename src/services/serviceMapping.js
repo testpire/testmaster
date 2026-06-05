@@ -5,6 +5,7 @@ import { newAuthService } from './newAuthService';
 import { newUserService } from './newUserService';
 import { newInstituteService } from './newInstituteService';
 import { newDashboardService } from './newDashboardService';
+import { newLeadService } from './newLeadService';
 import { 
   newTestService, 
   newCourseService, 
@@ -28,3 +29,4 @@ export const studyMaterialService = USE_NEW_API ? newStudyMaterialService : (awa
 // New services that don't have old equivalents
 export const instituteService = newInstituteService;
 export const dashboardService = newDashboardService;
+export const leadService = newLeadService;

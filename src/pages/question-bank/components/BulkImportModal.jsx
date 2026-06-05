@@ -71,6 +71,22 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
 
   if (!isOpen) return null;
 
+  // Defensively unwrap ApiResponseDto { data: ... } and pull out row-level errors.
+  const payload = uploadResult?.data ?? uploadResult ?? {};
+  const rowErrors = Array.isArray(payload?.errors) ? payload.errors : [];
+  const hasRowErrors = rowErrors.length > 0;
+  // The backend reports image-upload warnings in `errors[]` even when no row
+  // actually failed (failedUploads === 0), so distinguish hard failures.
+  const hasFailures = (payload?.failedUploads ?? 0) > 0;
+  const resultMessage = uploadResult?.message || payload?.message;
+
+  // Surface any imported-count style fields the backend may return.
+  const countEntries = Object.entries(payload).filter(
+    ([key, value]) =>
+      typeof value === 'number' &&
+      /count|created|updated|imported|questions|rows|processed|failed|skipped|upload|success|total/i.test(key)
+  );
+
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -154,24 +170,79 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
             </div>
           ) : (
             // Upload results
-            <div className="space-y-6 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <Icon name="Check" size={32} className="text-green-600" />
-              </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">Upload Successful!</h3>
+            <div className="space-y-6">
+              <div className="text-center">
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
+                    hasRowErrors ? 'bg-yellow-100' : 'bg-green-100'
+                  }`}
+                >
+                  <Icon
+                    name={hasRowErrors ? 'AlertTriangle' : 'Check'}
+                    size={32}
+                    className={hasRowErrors ? 'text-yellow-600' : 'text-green-600'}
+                  />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mt-4 mb-1">
+                  {hasRowErrors ? 'Upload Completed with Issues' : 'Upload Successful!'}
+                </h3>
                 <p className="text-muted-foreground">
-                  Your questions file has been processed and imported.
+                  {resultMessage ||
+                    (hasRowErrors
+                      ? 'Some rows reported issues. Review the details below.'
+                      : 'Your questions file has been processed and imported.')}
                 </p>
               </div>
 
-              {/* Upload Results */}
-              <div className="bg-muted/30 p-4 rounded-lg">
-                <pre className="text-sm text-left whitespace-pre-wrap">
-                  {JSON.stringify(uploadResult, null, 2)}
-                </pre>
-              </div>
+              {/* Imported counts, if returned */}
+              {countEntries.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {countEntries.map(([key, value]) => (
+                    <div key={key} className="bg-muted/30 p-3 rounded-lg text-center">
+                      <div className="text-2xl font-semibold text-foreground">{value}</div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Row-level errors */}
+              {hasRowErrors && (
+                <div
+                  className={`border rounded-lg overflow-hidden ${
+                    hasFailures ? 'border-destructive/20' : 'border-yellow-300'
+                  }`}
+                >
+                  <div
+                    className={`px-4 py-2 text-sm font-medium ${
+                      hasFailures
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-yellow-50 text-yellow-700'
+                    }`}
+                  >
+                    {rowErrors.length} {hasFailures ? 'error' : 'warning'}
+                    {rowErrors.length === 1 ? '' : 's'}
+                  </div>
+                  <ul className="max-h-48 overflow-y-auto divide-y divide-border text-sm">
+                    {rowErrors.map((rowError, idx) => (
+                      <li key={idx} className="px-4 py-2 text-foreground">
+                        {typeof rowError === 'string' ? rowError : JSON.stringify(rowError)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Raw fallback when the shape is unrecognized */}
+              {countEntries.length === 0 && !hasRowErrors && (
+                <div className="bg-muted/30 p-4 rounded-lg">
+                  <pre className="text-sm text-left whitespace-pre-wrap">
+                    {JSON.stringify(payload, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -195,7 +266,7 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
                   disabled={!selectedFile || loading}
                   iconName={loading ? "Loader2" : "Upload"}
                   iconPosition="left"
-                  className={loading ? "animate-spin" : ""}
+                  className={loading ? "animate-pulse" : ""}
                 >
                   {loading ? 'Uploading...' : 'Upload & Parse'}
                 </Button>

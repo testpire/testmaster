@@ -201,5 +201,32 @@ export const courseService = {
       console.error('Error deleting topic:', error);
       return { data: null, error: error.message || 'Failed to delete topic' };
     }
+  },
+
+  // Bulk-create subjects, chapters and topics from a single denormalized CSV file.
+  // instituteId is extracted from the JWT on the backend. The response may carry
+  // row-level failures in an `errors[]` array even on HTTP 200.
+  async bulkUploadCurriculum(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await post('/curriculum/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return {
+        data: response?.data || { message: 'File uploaded successfully' },
+        error: null,
+      };
+    } catch (error) {
+      console.error('Curriculum bulk upload error:', error);
+      return {
+        data: null,
+        error: error.response?.data?.message || 'Failed to upload curriculum file',
+      };
+    }
   }
 };

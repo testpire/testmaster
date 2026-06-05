@@ -115,7 +115,7 @@ const GlobalErrorSetup = ({ children }) => {
 
 function App() {
   // Production version with comprehensive error handling
-  console.log('🎆 TestMaster App starting with bulletproof error handling...');
+  console.log('🎆 App starting with bulletproof error handling...');
 
   return (
     <GlobalErrorBoundary>

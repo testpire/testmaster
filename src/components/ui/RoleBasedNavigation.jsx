@@ -35,6 +35,12 @@ const RoleBasedNavigation = ({
         roles: ['inst-admin']
       },
       {
+        label: 'Lead Management',
+        path: '/lead-management',
+        icon: 'UserPlus',
+        roles: ['inst-admin']
+      },
+      {
         label: 'Course Management',
         path: '/course-management',
         icon: 'BookOpen',
@@ -44,6 +50,12 @@ const RoleBasedNavigation = ({
         label: 'Question Bank',
         path: '/question-bank',
         icon: 'FileText',
+        roles: ['inst-admin']
+      },
+      {
+        label: 'Access Control',
+        path: '/access-control',
+        icon: 'ShieldCheck',
         roles: ['inst-admin']
       },
       {
@@ -73,6 +85,12 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
+        label: 'Lead Management',
+        path: '/lead-management',
+        icon: 'UserPlus',
+        roles: ['super-admin']
+      },
+      {
         label: 'Course Management',
         path: '/course-management',
         icon: 'BookOpen',
@@ -88,6 +106,12 @@ const RoleBasedNavigation = ({
         label: 'Institute Management',
         path: '/institute-management',
         icon: 'Building2',
+        roles: ['super-admin']
+      },
+      {
+        label: 'Access Control',
+        path: '/access-control',
+        icon: 'ShieldCheck',
         roles: ['super-admin']
       },
       {

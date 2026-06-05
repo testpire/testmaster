@@ -194,10 +194,10 @@ const NavigationHeader = ({
               <>
                 <div className={`transition-opacity duration-300 ${sidebarCollapsed && showSidebarToggle ? 'hidden lg:block' : 'hidden sm:block'}`}>
                   <h1 className="text-lg font-semibold text-foreground leading-tight">
-                    {instituteName || 'TestMaster'}
+                    {instituteName}
                   </h1>
                   {instituteName && (
-                    <p className="text-xs text-muted-foreground leading-tight">TestMaster</p>
+                    <p className="text-xs text-muted-foreground leading-tight"></p>
                   )}
                 </div>
               </>

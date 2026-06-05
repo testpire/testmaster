@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import PageLayout from '../../components/layout/PageLayout';
@@ -8,6 +8,8 @@ import QuestionCard from './components/QuestionCard';
 import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
 import { questionService } from '../../services/questionService';
+
+const PAGE_SIZE = 20;
 
 const QuestionBank = () => {
   const { user, userProfile } = useAuth();
@@ -30,7 +32,14 @@ const QuestionBank = () => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  
+
+  // The questions list scrolls inside its own container (not the window), so the
+  // infinite-scroll listener must be attached to this element, not `window`.
+  const scrollContainerRef = useRef(null);
+  // Synchronous guard so a burst of scroll events can't fire overlapping fetches
+  // before the `loadingMore` state has a chance to update.
+  const loadingMoreRef = useRef(false);
+
   // Pagination state
   const [pagination, setPagination] = useState({
     currentPage: 0,
@@ -57,90 +66,99 @@ const QuestionBank = () => {
   // State for questions - starts empty, loads from API
   const [selectedQuestions, setSelectedQuestions] = useState([]);
 
-  // Load questions from backend with filters (fresh load)
-  const loadQuestions = async (resetPagination = true) => {
-    if (!currentUser || loading) return;
-    
+  // Load a specific page of questions from the backend (replaces the current list).
+  const loadQuestions = async (page = 0) => {
+    if (!currentUser) return;
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const searchParams = {
-        page: resetPagination ? 0 : pagination.currentPage,
-        size: 20
+        page,
+        size: PAGE_SIZE
       };
       // instituteId is now extracted from JWT token on backend
-      
+
       // Add filters to search params if they exist
       if (filters.difficulty) searchParams.difficulty = filters.difficulty;
       if (filters.subject) searchParams.subjectId = filters.subject;
       if (filters.chapter) searchParams.chapterId = filters.chapter;
       if (filters.topic) searchParams.topicId = filters.topic;
-      
+
       const result = await questionService.searchQuestions(searchParams);
       const { data, pagination: paginationData } = result;
-      
-      if (resetPagination) {
-        // Fresh load - replace questions
-        setSelectedQuestions(data && Array.isArray(data) ? data : []);
-        setPagination(paginationData || {
-          currentPage: 0,
+
+      setSelectedQuestions(data && Array.isArray(data) ? data : []);
+      setPagination(
+        paginationData || {
+          currentPage: page,
           totalPages: 0,
           totalElements: 0,
           hasMore: false,
-          size: 20
-        });
+          size: PAGE_SIZE
+        }
+      );
+      // Fresh load — scroll the list back to the top.
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
       }
     } catch (err) {
       // On error, show empty state
-      if (resetPagination) {
-        setSelectedQuestions([]);
-        setPagination({
-          currentPage: 0,
-          totalPages: 0,
-          totalElements: 0,
-          hasMore: false,
-          size: 20
-        });
-      }
+      setSelectedQuestions([]);
+      setPagination({
+        currentPage: 0,
+        totalPages: 0,
+        totalElements: 0,
+        hasMore: false,
+        size: PAGE_SIZE
+      });
       setError(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load more questions for infinite scroll
+  // Fetch the next page and append it to the current list (infinite scroll).
   const loadMoreQuestions = async () => {
-    if (!currentUser || loadingMore || !pagination.hasMore) return;
-    
+    if (!currentUser || loading || loadingMoreRef.current || !pagination.hasMore) return;
+
+    loadingMoreRef.current = true;
     try {
       setLoadingMore(true);
-      setError(null);
-      
+
       const searchParams = {
         page: pagination.currentPage + 1,
-        size: 20
+        size: PAGE_SIZE
       };
-      // instituteId is now extracted from JWT token on backend
-      
-      // Add filters to search params if they exist
       if (filters.difficulty) searchParams.difficulty = filters.difficulty;
       if (filters.subject) searchParams.subjectId = filters.subject;
       if (filters.chapter) searchParams.chapterId = filters.chapter;
       if (filters.topic) searchParams.topicId = filters.topic;
-      
+
       const result = await questionService.searchQuestions(searchParams);
       const { data, pagination: paginationData } = result;
-      
-      // Append new questions to existing list
+
       if (data && Array.isArray(data) && data.length > 0) {
-        setSelectedQuestions(prevQuestions => [...prevQuestions, ...data]);
-        setPagination(paginationData || pagination);
+        setSelectedQuestions((prev) => [...prev, ...data]);
+      }
+      if (paginationData) {
+        setPagination(paginationData);
       }
     } catch (err) {
-      setError(null);
+      // Soft-fail: keep what we have, don't surface a hard error for a scroll fetch.
     } finally {
       setLoadingMore(false);
+      loadingMoreRef.current = false;
+    }
+  };
+
+  // Trigger the next-page fetch when the user scrolls near the bottom of the list
+  // container. Bound to the scrollable element's onScroll (not window).
+  const handleScroll = (event) => {
+    const el = event.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+      loadMoreQuestions();
     }
   };
 
@@ -190,42 +208,19 @@ const QuestionBank = () => {
     }
   };
 
-  // Load questions when component mounts or filters change
+  // Load questions when component mounts or filters change (reset to first page)
   useEffect(() => {
     if (currentUser) {
-      loadQuestions(true); // Reset pagination when filters change
+      loadQuestions(0);
     }
   }, [currentUser, filters]);
 
   // Reload questions when super-admin switches institute
   useEffect(() => {
     if (superAdminContext?.selectedInstitute?.id && currentUser) {
-      loadQuestions(true);
+      loadQuestions(0);
     }
   }, [superAdminContext?.selectedInstitute?.id]);
-
-  // Infinite scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      // Check if we're near the bottom of the page
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = window.innerHeight;
-      
-      // Load more when user is 200px from bottom
-      if (scrollTop + clientHeight >= scrollHeight - 200) {
-        loadMoreQuestions();
-      }
-    };
-
-    // Add scroll listener
-    window.addEventListener('scroll', handleScroll);
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [pagination.hasMore, loadingMore, currentUser, filters]);
 
   // Load subjects on mount
   useEffect(() => {
@@ -254,7 +249,7 @@ const QuestionBank = () => {
     setEditingQuestion(null); // Clear editing state
     // Refresh questions from API with fresh pagination after creating a new question
     if (currentUser && !loading) {
-      loadQuestions(true);
+      loadQuestions(0);
     }
   };
   
@@ -542,7 +537,11 @@ const QuestionBank = () => {
         </div>
 
         {/* Questions List */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-4 lg:p-6"
+        >
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -599,11 +598,13 @@ const QuestionBank = () => {
                   <p className="text-muted-foreground text-sm">Loading more questions...</p>
                 </div>
               )}
-              
+
               {/* End of list indicator */}
-              {!pagination.hasMore && selectedQuestions.length > 0 && (
+              {!pagination.hasMore && !loadingMore && selectedQuestions.length > 0 && (
                 <div className="py-6 text-center">
-                  <p className="text-muted-foreground text-sm">You've reached the end of the list</p>
+                  <p className="text-muted-foreground text-sm">
+                    You've reached the end · {pagination.totalElements} questions total
+                  </p>
                 </div>
               )}
             </>
@@ -631,10 +632,10 @@ const QuestionBank = () => {
           isOpen={isBulkImportModalOpen}
           onClose={() => setIsBulkImportModalOpen(false)}
           onQuestionsImported={() => {
-            setIsBulkImportModalOpen(false);
-            // Refresh questions from API with fresh pagination after bulk import
+            // Keep the modal open so the upload summary (counts + row errors) stays
+            // visible; the user closes it manually. Just refresh the list underneath.
             if (currentUser && !loading) {
-              loadQuestions(true);
+              loadQuestions(0);
             }
           }}
         />

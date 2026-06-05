@@ -6,6 +6,7 @@ import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
+import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
 // Inline Modal Components
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -28,16 +29,31 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const CourseModal = ({ isOpen, onClose, course, onSubmit, courses, currentUser }) => {
+// Derive the list of subject codes already attached to a course, tolerating
+// either a `subjectCodes: string[]` field or a populated `subjects: [...]` array.
+const getCourseSubjectCodes = (course) => {
+  if (!course) return [];
+  if (Array.isArray(course.subjectCodes)) {
+    return course.subjectCodes.filter(Boolean);
+  }
+  if (Array.isArray(course.subjects)) {
+    return course.subjects.map((s) => (typeof s === 'string' ? s : s?.code)).filter(Boolean);
+  }
+  return [];
+};
+
+const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], currentUser }) => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
     level: 'Undergraduate',
-    duration: '4'
+    duration: '4',
+    subjectCodes: []
   });
 
   const [loading, setLoading] = useState(false);
+  const [subjectsOpen, setSubjectsOpen] = useState(false);
 
   useEffect(() => {
     if (course) {
@@ -46,7 +62,8 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, courses, currentUser }
         code: course.code || '',
         description: course.description || '',
         level: course.level || 'Undergraduate',
-        duration: course.duration || '4'
+        duration: course.duration || '4',
+        subjectCodes: getCourseSubjectCodes(course)
       });
     } else {
       setFormData({
@@ -54,10 +71,29 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, courses, currentUser }
         code: '',
         description: '',
         level: 'Undergraduate',
-        duration: '4'
+        duration: '4',
+        subjectCodes: []
       });
     }
+    setSubjectsOpen(false);
   }, [course]);
+
+  // Toggle a subject code in/out of the course's subject selection.
+  const toggleSubjectCode = (code) => {
+    setFormData((prev) => {
+      const selected = new Set(prev.subjectCodes || []);
+      if (selected.has(code)) {
+        selected.delete(code);
+      } else {
+        selected.add(code);
+      }
+      return { ...prev, subjectCodes: Array.from(selected) };
+    });
+  };
+
+  // Only offer subjects that actually have a code (subjectCodes is keyed by code).
+  const selectableSubjects = subjects.filter((s) => s?.code);
+  const selectedCount = formData.subjectCodes.length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -151,6 +187,77 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, courses, currentUser }
           />
         </div>
 
+        {/* Attach subjects to this course (maps to subjectCodes on the course API) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Subjects
+          </label>
+          <button
+            type="button"
+            onClick={() => setSubjectsOpen((open) => !open)}
+            className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <span className={selectedCount ? 'text-gray-900' : 'text-gray-400'}>
+              {selectedCount ? `${selectedCount} subject${selectedCount > 1 ? 's' : ''} selected` : 'Select subjects'}
+            </span>
+            <Icon name={subjectsOpen ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-gray-400" />
+          </button>
+
+          {/* Selected subjects shown as removable chips */}
+          {selectedCount > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {formData.subjectCodes.map((code) => {
+                const subj = selectableSubjects.find((s) => s.code === code);
+                return (
+                  <span
+                    key={code}
+                    className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+                  >
+                    {subj ? `${subj.name} (${subj.code})` : code}
+                    <button
+                      type="button"
+                      onClick={() => toggleSubjectCode(code)}
+                      className="hover:text-blue-900"
+                      title="Remove"
+                    >
+                      <Icon name="X" size={12} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {subjectsOpen && (
+            <div className="mt-2 border border-gray-200 rounded-md max-h-48 overflow-y-auto divide-y divide-gray-100">
+              {selectableSubjects.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-gray-500">
+                  No subjects available. Create subjects first, then attach them here.
+                </p>
+              ) : (
+                selectableSubjects.map((subj) => {
+                  const checked = formData.subjectCodes.includes(subj.code);
+                  return (
+                    <label
+                      key={subj.id ?? subj.code}
+                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSubjectCode(subj.code)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-900">{subj.name}</span>
+                      <span className="text-gray-500">({subj.code})</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
@@ -172,12 +279,11 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, courses, currentUser }
   );
 };
 
-const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser }) => {
+const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
-    courseId: '',
     credits: 3,
     duration: '1 Semester'
   });
@@ -190,7 +296,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
         name: subject.name || '',
         code: subject.code || '',
         description: subject.description || '',
-        courseId: subject.courseId || '',
         credits: subject.credits || 3,
         duration: subject.duration || '1 Semester'
       });
@@ -199,17 +304,16 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
         name: '',
         code: '',
         description: '',
-        courseId: courses.length > 0 ? courses[0].id : '',
         credits: 3,
         duration: '1 Semester'
       });
     }
-  }, [subject, courses]);
+  }, [subject]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.code.trim() || !formData.courseId) {
-      alert('Name, Code, and Course are required');
+    if (!formData.name.trim() || !formData.code.trim()) {
+      alert('Name and Code are required');
       return;
     }
 
@@ -217,7 +321,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
     try {
       await onSubmit({
         ...formData,
-        courseId: parseInt(formData.courseId),
         credits: parseInt(formData.credits),
         instituteId: currentUser?.instituteId
       }, subject?.id);
@@ -225,24 +328,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
       setLoading(false);
     }
   };
-
-  if (courses.length === 0) {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Add Subject">
-        <div className="text-center py-4">
-          <Icon name="AlertCircle" size={48} className="mx-auto text-yellow-500 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Courses Available</h3>
-          <p className="text-gray-600 mb-4">You need to create at least one course before adding subjects.</p>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            OK
-          </button>
-        </div>
-      </Modal>
-    );
-  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={subject ? 'Edit Subject' : 'Add Subject'}>
@@ -273,25 +358,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, courses, currentUser
             placeholder="e.g., CS101"
             required
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Course *
-          </label>
-          <select
-            value={formData.courseId}
-            onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          >
-            <option value="">Select a course</option>
-            {courses.map(course => (
-              <option key={course.id} value={course.id}>
-                {course.name} ({course.code})
-              </option>
-            ))}
-          </select>
         </div>
 
         <div>
@@ -724,6 +790,7 @@ const CourseManagement = () => {
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [showTopicModal, setShowTopicModal] = useState(false);
+  const [showCurriculumUpload, setShowCurriculumUpload] = useState(false);
   
   const [editingCourse, setEditingCourse] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
@@ -1039,6 +1106,26 @@ const CourseManagement = () => {
     }
   };
 
+  // Build a human-readable list of the subjects attached to a course, tolerant of
+  // whatever shape the API returns: a populated `subjects` array, a `subjectCodes`
+  // string array (enriched with names from the loaded subjects), or legacy subjects
+  // still linked by courseId.
+  const getCourseSubjectsDisplay = (course) => {
+    if (!course) return [];
+    const label = (s) => (s?.code ? `${s.name} (${s.code})` : s?.name) || '';
+    if (Array.isArray(course.subjects) && course.subjects.length) {
+      return course.subjects.map((s) => (typeof s === 'string' ? s : label(s))).filter(Boolean);
+    }
+    if (Array.isArray(course.subjectCodes) && course.subjectCodes.length) {
+      return course.subjectCodes.map((code) => {
+        const match = subjects.find((s) => s.code === code);
+        return match ? `${match.name} (${match.code})` : code;
+      });
+    }
+    // Legacy fallback: subjects that still carry this course's id
+    return subjects.filter((s) => s.courseId != null && s.courseId === course.id).map(label).filter(Boolean);
+  };
+
   // Tab configuration
   const tabs = [
     { id: 'courses', label: 'Courses', icon: 'BookOpen' },
@@ -1107,32 +1194,44 @@ const CourseManagement = () => {
               />
             </div>
             
-            <Button 
-              onClick={() => {
-                switch (activeTab) {
-                  case 'courses':
-                    setEditingCourse(null);
-                    setShowCourseModal(true);
-                    break;
-                  case 'subjects':
-                    setEditingSubject(null);
-                    setShowSubjectModal(true);
-                    break;
-                  case 'chapters':
-                    setEditingChapter(null);
-                    setShowChapterModal(true);
-                    break;
-                  case 'topics':
-                    setEditingTopic(null);
-                    setShowTopicModal(true);
-                    break;
-                }
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-            >
-              <Icon name="Plus" size={16} />
-              Add {currentTab?.label.slice(0, -1)}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowCurriculumUpload(true)}
+                className="flex items-center gap-2"
+                title="Create subjects, chapters and topics from a CSV file"
+              >
+                <Icon name="Upload" size={16} />
+                Bulk Upload (CSV)
+              </Button>
+
+              <Button
+                onClick={() => {
+                  switch (activeTab) {
+                    case 'courses':
+                      setEditingCourse(null);
+                      setShowCourseModal(true);
+                      break;
+                    case 'subjects':
+                      setEditingSubject(null);
+                      setShowSubjectModal(true);
+                      break;
+                    case 'chapters':
+                      setEditingChapter(null);
+                      setShowChapterModal(true);
+                      break;
+                    case 'topics':
+                      setEditingTopic(null);
+                      setShowTopicModal(true);
+                      break;
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              >
+                <Icon name="Plus" size={16} />
+                Add {currentTab?.label.slice(0, -1)}
+              </Button>
+            </div>
           </div>
 
           {/* Content */}
@@ -1188,9 +1287,11 @@ const CourseManagement = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Details
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Parent
-                      </th>
+                      {(activeTab === 'chapters' || activeTab === 'topics') && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Parent
+                        </th>
+                      )}
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -1225,12 +1326,31 @@ const CourseManagement = () => {
                               {item.description || 'No description'}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {activeTab === 'courses' && item.level && (
-                                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                  {item.level}
-                                </span>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 space-y-1">
+                              {activeTab === 'courses' && (
+                                <>
+                                  {item.level && (
+                                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                      {item.level}
+                                    </span>
+                                  )}
+                                  <div className="text-xs text-gray-600 max-w-xs">
+                                    {(() => {
+                                      const subs = getCourseSubjectsDisplay(item);
+                                      return subs.length ? (
+                                        <span>
+                                          <span className="font-medium">
+                                            {subs.length} subject{subs.length > 1 ? 's' : ''}:
+                                          </span>{' '}
+                                          {subs.join(', ')}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400">No subjects</span>
+                                      );
+                                    })()}
+                                  </div>
+                                </>
                               )}
                               {activeTab === 'subjects' && item.credits && (
                                 <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
@@ -1239,11 +1359,13 @@ const CourseManagement = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">
-                              {getParentInfo()}
-                            </div>
-                          </td>
+                          {(activeTab === 'chapters' || activeTab === 'topics') && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">
+                                {getParentInfo()}
+                              </div>
+                            </td>
+                          )}
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end space-x-2">
                               <button
@@ -1307,7 +1429,7 @@ const CourseManagement = () => {
             }}
             onSubmit={handleCourseSuccess}
             course={editingCourse}
-            courses={courses}
+            subjects={subjects}
             currentUser={safeCurrentUser}
           />
         )}
@@ -1321,7 +1443,6 @@ const CourseManagement = () => {
             }}
             onSubmit={handleSubjectSuccess}
             subject={editingSubject}
-            courses={courses}
             currentUser={safeCurrentUser}
           />
         )}
@@ -1352,6 +1473,14 @@ const CourseManagement = () => {
             subjects={subjects}
             chapters={chapters}
             currentUser={safeCurrentUser}
+          />
+        )}
+
+        {showCurriculumUpload && (
+          <CurriculumUploadModal
+            isOpen={showCurriculumUpload}
+            onClose={() => setShowCurriculumUpload(false)}
+            onUploaded={loadAllData}
           />
         )}
       </PageLayout>
