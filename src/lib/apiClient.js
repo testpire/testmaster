@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Base API configuration
-const API_BASE_URL = 'http://localhost:8080/api';
-//const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
+//const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
 //const API_BASE_URL = 'http://80.225.250.247:8080/api';
 //const API_BASE_URL = 'https://ware-dictionaries-avenue-bishop.trycloudflare.com/api';
 
