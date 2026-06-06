@@ -154,7 +154,7 @@ const InstituteManagement = () => {
   const handleInstituteCreateSuccess = (instituteData) => {
     setShowCreateInstituteModal(false);
     if (superAdminContext?.fetchInstitutes) {
-      superAdminContext.fetchInstitutes();
+      superAdminContext.fetchInstitutes(true); // force past the session cache
     }
     fetchInstitutes();
     console.log('Institute created successfully:', instituteData);

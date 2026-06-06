@@ -33,17 +33,10 @@ export const useSuperAdmin = () => {
 
 /**
  * SuperAdminProvider is kept for ProtectedSuperAdminRoutes which wraps children
- * in it. Since InstituteProvider already lives above in App.jsx, this shim simply
- * triggers the institute fetch (for the SUPER_ADMIN role) and renders children.
+ * in it. The institute list is now fetched once per session and cached by
+ * InstituteProvider (driven off auth state), so this wrapper no longer triggers
+ * a fetch on every mount — it simply renders children.
  */
 export const SuperAdminProvider = ({ children }) => {
-  // Kick off institute fetch when this wrapper mounts (i.e. super-admin routes entered)
-  const instituteCtx = useInstitute();
-
-  React.useEffect(() => {
-    // fetchInstitutes is a no-op for non-SUPER_ADMIN (checks localStorage role inside)
-    instituteCtx.fetchInstitutes();
-  }, []);
-
   return <>{children}</>;
 };

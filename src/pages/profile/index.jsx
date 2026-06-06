@@ -5,6 +5,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
+import { CLASS_OPTIONS } from '../../utils/classOptions';
 
 // Editable fields per role (keys map to UpdateStudentRequestDto / UpdateTeacherRequestDto)
 const STUDENT_FIELDS = [
@@ -13,7 +14,7 @@ const STUDENT_FIELDS = [
   { key: 'phone', label: 'Phone' },
   { key: 'course', label: 'Course' },
   { key: 'rollNumber', label: 'Roll Number' },
-  { key: 'yearOfStudy', label: 'Year of Study', type: 'number' },
+  { key: 'currentClass', label: 'Current Class', type: 'select', options: CLASS_OPTIONS },
   { key: 'address', label: 'Address' },
   { key: 'bloodGroup', label: 'Blood Group' },
   { key: 'parentName', label: 'Parent Name' },
@@ -89,7 +90,7 @@ const Profile = () => {
     fields.forEach(({ key, type }) => {
       let v = form[key];
       if (v === undefined || v === null || v === '') return;
-      if (type === 'number') v = parseInt(v, 10);
+      if (type === 'number' || type === 'select') v = parseInt(v, 10);
       payload[key] = v;
     });
 
@@ -158,7 +159,7 @@ const Profile = () => {
         ) : (
           <div className="bg-card rounded-lg border border-border p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fields.map(({ key, label, type }) => (
+              {fields.map(({ key, label, type, options }) => (
                 <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
                   <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
                   {type === 'textarea' ? (
@@ -168,6 +169,17 @@ const Profile = () => {
                       rows={3}
                       className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
+                  ) : type === 'select' ? (
+                    <select
+                      value={form[key] ?? ''}
+                      onChange={(e) => handleChange(key, e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Select</option>
+                      {options.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
                   ) : (
                     <input
                       type={type === 'number' ? 'number' : 'text'}

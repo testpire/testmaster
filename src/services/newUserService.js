@@ -114,7 +114,6 @@ export const newUserService = {
         lastName: studentData.lastName,
         phone: studentData.phone || '',
         course: studentData.course || '',
-        yearOfStudy: studentData.yearOfStudy || 1,
         currentClass: studentData.currentClass ? parseInt(studentData.currentClass, 10) : null,
         rollNumber: studentData.rollNumber || '',
         parentName: studentData.parentName || '',
@@ -236,7 +235,6 @@ export const newUserService = {
       if (role === 'STUDENT') {
         payload.phone = userData.phone || '';
         payload.course = userData.course || '';
-        payload.yearOfStudy = userData.yearOfStudy || 1;
         payload.currentClass = userData.currentClass ? parseInt(userData.currentClass, 10) : null;
         payload.rollNumber = userData.rollNumber || '';
         payload.parentName = userData.parentName || '';

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { newUserService } from '../../../services/newUserService';
 import { newInstituteService } from '../../../services/newInstituteService';
 import { courseService } from '../../../services/courseService';
+import { CLASS_OPTIONS } from '../../../utils/classOptions';
 
 const CreateUserModal = ({ 
   isOpen, 
@@ -32,7 +33,6 @@ const CreateUserModal = ({
     enabled: true,
     // Student-specific fields
     course: '',
-    yearOfStudy: 1,
     currentClass: '',
     rollNumber: '',
     parentName: '',
@@ -87,7 +87,6 @@ const CreateUserModal = ({
         enabled: existingUser.enabled !== undefined ? existingUser.enabled : true,
         // Student-specific fields
         course: existingUser.course || '',
-        yearOfStudy: existingUser.yearOfStudy || 1,
         currentClass: existingUser.currentClass || '',
         rollNumber: existingUser.rollNumber || '',
         parentName: existingUser.parentName || '',
@@ -114,7 +113,6 @@ const CreateUserModal = ({
         enabled: true,
         // Reset student-specific fields
         course: '',
-        yearOfStudy: 1,
         currentClass: '',
         rollNumber: '',
         parentName: '',
@@ -208,7 +206,6 @@ const CreateUserModal = ({
       if (formData.role === 'STUDENT') {
         Object.assign(userData, {
           course: formData.course,
-          yearOfStudy: formData.yearOfStudy,
           currentClass: formData.currentClass,
           rollNumber: formData.rollNumber,
           parentName: formData.parentName,
@@ -267,7 +264,6 @@ const CreateUserModal = ({
           enabled: true,
           // Reset student-specific fields
           course: '',
-          yearOfStudy: 1,
           currentClass: '',
           rollNumber: '',
           parentName: '',
@@ -832,7 +828,7 @@ const CreateUserModal = ({
             {/* Student-specific fields */}
             {userRole === 'STUDENT' && (
               <>
-                {/* Course and Year of Study */}
+                {/* Course and Current Class */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{
@@ -879,38 +875,6 @@ const CreateUserModal = ({
                       color: '#374151',
                       marginBottom: '6px'
                     }}>
-                      Year of Study
-                    </label>
-                    <select
-                      value={formData.yearOfStudy}
-                      onChange={(e) => handleInputChange('yearOfStudy', parseInt(e.target.value))}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      disabled={loading}
-                    >
-                      {[1,2,3,4,5,6,7,8,9,10].map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Current Class and Roll Number */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
                       Current Class
                     </label>
                     <select
@@ -927,11 +891,15 @@ const CreateUserModal = ({
                       disabled={loading}
                     >
                       <option value="">Select class</option>
-                      {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(cls => (
-                        <option key={cls} value={cls}>{cls}</option>
+                      {CLASS_OPTIONS.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Roll Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{
                       display: 'block',

@@ -198,8 +198,8 @@ const SuperAdminDashboard = () => {
       type: 'success'
     });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
-    // Refresh institutes list
-    fetchInstitutes();
+    // Refresh institutes list (force past the session cache to pick up the new one)
+    fetchInstitutes(true);
   };
 
   const handleUserCreated = (userData) => {

@@ -24,7 +24,7 @@ const NavigationHeader = ({
   selectedInstitute: selectedInstituteProp = null,
   onInstituteChange: onInstituteChangeProp = () => {},
   institutesLoading: institutesLoadingProp = false,
-  showInstituteDropdown = false
+  showInstituteDropdown: showInstituteDropdownProp = false
 }) => {
   const navigate = useNavigate();
   const { user, userProfile, signOut } = useAuth();
@@ -36,6 +36,14 @@ const NavigationHeader = ({
     institutesLoading: ctxInstitutesLoading,
     setActiveInstitute: ctxSetActiveInstitute,
   } = useInstitute();
+
+  // The institute switcher is a super-admin concern. Show it on every page for
+  // a SUPER_ADMIN (regardless of what the page passed) so it stays consistent
+  // from login to logout; other roles fall back to the per-page prop.
+  const effectiveRole = (userProfile?.role || user?.role || userRole || '')
+    .toString().toUpperCase().replace(/-/g, '_');
+  const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || effectiveRole === 'SUPERADMIN';
+  const showInstituteDropdown = isSuperAdmin || showInstituteDropdownProp;
 
   // Resolve effective values: context wins when the dropdown is shown (SUPER_ADMIN),
   // otherwise fall back to the props passed by callers.
