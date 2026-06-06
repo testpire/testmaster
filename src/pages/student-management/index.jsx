@@ -151,6 +151,12 @@ const StudentManagement = () => {
     }
   };
 
+  // Institute shown in the header. For super-admin, follow the institute switcher
+  // (selectedInstitute) so it updates on switch; otherwise use the user's own institute.
+  const displayInstitute = currentUser.role === 'super-admin'
+    ? superAdminContext?.selectedInstitute
+    : instituteData.institute;
+
   // Filter students based on search term
   const filteredStudents = students.filter(student => {
     if (!searchTerm) return true;
@@ -179,8 +185,8 @@ const StudentManagement = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Student Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {instituteData.institute ? 
-                  `Manage students for ${instituteData.institute.name}` : 
+                {displayInstitute ?
+                  `Manage students for ${displayInstitute.name}` :
                   'Manage students for your institute'
                 }
               </p>

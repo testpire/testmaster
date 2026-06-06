@@ -115,6 +115,7 @@ export const newUserService = {
         phone: studentData.phone || '',
         course: studentData.course || '',
         yearOfStudy: studentData.yearOfStudy || 1,
+        currentClass: studentData.currentClass ? parseInt(studentData.currentClass, 10) : null,
         rollNumber: studentData.rollNumber || '',
         parentName: studentData.parentName || '',
         parentPhone: studentData.parentPhone || '',
@@ -236,6 +237,7 @@ export const newUserService = {
         payload.phone = userData.phone || '';
         payload.course = userData.course || '';
         payload.yearOfStudy = userData.yearOfStudy || 1;
+        payload.currentClass = userData.currentClass ? parseInt(userData.currentClass, 10) : null;
         payload.rollNumber = userData.rollNumber || '';
         payload.parentName = userData.parentName || '';
         payload.parentPhone = userData.parentPhone || '';
@@ -405,6 +407,33 @@ export const newUserService = {
         },
         error 
       };
+    }
+  },
+
+  // Get institute admins - uses GET /users/INST_ADMIN.
+  // For SUPER_ADMIN the apiClient injects X-Institute-Id, so the backend
+  // scopes the list to the active institute; INST_ADMIN is scoped by JWT.
+  async getInstituteAdmins() {
+    try {
+      const { data, error, success } = await get('/users/INST_ADMIN');
+
+      if (success && data) {
+        // Defensively normalize: the API wraps payloads as { message, success, data }
+        // and may double-nest. Lists may arrive under several keys or as a bare array.
+        const nestedData = data.data || data;
+        const admins =
+          nestedData.users ||
+          nestedData.instituteAdmins ||
+          nestedData.admins ||
+          nestedData.content ||
+          (Array.isArray(nestedData) ? nestedData : []);
+
+        return { data: Array.isArray(admins) ? admins : [], error: null };
+      }
+
+      return { data: [], error };
+    } catch (error) {
+      return { data: [], error };
     }
   },
 

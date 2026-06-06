@@ -33,6 +33,7 @@ const CreateUserModal = ({
     // Student-specific fields
     course: '',
     yearOfStudy: 1,
+    currentClass: '',
     rollNumber: '',
     parentName: '',
     parentPhone: '',
@@ -87,6 +88,7 @@ const CreateUserModal = ({
         // Student-specific fields
         course: existingUser.course || '',
         yearOfStudy: existingUser.yearOfStudy || 1,
+        currentClass: existingUser.currentClass || '',
         rollNumber: existingUser.rollNumber || '',
         parentName: existingUser.parentName || '',
         parentPhone: existingUser.parentPhone || '',
@@ -113,6 +115,7 @@ const CreateUserModal = ({
         // Reset student-specific fields
         course: '',
         yearOfStudy: 1,
+        currentClass: '',
         rollNumber: '',
         parentName: '',
         parentPhone: '',
@@ -206,6 +209,7 @@ const CreateUserModal = ({
         Object.assign(userData, {
           course: formData.course,
           yearOfStudy: formData.yearOfStudy,
+          currentClass: formData.currentClass,
           rollNumber: formData.rollNumber,
           parentName: formData.parentName,
           parentPhone: formData.parentPhone,
@@ -264,6 +268,7 @@ const CreateUserModal = ({
           // Reset student-specific fields
           course: '',
           yearOfStudy: 1,
+          currentClass: '',
           rollNumber: '',
           parentName: '',
           parentPhone: '',
@@ -896,32 +901,63 @@ const CreateUserModal = ({
                   </div>
                 </div>
 
-                {/* Roll Number */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Roll Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.rollNumber}
-                    onChange={(e) => handleInputChange('rollNumber', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Student roll number"
-                    disabled={loading}
-                  />
+                {/* Current Class and Roll Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '6px'
+                    }}>
+                      Current Class
+                    </label>
+                    <select
+                      value={formData.currentClass}
+                      onChange={(e) => handleInputChange('currentClass', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        boxSizing: 'border-box'
+                      }}
+                      disabled={loading}
+                    >
+                      <option value="">Select class</option>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(cls => (
+                        <option key={cls} value={cls}>{cls}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '6px'
+                    }}>
+                      Roll Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.rollNumber}
+                      onChange={(e) => handleInputChange('rollNumber', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        boxSizing: 'border-box'
+                      }}
+                      placeholder="Student roll number"
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
 
                 {/* Parent Information */}

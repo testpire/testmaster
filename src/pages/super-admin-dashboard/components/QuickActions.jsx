@@ -1,56 +1,56 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
 
 const QuickActions = ({ onAction }) => {
+  // Only actions that map to real, existing routes in the app.
   const actions = [
     {
-      id: 'add-student',
-      title: 'Add Student',
-      description: 'Enroll new student to the platform',
-      icon: 'UserPlus',
+      id: 'institutes',
+      title: 'Institutes',
+      description: 'Create and manage institutes',
+      icon: 'Building',
       color: 'primary',
-      shortcut: 'Ctrl+S'
+      route: '/institute-management'
     },
     {
-      id: 'add-teacher',
-      title: 'Add Teacher',
-      description: 'Create new teacher account',
+      id: 'students',
+      title: 'Students',
+      description: 'Manage student accounts',
       icon: 'Users',
       color: 'secondary',
-      shortcut: 'Ctrl+T'
+      route: '/student-management'
     },
     {
-      id: 'create-course',
-      title: 'Create Course',
-      description: 'Set up new course or batch',
-      icon: 'BookOpen',
+      id: 'teachers',
+      title: 'Teachers',
+      description: 'Manage teacher accounts',
+      icon: 'UserCheck',
       color: 'accent',
-      shortcut: 'Ctrl+C'
+      route: '/teacher-management'
     },
     {
-      id: 'create-test',
-      title: 'Create Test',
-      description: 'Design new test paper',
-      icon: 'FileText',
+      id: 'courses',
+      title: 'Courses',
+      description: 'Manage courses and curriculum',
+      icon: 'BookOpen',
       color: 'success',
-      shortcut: 'Ctrl+N'
+      route: '/course-management'
     },
     {
-      id: 'view-analytics',
-      title: 'View Analytics',
-      description: 'Check platform performance',
-      icon: 'BarChart3',
+      id: 'question-bank',
+      title: 'Question Bank',
+      description: 'Manage questions',
+      icon: 'FileText',
       color: 'warning',
-      shortcut: 'Ctrl+A'
+      route: '/question-bank'
     },
     {
-      id: 'system-settings',
-      title: 'System Settings',
-      description: 'Configure platform settings',
-      icon: 'Settings',
-      color: 'error',
-      shortcut: 'Ctrl+G'
+      id: 'leads',
+      title: 'Leads',
+      description: 'Track and convert leads',
+      icon: 'Target',
+      color: 'primary',
+      route: '/lead-management'
     }
   ];
 
@@ -66,12 +66,6 @@ const QuickActions = ({ onAction }) => {
     return colorMap?.[color] || colorMap?.primary;
   };
 
-  const handleActionClick = (actionId) => {
-    if (onAction) {
-      onAction(actionId);
-    }
-  };
-
   return (
     <div className="bg-card rounded-lg border border-border">
       <div className="p-6 border-b border-border">
@@ -81,35 +75,25 @@ const QuickActions = ({ onAction }) => {
         </div>
       </div>
       <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions?.map((action) => (
             <button
               key={action?.id}
-              onClick={() => handleActionClick(action?.id)}
-              className={`p-4 rounded-lg border border-border transition-all duration-200 text-left group ${getColorClasses(action?.color)}`}
+              onClick={() => onAction?.(action?.route)}
+              className="p-4 rounded-lg border border-border transition-all duration-200 text-left group hover:bg-muted/50"
             >
               <div className="flex items-start space-x-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getColorClasses(action?.color)?.replace('hover:bg-', 'bg-')?.replace('/20', '/20')}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${getColorClasses(action?.color)}`}>
                   <Icon name={action?.icon} size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground group-hover:text-current">{action?.title}</h4>
+                  <h4 className="font-medium text-foreground">{action?.title}</h4>
                   <p className="text-sm text-muted-foreground mt-1">{action?.description}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs font-mono text-muted-foreground">{action?.shortcut}</span>
-                    <Icon name="ArrowRight" size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
                 </div>
+                <Icon name="ArrowRight" size={16} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </button>
           ))}
-        </div>
-        
-        <div className="mt-6 pt-4 border-t border-border">
-          <Button variant="outline" className="w-full">
-            <Icon name="Plus" size={16} />
-            View All Actions
-          </Button>
         </div>
       </div>
     </div>

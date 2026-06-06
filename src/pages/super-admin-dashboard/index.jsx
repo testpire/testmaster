@@ -4,12 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
-import QuickActionPanel from '../../components/ui/QuickActionPanel';
 import StatsCard from './components/StatsCard';
-import ActivityFeed from './components/ActivityFeed';
 import QuickActions from './components/QuickActions';
-import SystemAlerts from './components/SystemAlerts';
-import AnalyticsChart from './components/AnalyticsChart';
 import CreateInstituteModal from './components/CreateInstituteModal';
 import CreateUserModal from './components/CreateUserModal';
 import UserManagementTree from './components/UserManagementTree';
@@ -37,14 +33,14 @@ const SuperAdminDashboard = () => {
   // Notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
-  // Dashboard statistics state
+  // Dashboard statistics state — all values come from the backend
   const [dashboardStats, setDashboardStats] = useState({
     totalStudents: 0,
-    activeTeachers: 0,
-    ongoingTests: 0,
-    systemPerformance: 98.7,
-    instituteName: '',
-    instituteCode: '',
+    totalTeachers: 0,
+    totalInstAdmins: 0,
+    totalInstitutes: 0,
+    totalUsers: 0,
+    instituteUserCount: null, // users in the currently selected institute
     loading: true,
     error: null
   });
@@ -56,7 +52,7 @@ const SuperAdminDashboard = () => {
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'super-admin',
     email: userProfile?.email || user?.email,
     avatar: userProfile?.avatar || null,
-    notifications: 5
+    notifications: 0
   };
 
   // Update time every minute
@@ -70,40 +66,38 @@ const SuperAdminDashboard = () => {
 
   // Institutes are now managed by SuperAdminContext
 
-  // Fetch dashboard statistics based on selected institute
+  // Fetch dashboard statistics from the backend.
+  // Platform totals come from GET /super-admin/dashboard; the per-institute
+  // user count is derived from the real GET /super-admin/users list.
   const fetchDashboardStats = async () => {
     try {
       setDashboardStats(prev => ({ ...prev, loading: true, error: null }));
 
-      // Get all users to filter by institute
-      const usersResult = await newDashboardService.getAllUsers();
-      
-      let totalStudents = 0;
-      let activeTeachers = 0;
-      let filteredUsers = [];
-      
-      if (usersResult.data && Array.isArray(usersResult.data)) {
-        // Filter users based on selected institute
-        if (selectedInstitute?.id === 'all') {
-          filteredUsers = usersResult.data;
-        } else if (selectedInstitute?.id) {
-          filteredUsers = usersResult.data.filter(
-            user => user.instituteId === selectedInstitute.id || user.institute_id === selectedInstitute.id
-          );
-        }
-        
-        totalStudents = filteredUsers.filter(user => user.role === 'STUDENT').length;
-        activeTeachers = filteredUsers.filter(user => user.role === 'TEACHER').length;
+      const [dashResult, usersResult] = await Promise.all([
+        newDashboardService.getSuperAdminDashboard(),
+        newDashboardService.getAllUsers(),
+      ]);
+
+      if (dashResult.error || !dashResult.data) {
+        throw new Error(dashResult.error?.message || 'Dashboard data unavailable');
+      }
+      const d = dashResult.data;
+
+      // Real count of users belonging to the selected institute
+      let instituteUserCount = null;
+      if (selectedInstitute?.id && Array.isArray(usersResult.data)) {
+        instituteUserCount = usersResult.data.filter(
+          user => String(user.instituteId ?? user.institute_id) === String(selectedInstitute.id)
+        ).length;
       }
 
-      // Set dashboard stats
       setDashboardStats({
-        totalStudents,
-        activeTeachers,
-        ongoingTests: Math.floor(Math.random() * 30) + 10, // Mock data for now
-        systemPerformance: 98.7,
-        instituteName: selectedInstitute?.name || '',
-        instituteCode: selectedInstitute?.code || '',
+        totalStudents: d.totalStudents ?? 0,
+        totalTeachers: d.totalTeachers ?? 0,
+        totalInstAdmins: d.totalInstAdmins ?? 0,
+        totalInstitutes: d.totalInstitutes ?? (allInstitutes?.length || 0),
+        totalUsers: d.totalUsers ?? 0,
+        instituteUserCount,
         loading: false,
         error: null
       });
@@ -113,7 +107,7 @@ const SuperAdminDashboard = () => {
       setDashboardStats(prev => ({
         ...prev,
         loading: false,
-        error: 'Failed to load dashboard statistics'
+        error: error.message || 'Failed to load dashboard statistics'
       }));
     }
   };
@@ -127,38 +121,31 @@ const SuperAdminDashboard = () => {
     }
   }, [selectedInstitute?.id]);
 
-  // Create stats data from dashboard state
+  // Stats cards — platform-wide totals from GET /super-admin/dashboard.
+  // No fabricated trend percentages: the backend does not provide them.
   const statsData = [
     {
       title: 'Total Students',
       value: dashboardStats.loading ? '...' : dashboardStats.totalStudents?.toLocaleString() || '0',
-      change: '+12.5%',
-      changeType: 'increase',
       icon: 'Users',
       color: 'primary'
     },
     {
-      title: 'Active Teachers',
-      value: dashboardStats.loading ? '...' : dashboardStats.activeTeachers?.toLocaleString() || '0',
-      change: '+3.2%',
-      changeType: 'increase',
+      title: 'Teachers',
+      value: dashboardStats.loading ? '...' : dashboardStats.totalTeachers?.toLocaleString() || '0',
       icon: 'UserCheck',
       color: 'secondary'
     },
     {
-      title: 'Ongoing Tests',
-      value: dashboardStats.loading ? '...' : dashboardStats.ongoingTests?.toString() || '0',
-      change: '+8.1%',
-      changeType: 'increase',
-      icon: 'FileText',
+      title: 'Institute Admins',
+      value: dashboardStats.loading ? '...' : dashboardStats.totalInstAdmins?.toLocaleString() || '0',
+      icon: 'ShieldCheck',
       color: 'accent'
     },
     {
-      title: 'System Performance',
-      value: dashboardStats.loading ? '...' : `${dashboardStats.systemPerformance}%` || '0%',
-      change: '+0.3%',
-      changeType: 'increase',
-      icon: 'Activity',
+      title: 'Institutes',
+      value: dashboardStats.loading ? '...' : dashboardStats.totalInstitutes?.toLocaleString() || '0',
+      icon: 'Building',
       color: 'success'
     }
   ];
@@ -191,18 +178,9 @@ const SuperAdminDashboard = () => {
     setMobileMenuOpen(false);
   };
 
-  const handleQuickAction = (actionId) => {
-    const actionRoutes = {
-      'add-student': '/student-management',
-      'add-teacher': '/teacher-management',
-      'create-course': '/course-management',
-      'create-test': '/question-bank',
-      'view-analytics': '/super-admin-dashboard',
-      'system-settings': '/super-admin-dashboard'
-    };
-
-    if (actionRoutes?.[actionId]) {
-      navigate(actionRoutes?.[actionId]);
+  const handleQuickAction = (route) => {
+    if (route) {
+      navigate(route);
     }
   };
 
@@ -297,14 +275,9 @@ const SuperAdminDashboard = () => {
               </div>
               
               <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                <Button variant="outline" size="sm" onClick={fetchDashboardStats}>
+                <Button variant="outline" size="sm" onClick={fetchDashboardStats} disabled={dashboardStats.loading}>
                   <Icon name="RefreshCw" size={16} />
                   <span className="hidden sm:inline">Refresh </span>Data
-                </Button>
-                
-                <Button variant="outline" size="sm">
-                  <Icon name="Download" size={16} />
-                  <span className="hidden sm:inline">Export </span>Report
                 </Button>
               </div>
             </div>
@@ -330,9 +303,9 @@ const SuperAdminDashboard = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-primary">
-                    {dashboardStats.totalStudents + dashboardStats.activeTeachers}
+                    {dashboardStats.loading ? '...' : (dashboardStats.instituteUserCount ?? 0)}
                   </div>
-                  <div className="text-sm text-muted-foreground">Total Users</div>
+                  <div className="text-sm text-muted-foreground">Users in this institute</div>
                 </div>
               </div>
               {selectedInstitute.description && (
@@ -375,120 +348,10 @@ const SuperAdminDashboard = () => {
             ))}
           </div>
 
-          {/* Main Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Activity Feed - Left Column */}
-            <div className="lg:col-span-1">
-              <ActivityFeed />
-            </div>
-
-            {/* Quick Actions - Center Column */}
-            <div className="lg:col-span-1">
-              <QuickActions onAction={handleQuickAction} />
-            </div>
-
-            {/* System Alerts - Right Column */}
-            <div className="lg:col-span-1">
-              <SystemAlerts />
-            </div>
-          </div>
-
-          {/* Analytics Chart - Full Width */}
-          <div className="mb-8">
-            <AnalyticsChart />
-          </div>
-
-          {/* Institute-Specific Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">
-                  {selectedInstitute?.id === 'all' ? 'All Enrollments' : 'Recent Enrollments'}
-                </h3>
-                <Icon name="TrendingUp" size={20} className="text-success" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">New Students</span>
-                  <span className="text-sm font-medium text-foreground">
-                    +{Math.floor(Math.random() * 20) + 5} this week
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">New Teachers</span>
-                  <span className="text-sm font-medium text-foreground">
-                    +{Math.floor(Math.random() * 5) + 1} this week
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Active Tests</span>
-                  <span className="text-sm font-medium text-foreground">
-                    {dashboardStats.ongoingTests} ongoing
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Performance Overview</h3>
-                <Icon name="Award" size={20} className="text-warning" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Avg. Test Score</span>
-                  <span className="text-sm font-medium text-success">
-                    {(85 + Math.random() * 10).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Student Satisfaction</span>
-                  <span className="text-sm font-medium text-success">
-                    {(90 + Math.random() * 8).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Course Completion</span>
-                  <span className="text-sm font-medium text-success">
-                    {(78 + Math.random() * 15).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">System Status</h3>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-success rounded-full"></div>
-                  <span className="text-sm text-success">All Systems Operational</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Database</span>
-                  <span className="text-sm font-medium text-success">Online</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">API Services</span>
-                  <span className="text-sm font-medium text-success">Online</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">File Storage</span>
-                  <span className="text-sm font-medium text-success">Online</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Quick Actions - navigation to real management pages */}
+          <QuickActions onAction={handleQuickAction} />
         </div>
       </main>
-
-      {/* Floating Quick Actions */}
-      <QuickActionPanel
-        userRole={currentUser?.role}
-        onAction={handleQuickAction}
-        variant="floating"
-      />
 
       {/* Success Notification */}
       {notification.show && (
