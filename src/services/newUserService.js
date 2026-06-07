@@ -127,6 +127,12 @@ export const newUserService = {
         enabled: studentData.enabled !== undefined ? studentData.enabled : true,
       };
 
+      // Multi-enrollment: course+batch pairs. Only send when the caller supplied them
+      // so partial updates don't wipe existing enrollments.
+      if (Array.isArray(studentData.enrollments)) {
+        updateData.enrollments = studentData.enrollments;
+      }
+
       console.log('Calling PUT /students/{id} with:', { studentId, updateData });
 
       const { data, error, success } = await put(`/students/${studentId}`, updateData);
@@ -244,6 +250,16 @@ export const newUserService = {
         payload.dateOfBirth = userData.dateOfBirth ? `${userData.dateOfBirth}T00:00:00.000Z` : null;
         payload.bloodGroup = userData.bloodGroup || '';
         payload.emergencyContact = userData.emergencyContact || '';
+
+        // Multi-enrollment: course+batch pairs ({ courseId, batchId }).
+        if (Array.isArray(userData.enrollments)) {
+          payload.enrollments = userData.enrollments;
+          // Keep the legacy single `course` string populated from the first enrollment
+          // so screens that still read student.course keep working.
+          if (!payload.course && userData.enrollments[0]?.courseName) {
+            payload.course = userData.enrollments[0].courseName;
+          }
+        }
       }
 
       const { data, error, success } = await post(endpoint, payload);
@@ -340,6 +356,54 @@ export const newUserService = {
         },
         error 
       };
+    }
+  },
+
+  // Search students with optional course/batch filtering via the advanced-search
+  // endpoint (POST /students/search/advanced). StudentCriteriaDto supports courseId
+  // and batchId (integer ids), so filtering is a single server-side call — pass either,
+  // both, or neither. instituteId is scoped from the JWT / X-Institute-Id header.
+  async searchStudents({ courseId = null, batchId = null } = {}, pagination = { page: 0, size: 20 }) {
+    try {
+      const criteria = {};
+      if (courseId) criteria.courseId = Number(courseId);
+      if (batchId) criteria.batchId = Number(batchId);
+
+      const payload = {
+        criteria,
+        pagination: {
+          page: pagination.page || 0,
+          size: pagination.size || 20,
+        },
+        sorting: { field: 'createdAt', direction: 'desc' },
+      };
+
+      const { data, error, success } = await post('/students/search/advanced', payload);
+
+      if (success && data) {
+        // Handle double-nested response: data.data.students or data.students
+        const nestedData = data.data || data;
+        const students = nestedData.students || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
+        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || students.length;
+        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+
+        return {
+          data: students,
+          pagination: {
+            currentPage,
+            totalPages,
+            totalElements,
+            hasMore: currentPage < totalPages - 1,
+            size: payload.pagination.size,
+          },
+          error: null,
+        };
+      }
+
+      return { data: [], pagination: { currentPage: 0, totalPages: 0, totalElements: 0, hasMore: false, size: 20 }, error };
+    } catch (error) {
+      return { data: [], pagination: { currentPage: 0, totalPages: 0, totalElements: 0, hasMore: false, size: 20 }, error };
     }
   },
 

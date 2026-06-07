@@ -13,6 +13,10 @@ export const LEAD_STATUSES = [
 
 export const LEAD_SOURCES = ['WALK_IN', 'REFERRAL', 'ONLINE', 'PHONE', 'OTHER'];
 
+export const LEAD_GENDERS = ['MALE', 'FEMALE', 'OTHER'];
+
+export const LEAD_BOARDS = ['CBSE', 'ICSE', 'STATE'];
+
 // Human-friendly labels for the SCREAMING_SNAKE_CASE enum values.
 export const prettyEnum = (value) =>
   (value || '')

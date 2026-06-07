@@ -3,8 +3,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
+import { courseService } from '../../services/courseService';
+import { newBatchService } from '../../services/newBatchService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
+import Select from '../../components/ui/Select';
 import Icon from '../../components/AppIcon';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
@@ -28,6 +31,14 @@ const StudentManagement = () => {
   const [editingStudent, setEditingStudent] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Course / batch filter state
+  const [courses, setCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [batches, setBatches] = useState([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+
   // Institute data for filtering
   const [instituteData, setInstituteData] = useState({
     institute: null,
@@ -46,24 +57,45 @@ const StudentManagement = () => {
     instituteId: userProfile?.instituteId || user?.instituteId
   };
 
-  // Load institute data and students
+  // Load institute data + course list once we have an authenticated user.
   useEffect(() => {
-    // Only load data if we have user authentication data
     if (user || userProfile) {
       loadInstituteData();
-      loadStudents();
+      loadCourses();
     } else {
       setLoading(true);
       setError('Loading user information...');
     }
   }, [user, userProfile]);
 
-  // Reload students when super-admin switches institute
+  // When the super-admin switches institute, courses/batches/students all change.
+  // Reset the filters and reload the course list for the new institute.
   useEffect(() => {
     if (superAdminContext?.selectedInstitute?.id) {
-      loadStudents();
+      setSelectedCourseId('');
+      setSelectedBatchId('');
+      setBatches([]);
+      loadCourses();
     }
   }, [superAdminContext?.selectedInstitute?.id]);
+
+  // Load the batches for the selected course (course → many batches). Clearing the
+  // course resets the batch filter too.
+  useEffect(() => {
+    if (!selectedCourseId) {
+      setBatches([]);
+      setSelectedBatchId('');
+      return;
+    }
+    loadBatches(selectedCourseId);
+  }, [selectedCourseId]);
+
+  // (Re)load students whenever auth, the active institute, or the filters change.
+  useEffect(() => {
+    if (user || userProfile) {
+      loadStudents();
+    }
+  }, [user, userProfile, superAdminContext?.selectedInstitute?.id, selectedCourseId, selectedBatchId]);
 
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;
@@ -87,24 +119,55 @@ const StudentManagement = () => {
     }
   };
 
+  const loadCourses = async () => {
+    setCoursesLoading(true);
+    try {
+      const { data } = await courseService.getCourses({ page: 0, size: 100 });
+      setCourses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading courses:', err);
+      setCourses([]);
+    } finally {
+      setCoursesLoading(false);
+    }
+  };
+
+  const loadBatches = async (courseId) => {
+    setBatchesLoading(true);
+    try {
+      const { data } = await newBatchService.getBatchesByCourse(courseId);
+      setBatches(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading batches:', err);
+      setBatches([]);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
   const loadStudents = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Get students for this institute using institute-specific endpoint
-      const { data, error } = await newUserService.getStudentsByBatch(null);
-      
+      // Single server-side call: course/batch filtering via StudentCriteriaDto
+      // (courseId/batchId). Passing null for either means "don't filter on it".
+      const { data, error } = await newUserService.searchStudents(
+        {
+          courseId: selectedCourseId || null,
+          batchId: selectedBatchId || null,
+        },
+        { page: 0, size: 100 }
+      );
+
       if (error) {
         setError(typeof error === 'string' ? error : error.message || 'Failed to load students');
+        setStudents([]);
         setLoading(false);
         return;
       }
 
-      // Data is already filtered by the API to include only this institute's students
-      const instituteStudents = data || [];
-
-      setStudents(instituteStudents);
+      setStudents(data || []);
       setLoading(false);
     } catch (err) {
       console.error('Error loading students:', err);
@@ -157,6 +220,21 @@ const StudentManagement = () => {
     ? superAdminContext?.selectedInstitute
     : instituteData.institute;
 
+  // Dropdown options for the course/batch filters.
+  const courseOptions = courses.map((c) => ({
+    value: c.id,
+    label: c.name || c.code || `Course #${c.id}`,
+  }));
+  const batchOptions = batches.map((b) => ({
+    value: b.id,
+    label: b.name || b.code || `Batch #${b.id}`,
+  }));
+
+  // True when any narrowing is active (search box or course/batch filters).
+  const hasActiveFilter = !!(searchTerm || selectedCourseId || selectedBatchId);
+  const selectedCourseName = courseOptions.find((c) => c.value === selectedCourseId)?.label;
+  const selectedBatchName = batchOptions.find((b) => b.value === selectedBatchId)?.label;
+
   // Filter students based on search term
   const filteredStudents = students.filter(student => {
     if (!searchTerm) return true;
@@ -202,9 +280,9 @@ const StudentManagement = () => {
             </Button>
           </div>
 
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative max-w-md">
+          {/* Search + Course/Batch filters */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-end gap-4">
+            <div className="relative w-full lg:max-w-xs">
               <Icon
                 name="Search"
                 size={16}
@@ -218,6 +296,48 @@ const StudentManagement = () => {
                 className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
+
+            <div className="w-full sm:w-56">
+              <Select
+                label="Course"
+                placeholder="All Courses"
+                clearable
+                loading={coursesLoading}
+                value={selectedCourseId}
+                onChange={(value) => {
+                  setSelectedCourseId(value || '');
+                  setSelectedBatchId('');
+                }}
+                options={courseOptions}
+              />
+            </div>
+
+            <div className="w-full sm:w-56">
+              <Select
+                label="Batch"
+                placeholder={selectedCourseId ? 'All Batches' : 'Select a course first'}
+                clearable
+                disabled={!selectedCourseId}
+                loading={batchesLoading}
+                value={selectedBatchId}
+                onChange={(value) => setSelectedBatchId(value || '')}
+                options={batchOptions}
+              />
+            </div>
+
+            {(selectedCourseId || selectedBatchId) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedCourseId('');
+                  setSelectedBatchId('');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Icon name="X" size={16} />
+                Clear filters
+              </Button>
+            )}
           </div>
 
           {/* Students Table */}
@@ -239,15 +359,15 @@ const StudentManagement = () => {
               <div className="p-8 text-center">
                 <Icon name="GraduationCap" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  {searchTerm ? 'No students found' : 'No students yet'}
+                  {hasActiveFilter ? 'No students found' : 'No students yet'}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchTerm 
-                    ? 'Try adjusting your search terms' 
+                  {hasActiveFilter
+                    ? 'Try adjusting your search or course/batch filters'
                     : 'Get started by adding your first student'
                   }
                 </p>
-                {!searchTerm && (
+                {!hasActiveFilter && (
                   <Button
                     onClick={() => setShowCreateModal(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -265,6 +385,7 @@ const StudentManagement = () => {
                       <th className="text-left p-4 font-semibold text-foreground">Name</th>
                       <th className="text-left p-4 font-semibold text-foreground">Email</th>
                       <th className="text-left p-4 font-semibold text-foreground">Username</th>
+                      <th className="text-left p-4 font-semibold text-foreground">Courses / Batches</th>
                       <th className="text-left p-4 font-semibold text-foreground">Status</th>
                       <th className="text-center p-4 font-semibold text-foreground">Actions</th>
                     </tr>
@@ -291,6 +412,26 @@ const StudentManagement = () => {
                         </td>
                         <td className="p-4 text-foreground">{student.email}</td>
                         <td className="p-4 text-foreground">{student.username}</td>
+                        <td className="p-4">
+                          {Array.isArray(student.enrollments) && student.enrollments.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {student.enrollments.map((en, i) => (
+                                <span
+                                  key={en.enrollmentId || i}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700"
+                                  title={`${en.courseName || ''}${en.batchName ? ' · ' + en.batchName : ''}`}
+                                >
+                                  {en.courseName || `Course #${en.courseId}`}
+                                  {en.batchName ? ` · ${en.batchName}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : student.course ? (
+                            <span className="text-sm text-muted-foreground">{student.course}</span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="p-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Active
@@ -330,6 +471,11 @@ const StudentManagement = () => {
           {!loading && !error && (
             <div className="mt-6 text-sm text-muted-foreground">
               Showing {filteredStudents.length} of {students.length} students
+              {selectedBatchName
+                ? ` in batch "${selectedBatchName}"`
+                : selectedCourseName
+                  ? ` in course "${selectedCourseName}"`
+                  : ''}
               {searchTerm && ` matching "${searchTerm}"`}
             </div>
           )}

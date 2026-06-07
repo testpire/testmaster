@@ -3,6 +3,7 @@ import { newUserService } from '../../../services/newUserService';
 import { newInstituteService } from '../../../services/newInstituteService';
 import { courseService } from '../../../services/courseService';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
+import EnrollmentEditor, { toEnrollmentPayload } from '../../../components/enrollment/EnrollmentEditor';
 
 const CreateUserModal = ({ 
   isOpen, 
@@ -41,7 +42,9 @@ const CreateUserModal = ({
     address: '',
     dateOfBirth: '',
     bloodGroup: '',
-    emergencyContact: ''
+    emergencyContact: '',
+    // Multi-enrollment: rows of { courseId, batchId, courseName?, batchName? }
+    enrollments: []
   });
   const [institutes, setInstitutes] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -95,7 +98,16 @@ const CreateUserModal = ({
         address: existingUser.address || '',
         dateOfBirth: existingUser.dateOfBirth ? existingUser.dateOfBirth.split('T')[0] : '', // Format for date input
         bloodGroup: existingUser.bloodGroup || '',
-        emergencyContact: existingUser.emergencyContact || ''
+        emergencyContact: existingUser.emergencyContact || '',
+        // Hydrate enrollments from the student's EnrollmentResponseDto[] (carries names too).
+        enrollments: Array.isArray(existingUser.enrollments)
+          ? existingUser.enrollments.map((en) => ({
+              courseId: en.courseId ?? '',
+              batchId: en.batchId ?? '',
+              courseName: en.courseName,
+              batchName: en.batchName
+            }))
+          : []
       });
     } else {
       // Default form for creating new user
@@ -121,7 +133,8 @@ const CreateUserModal = ({
         address: '',
         dateOfBirth: '',
         bloodGroup: '',
-        emergencyContact: ''
+        emergencyContact: '',
+        enrollments: []
       }));
     }
   }, [defaultInstituteId, userRole, defaultInstitute, isOpen, editMode, existingUser]);
@@ -204,8 +217,11 @@ const CreateUserModal = ({
       // course/roll/parent details (and teacher details) were silently dropped on
       // both create and edit.
       if (formData.role === 'STUDENT') {
+        const enrollments = toEnrollmentPayload(formData.enrollments);
         Object.assign(userData, {
-          course: formData.course,
+          // Keep the legacy single `course` string in sync with the first enrollment
+          // so screens that still read student.course keep working.
+          course: formData.enrollments?.[0]?.courseName || formData.course || '',
           currentClass: formData.currentClass,
           rollNumber: formData.rollNumber,
           parentName: formData.parentName,
@@ -215,7 +231,8 @@ const CreateUserModal = ({
           dateOfBirth: formData.dateOfBirth,
           bloodGroup: formData.bloodGroup,
           emergencyContact: formData.emergencyContact,
-          enabled: formData.enabled
+          enabled: formData.enabled,
+          enrollments
         });
       } else if (formData.role === 'TEACHER') {
         Object.assign(userData, {
@@ -272,7 +289,8 @@ const CreateUserModal = ({
           address: '',
           dateOfBirth: '',
           bloodGroup: '',
-          emergencyContact: ''
+          emergencyContact: '',
+          enrollments: []
         });
       }
     } catch (err) {
@@ -828,45 +846,8 @@ const CreateUserModal = ({
             {/* Student-specific fields */}
             {userRole === 'STUDENT' && (
               <>
-                {/* Course and Current Class */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Course
-                    </label>
-                    <select
-                      value={formData.course}
-                      onChange={(e) => handleInputChange('course', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      disabled={loading || loadingCourses}
-                    >
-                      <option value="">
-                        {loadingCourses ? 'Loading courses...' : 'Select a course'}
-                      </option>
-                      {/* Preserve a previously-saved course even if it's not in the list */}
-                      {formData.course && !courses.some((c) => c.name === formData.course) && (
-                        <option value={formData.course}>{formData.course}</option>
-                      )}
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name}{c.code ? ` (${c.code})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Current Class */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{
                       display: 'block',
@@ -896,6 +877,29 @@ const CreateUserModal = ({
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Courses & Batches enrollment editor (a student may be enrolled in many) */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    color: '#374151',
+                    marginBottom: '6px'
+                  }}>
+                    Courses & Batches
+                  </label>
+                  {loadingCourses ? (
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Loading courses...</p>
+                  ) : (
+                    <EnrollmentEditor
+                      courses={courses}
+                      value={formData.enrollments}
+                      onChange={(rows) => handleInputChange('enrollments', rows)}
+                      disabled={loading}
+                    />
+                  )}
                 </div>
 
                 {/* Roll Number */}

@@ -18,6 +18,7 @@ const StudentDashboard = () => {
   const [profile, setProfile] = useState(userProfile || user || null);
   const [institute, setInstitute] = useState(null);
   const [peers, setPeers] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const currentUser = {
@@ -45,15 +46,17 @@ const StudentDashboard = () => {
         if (mounted && resolvedProfile) setProfile(resolvedProfile);
 
         const instituteId = resolvedProfile?.instituteId;
-        const [peersResp, instituteResp] = await Promise.all([
+        const [peersResp, instituteResp, studentResp] = await Promise.all([
           newUserService.getStudentPeers(instituteId),
           instituteId ? newInstituteService.getInstitute(instituteId, { skipAuthRedirect: true }) : Promise.resolve({ data: null }),
+          newUserService.getMyStudentProfile(),
         ]);
 
         if (mounted) {
           setPeers(peersResp?.data || []);
           const inst = instituteResp?.data?.data || instituteResp?.data?.institute || instituteResp?.data || null;
           setInstitute(inst);
+          setEnrollments(Array.isArray(studentResp?.data?.enrollments) ? studentResp.data.enrollments : []);
         }
       } catch (e) {
         console.error('Failed to load student dashboard:', e);
@@ -211,6 +214,34 @@ const StudentDashboard = () => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* My Courses & Batches */}
+          <div className="bg-card rounded-lg border border-border p-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">My Courses & Batches</h3>
+              <button onClick={() => navigate('/profile')} className="text-sm text-primary hover:underline">Manage</button>
+            </div>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : enrollments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No enrollments yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {enrollments.map((en, i) => (
+                  <span
+                    key={en.enrollmentId || i}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-sm text-foreground"
+                  >
+                    <Icon name="BookOpen" size={14} className="text-primary" />
+                    <span className="font-medium">{en.courseName || `Course #${en.courseId}`}</span>
+                    {en.batchName && (
+                      <span className="text-muted-foreground">· {en.batchName}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Peers list */}

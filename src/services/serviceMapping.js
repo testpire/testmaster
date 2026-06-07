@@ -6,12 +6,12 @@ import { newUserService } from './newUserService';
 import { newInstituteService } from './newInstituteService';
 import { newDashboardService } from './newDashboardService';
 import { newLeadService } from './newLeadService';
-import { 
-  newTestService, 
-  newCourseService, 
-  newBatchService, 
-  newQuestionService, 
-  newStudyMaterialService 
+import { newBatchService } from './newBatchService';
+import {
+  newTestService,
+  newCourseService,
+  newQuestionService,
+  newStudyMaterialService
 } from './placeholderServices';
 
 // Flag to control which services to use

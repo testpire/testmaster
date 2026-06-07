@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { newLeadService } from '../../../services/newLeadService';
+import { newBatchService } from '../../../services/newBatchService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
@@ -9,6 +10,7 @@ import Button from '../../../components/ui/Button';
 const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [] }) => {
   const [form, setForm] = useState({
     enrolledCourseId: '',
+    enrolledBatchId: '',
     email: '',
     parentName: '',
     parentPhone: '',
@@ -18,6 +20,8 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
     bloodGroup: '',
     emergencyContact: ''
   });
+  const [batches, setBatches] = useState([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,10 +31,27 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
     setForm((prev) => ({
       ...prev,
       enrolledCourseId: lead.interestedCourseId ?? '',
+      enrolledBatchId: '',
       email: lead.email || ''
     }));
     setError('');
   }, [isOpen, lead]);
+
+  // Load the chosen course's batches so the student can be placed into one on conversion.
+  useEffect(() => {
+    if (!isOpen || !form.enrolledCourseId) {
+      setBatches([]);
+      return;
+    }
+    let active = true;
+    setLoadingBatches(true);
+    newBatchService.getBatchesByCourse(form.enrolledCourseId).then(({ data }) => {
+      if (!active) return;
+      setBatches(Array.isArray(data) ? data : []);
+      setLoadingBatches(false);
+    });
+    return () => { active = false; };
+  }, [isOpen, form.enrolledCourseId]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -47,6 +68,7 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
     const payload = {
       enrolledCourseId: Number(form.enrolledCourseId)
     };
+    if (form.enrolledBatchId) payload.enrolledBatchId = Number(form.enrolledBatchId);
     if (form.email.trim()) payload.email = form.email.trim();
     if (form.parentName.trim()) payload.parentName = form.parentName.trim();
     if (form.parentPhone.trim()) payload.parentPhone = form.parentPhone.trim();
@@ -111,7 +133,14 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
                 </label>
                 <select
                   value={form.enrolledCourseId}
-                  onChange={(e) => setField('enrolledCourseId', e.target.value)}
+                  onChange={(e) =>
+                    // Changing course invalidates any previously chosen batch.
+                    setForm((prev) => ({
+                      ...prev,
+                      enrolledCourseId: e.target.value,
+                      enrolledBatchId: ''
+                    }))
+                  }
                   disabled={loading}
                   className={inputCls}
                 >
@@ -119,6 +148,30 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Batch</label>
+                <select
+                  value={form.enrolledBatchId}
+                  onChange={(e) => setField('enrolledBatchId', e.target.value)}
+                  disabled={loading || !form.enrolledCourseId || loadingBatches}
+                  className={inputCls}
+                >
+                  <option value="">
+                    {!form.enrolledCourseId
+                      ? '— Select a course first —'
+                      : loadingBatches
+                      ? 'Loading batches...'
+                      : batches.length === 0
+                      ? 'No batches yet'
+                      : '— No batch —'}
+                  </option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}{b.code ? ` (${b.code})` : ''}
                     </option>
                   ))}
                 </select>

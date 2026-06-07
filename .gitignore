@@ -6,3 +6,5 @@ node_modules
 .vscode/
 .idea/
 vite.config.*s.*
+.playwright-mcp
+*.md

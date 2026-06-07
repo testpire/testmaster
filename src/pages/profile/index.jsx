@@ -5,14 +5,15 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
+import { courseService } from '../../services/courseService';
 import { CLASS_OPTIONS } from '../../utils/classOptions';
+import EnrollmentEditor, { toEnrollmentPayload } from '../../components/enrollment/EnrollmentEditor';
 
 // Editable fields per role (keys map to UpdateStudentRequestDto / UpdateTeacherRequestDto)
 const STUDENT_FIELDS = [
   { key: 'firstName', label: 'First Name' },
   { key: 'lastName', label: 'Last Name' },
   { key: 'phone', label: 'Phone' },
-  { key: 'course', label: 'Course' },
   { key: 'rollNumber', label: 'Roll Number' },
   { key: 'currentClass', label: 'Current Class', type: 'select', options: CLASS_OPTIONS },
   { key: 'address', label: 'Address' },
@@ -43,10 +44,14 @@ const Profile = () => {
   const fields = role === 'TEACHER' ? TEACHER_FIELDS : STUDENT_FIELDS;
 
   const [form, setForm] = useState({});
+  const [enrollments, setEnrollments] = useState([]); // student course+batch rows
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(isEditable);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const isStudent = role === 'STUDENT';
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +69,22 @@ const Profile = () => {
           : await newUserService.getMyStudentProfile();
         if (res?.data) resolved = { ...resolved, ...res.data };
       }
+
+      // Students manage their own course/batch enrollments — load courses + seed rows.
+      if (isStudent) {
+        const { data: courseData } = await courseService.getCourses({ page: 0, size: 100 });
+        if (mounted) setCourses(Array.isArray(courseData) ? courseData : []);
+        const rows = Array.isArray(resolved?.enrollments)
+          ? resolved.enrollments.map((en) => ({
+              courseId: en.courseId ?? '',
+              batchId: en.batchId ?? '',
+              courseName: en.courseName,
+              batchName: en.batchName
+            }))
+          : [];
+        if (mounted) setEnrollments(rows);
+      }
+
       if (mounted) {
         setForm(resolved || {});
         setLoading(false);
@@ -93,6 +114,11 @@ const Profile = () => {
       if (type === 'number' || type === 'select') v = parseInt(v, 10);
       payload[key] = v;
     });
+
+    // Students persist their course/batch enrollments alongside the profile fields.
+    if (isStudent) {
+      payload.enrollments = toEnrollmentPayload(enrollments);
+    }
 
     const res = role === 'TEACHER'
       ? await newUserService.updateMyTeacherProfile(payload)
@@ -191,6 +217,21 @@ const Profile = () => {
                 </div>
               ))}
             </div>
+
+            {isStudent && (
+              <div className="mt-6 pt-6 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground mb-1">My Courses & Batches</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Add the courses you're enrolled in and pick your batch for each.
+                </p>
+                <EnrollmentEditor
+                  courses={courses}
+                  value={enrollments}
+                  onChange={setEnrollments}
+                  disabled={saving}
+                />
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end">
               <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground">

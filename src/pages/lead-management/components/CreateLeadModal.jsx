@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { newLeadService } from '../../../services/newLeadService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import { LEAD_STATUSES, LEAD_SOURCES, prettyEnum } from '../leadConstants';
+import { CLASS_OPTIONS } from '../../../utils/classOptions';
+import {
+  LEAD_STATUSES,
+  LEAD_SOURCES,
+  LEAD_GENDERS,
+  LEAD_BOARDS,
+  prettyEnum
+} from '../leadConstants';
 
 // Create / edit a lead. Create mode always sends status NEW; the status funnel
 // select only appears in edit mode (you advance a lead as you nurture it).
@@ -20,6 +27,14 @@ const CreateLeadModal = ({
     lastName: '',
     email: '',
     phone: '',
+    gender: '',
+    school: '',
+    currentClass: '',
+    board: '',
+    courseFeeCommitted: '',
+    parentName: '',
+    parentPhone: '',
+    parentEmail: '',
     source: 'WALK_IN',
     interestedCourseId: '',
     assignedTo: '',
@@ -41,6 +56,14 @@ const CreateLeadModal = ({
         lastName: existingLead.lastName || '',
         email: existingLead.email || '',
         phone: existingLead.phone || '',
+        gender: existingLead.gender || '',
+        school: existingLead.school || '',
+        currentClass: existingLead.currentClass ?? '',
+        board: existingLead.board || '',
+        courseFeeCommitted: existingLead.courseFeeCommitted ?? '',
+        parentName: existingLead.parentName || '',
+        parentPhone: existingLead.parentPhone || '',
+        parentEmail: existingLead.parentEmail || '',
         source: existingLead.source || 'WALK_IN',
         interestedCourseId: existingLead.interestedCourseId ?? '',
         assignedTo: existingLead.assignedTo || '',
@@ -80,6 +103,14 @@ const CreateLeadModal = ({
     };
     if (form.lastName.trim()) payload.lastName = form.lastName.trim();
     if (form.email.trim()) payload.email = form.email.trim();
+    if (form.gender) payload.gender = form.gender;
+    if (form.school.trim()) payload.school = form.school.trim();
+    if (form.currentClass !== '') payload.currentClass = Number(form.currentClass);
+    if (form.board) payload.board = form.board;
+    if (form.courseFeeCommitted !== '') payload.courseFeeCommitted = Number(form.courseFeeCommitted);
+    if (form.parentName.trim()) payload.parentName = form.parentName.trim();
+    if (form.parentPhone.trim()) payload.parentPhone = form.parentPhone.trim();
+    if (form.parentEmail.trim()) payload.parentEmail = form.parentEmail.trim();
     if (form.interestedCourseId) payload.interestedCourseId = Number(form.interestedCourseId);
     if (form.assignedTo.trim()) payload.assignedTo = form.assignedTo.trim();
     if (form.nextFollowUpDate) payload.nextFollowUpDate = form.nextFollowUpDate;
@@ -187,6 +218,96 @@ const CreateLeadModal = ({
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Gender</label>
+                <select
+                  value={form.gender}
+                  onChange={(e) => setField('gender', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                >
+                  <option value="">— Select —</option>
+                  {LEAD_GENDERS.map((g) => (
+                    <option key={g} value={g}>
+                      {prettyEnum(g)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Current Class
+                </label>
+                <select
+                  value={form.currentClass}
+                  onChange={(e) => setField('currentClass', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                >
+                  <option value="">— Select —</option>
+                  {CLASS_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">School</label>
+                <input
+                  type="text"
+                  value={form.school}
+                  onChange={(e) => setField('school', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Board</label>
+                <select
+                  value={form.board}
+                  onChange={(e) => setField('board', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                >
+                  <option value="">— Select —</option>
+                  {LEAD_BOARDS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Parent Name</label>
+                <input
+                  type="text"
+                  value={form.parentName}
+                  onChange={(e) => setField('parentName', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Parent Phone</label>
+                <input
+                  type="tel"
+                  value={form.parentPhone}
+                  onChange={(e) => setField('parentPhone', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Parent Email</label>
+                <input
+                  type="email"
+                  value={form.parentEmail}
+                  onChange={(e) => setField('parentEmail', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Source</label>
                 <select
                   value={form.source}
@@ -218,6 +339,20 @@ const CreateLeadModal = ({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Course Fee Committed
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.courseFeeCommitted}
+                  onChange={(e) => setField('courseFeeCommitted', e.target.value)}
+                  disabled={loading}
+                  className={inputCls}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Assigned To</label>

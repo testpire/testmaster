@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { courseService } from '../../services/courseService';
+import { newBatchService } from '../../services/newBatchService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
@@ -40,6 +41,158 @@ const getCourseSubjectCodes = (course) => {
     return course.subjects.map((s) => (typeof s === 'string' ? s : s?.code)).filter(Boolean);
   }
   return [];
+};
+
+// Create / edit a single batch under a course. Launched from a course node in the
+// Courses & Batches tree. Submission is delegated to the parent via onSubmit(form, batchId).
+const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', active: true };
+
+const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
+  const [form, setForm] = useState(EMPTY_BATCH);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (batch && batch.id) {
+      setForm({
+        name: batch.name || '',
+        code: batch.code || '',
+        description: batch.description || '',
+        startDate: (batch.startDate || '').slice(0, 10),
+        endDate: (batch.endDate || '').slice(0, 10),
+        capacity: batch.capacity ?? '',
+        active: batch.active !== undefined ? batch.active : true
+      });
+    } else {
+      setForm(EMPTY_BATCH);
+    }
+  }, [batch, isOpen]);
+
+  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) { alert('Batch name is required'); return; }
+    setLoading(true);
+    try {
+      await onSubmit(form, batch?.id || null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-16 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div className="flex justify-between items-center mb-1">
+          <h3 className="text-lg font-bold text-gray-900">{batch?.id ? 'Edit Batch' : 'Add Batch'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <Icon name="X" size={20} />
+          </button>
+        </div>
+        {courseName && <p className="text-sm text-gray-500 mb-4">Course: {courseName}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Batch Name *</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setField('name', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Morning Batch 2026"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Batch Code</label>
+              <input
+                type="text"
+                value={form.code}
+                onChange={(e) => setField('code', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., MB-26"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setField('startDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => setField('endDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+              <input
+                type="number"
+                min="0"
+                value={form.capacity}
+                onChange={(e) => setField('capacity', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 30"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setField('description', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={2}
+              placeholder="Batch description..."
+            />
+          </div>
+
+          {batch?.id && (
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => setField('active', e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Active batch
+            </label>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Saving...' : batch?.id ? 'Update Batch' : 'Create Batch'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], currentUser }) => {
@@ -473,7 +626,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={chapter ? 'Edit Chapter' : 'Add Chapter'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={chapter?.id ? 'Edit Chapter' : 'Add Chapter'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -562,7 +715,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
             disabled={loading}
             className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Saving...' : chapter ? 'Update' : 'Create'}
+            {loading ? 'Saving...' : chapter?.id ? 'Update' : 'Create'}
           </button>
         </div>
       </form>
@@ -639,7 +792,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={topic ? 'Edit Topic' : 'Add Topic'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={topic?.id ? 'Edit Topic' : 'Add Topic'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -747,7 +900,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
             disabled={loading}
             className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Saving...' : topic ? 'Update' : 'Create'}
+            {loading ? 'Saving...' : topic?.id ? 'Update' : 'Create'}
           </button>
         </div>
       </form>
@@ -775,8 +928,16 @@ const CourseManagement = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('courses');
+  // Two trees: 'coursesBatches' (course → batches) and 'curriculum' (subject → chapter → topic)
+  const [activeTab, setActiveTab] = useState('coursesBatches');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Tree expand/collapse state (sets of ids) + lazily-loaded batches per course.
+  const [expandedCourses, setExpandedCourses] = useState(() => new Set());
+  const [expandedSubjects, setExpandedSubjects] = useState(() => new Set());
+  const [expandedChapters, setExpandedChapters] = useState(() => new Set());
+  const [batchesByCourse, setBatchesByCourse] = useState({}); // courseId -> batch[]
+  const [loadingBatchCourses, setLoadingBatchCourses] = useState(() => new Set());
   
   // Institute data
   const [instituteData, setInstituteData] = useState({
@@ -791,11 +952,14 @@ const CourseManagement = () => {
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [showCurriculumUpload, setShowCurriculumUpload] = useState(false);
-  
+  const [showBatchModal, setShowBatchModal] = useState(false);
+
   const [editingCourse, setEditingCourse] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
   const [editingChapter, setEditingChapter] = useState(null);
   const [editingTopic, setEditingTopic] = useState(null);
+  const [editingBatch, setEditingBatch] = useState(null);
+  const [batchCourse, setBatchCourse] = useState(null); // parent course for the batch modal
 
   // Safe user check
   const safeCurrentUser = currentUser || {};
@@ -1081,6 +1245,95 @@ const CourseManagement = () => {
     }
   };
 
+  // ---- Batch tree: lazy loading + CRUD ----
+  const loadBatches = useCallback(async (courseId) => {
+    setLoadingBatchCourses((prev) => new Set(prev).add(courseId));
+    const { data } = await newBatchService.getBatchesByCourse(courseId);
+    setBatchesByCourse((prev) => ({ ...prev, [courseId]: Array.isArray(data) ? data : [] }));
+    setLoadingBatchCourses((prev) => {
+      const next = new Set(prev);
+      next.delete(courseId);
+      return next;
+    });
+  }, []);
+
+  const toggleCourse = (courseId) => {
+    setExpandedCourses((prev) => {
+      const next = new Set(prev);
+      if (next.has(courseId)) {
+        next.delete(courseId);
+      } else {
+        next.add(courseId);
+        if (batchesByCourse[courseId] === undefined) loadBatches(courseId);
+      }
+      return next;
+    });
+  };
+
+  const toggleInSet = (setter) => (id) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleSubject = toggleInSet(setExpandedSubjects);
+  const toggleChapter = toggleInSet(setExpandedChapters);
+
+  const openAddBatch = (course) => { setBatchCourse(course); setEditingBatch(null); setShowBatchModal(true); };
+  const openEditBatch = (course, batch) => { setBatchCourse(course); setEditingBatch(batch); setShowBatchModal(true); };
+  // Pre-seed the parent id so the create form opens scoped to the right subject/chapter,
+  // and expand that parent so the newly-created child is visible after the list reloads.
+  const openAddChapter = (subject) => {
+    setExpandedSubjects((prev) => new Set(prev).add(subject.id));
+    setEditingChapter({ subjectId: subject.id });
+    setShowChapterModal(true);
+  };
+  const openAddTopic = (chapter) => {
+    setExpandedChapters((prev) => new Set(prev).add(chapter.id));
+    setEditingTopic({ subjectId: chapter.subjectId, chapterId: chapter.id });
+    setShowTopicModal(true);
+  };
+
+  const handleBatchSuccess = async (formData, batchId = null) => {
+    const payload = { name: formData.name.trim() };
+    if (formData.code?.trim()) payload.code = formData.code.trim();
+    if (formData.description?.trim()) payload.description = formData.description.trim();
+    if (formData.startDate) payload.startDate = formData.startDate;
+    if (formData.endDate) payload.endDate = formData.endDate;
+    if (formData.capacity !== '' && formData.capacity != null) payload.capacity = Number(formData.capacity);
+
+    let result;
+    if (batchId) {
+      payload.active = formData.active;
+      result = await newBatchService.updateBatch(batchId, payload);
+    } else {
+      payload.courseId = batchCourse?.id;
+      if (safeCurrentUser?.instituteId) payload.instituteId = safeCurrentUser.instituteId;
+      result = await newBatchService.createBatch(payload);
+    }
+
+    if (result.error) {
+      alert(`Failed to ${batchId ? 'update' : 'create'} batch: ${result.error.message || result.error}`);
+      return;
+    }
+    setShowBatchModal(false);
+    setEditingBatch(null);
+    if (batchCourse?.id) {
+      await loadBatches(batchCourse.id);
+      setExpandedCourses((prev) => new Set(prev).add(batchCourse.id));
+    }
+  };
+
+  const handleDeleteBatch = async (courseId, batchId) => {
+    if (!confirm('Are you sure you want to delete this batch?')) return;
+    const { error: delError } = await newBatchService.deleteBatch(batchId);
+    if (delError) {
+      alert('Failed to delete batch: ' + (delError.message || delError));
+      return;
+    }
+    await loadBatches(courseId);
+  };
+
   // Filter data for search
   const getFilteredData = (data, searchTerm) => {
     if (!searchTerm) return data;
@@ -1095,56 +1348,22 @@ const CourseManagement = () => {
     });
   };
 
-  // Get current tab data
-  const getCurrentData = () => {
-    switch (activeTab) {
-      case 'courses': return getFilteredData(courses, searchTerm);
-      case 'subjects': return getFilteredData(subjects, searchTerm);
-      case 'chapters': return getFilteredData(chapters, searchTerm);
-      case 'topics': return getFilteredData(topics, searchTerm);
-      default: return [];
-    }
-  };
-
-  // Build a human-readable list of the subjects attached to a course, tolerant of
-  // whatever shape the API returns: a populated `subjects` array, a `subjectCodes`
-  // string array (enriched with names from the loaded subjects), or legacy subjects
-  // still linked by courseId.
-  const getCourseSubjectsDisplay = (course) => {
-    if (!course) return [];
-    const label = (s) => (s?.code ? `${s.name} (${s.code})` : s?.name) || '';
-    if (Array.isArray(course.subjects) && course.subjects.length) {
-      return course.subjects.map((s) => (typeof s === 'string' ? s : label(s))).filter(Boolean);
-    }
-    if (Array.isArray(course.subjectCodes) && course.subjectCodes.length) {
-      return course.subjectCodes.map((code) => {
-        const match = subjects.find((s) => s.code === code);
-        return match ? `${match.name} (${match.code})` : code;
-      });
-    }
-    // Legacy fallback: subjects that still carry this course's id
-    return subjects.filter((s) => s.courseId != null && s.courseId === course.id).map(label).filter(Boolean);
-  };
-
-  // Tab configuration
+  // Two-tab config for the tree views.
   const tabs = [
-    { id: 'courses', label: 'Courses', icon: 'BookOpen' },
-    { id: 'subjects', label: 'Subjects', icon: 'Book' },
-    { id: 'chapters', label: 'Chapters', icon: 'FileText' },
-    { id: 'topics', label: 'Topics', icon: 'List' }
+    { id: 'coursesBatches', label: 'Courses & Batches', icon: 'BookOpen' },
+    { id: 'curriculum', label: 'Curriculum', icon: 'Book' }
   ];
 
-  const currentTab = tabs.find(tab => tab.id === activeTab);
+  // Root nodes filtered by the search box (courses for one tab, subjects for the other).
+  const filteredCourses = getFilteredData(courses, searchTerm);
+  const filteredSubjects = getFilteredData(subjects, searchTerm);
+  // Child lookups for the curriculum tree (string-compare to tolerate id type drift).
+  const chaptersOf = (subjectId) => chapters.filter((c) => String(c.subjectId) === String(subjectId));
+  const topicsOf = (chapterId) => topics.filter((t) => String(t.chapterId) === String(chapterId));
+  const fmtDate = (d) => (d ? String(d).slice(0, 10) : '');
 
-  // Additional error prevention
-  const safeGetCurrentData = () => {
-    try {
-      return getCurrentData();
-    } catch (err) {
-      console.error('Error in getCurrentData:', err);
-      return [];
-    }
-  };
+  // Shared button styles for tree row actions.
+  const actionBtn = 'p-1.5 rounded transition-colors';
 
   // Render with error boundary
   try {
@@ -1182,241 +1401,271 @@ const CourseManagement = () => {
             ))}
           </div>
 
-          {/* Search and Add Button */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center space-x-4">
-              <input
-                type="text"
-                placeholder={`Search ${currentTab?.label.toLowerCase()}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-              />
-            </div>
-            
+          {/* Toolbar: search + contextual add */}
+          <div className="flex justify-between items-center mb-6 gap-3">
+            <input
+              type="text"
+              placeholder={activeTab === 'coursesBatches' ? 'Search courses...' : 'Search subjects...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+            />
+
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowCurriculumUpload(true)}
-                className="flex items-center gap-2"
-                title="Create subjects, chapters and topics from a CSV file"
-              >
-                <Icon name="Upload" size={16} />
-                Bulk Upload (CSV)
-              </Button>
+              {activeTab === 'curriculum' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCurriculumUpload(true)}
+                  className="flex items-center gap-2"
+                  title="Create subjects, chapters and topics from a CSV file"
+                >
+                  <Icon name="Upload" size={16} />
+                  Bulk Upload (CSV)
+                </Button>
+              )}
 
               <Button
                 onClick={() => {
-                  switch (activeTab) {
-                    case 'courses':
-                      setEditingCourse(null);
-                      setShowCourseModal(true);
-                      break;
-                    case 'subjects':
-                      setEditingSubject(null);
-                      setShowSubjectModal(true);
-                      break;
-                    case 'chapters':
-                      setEditingChapter(null);
-                      setShowChapterModal(true);
-                      break;
-                    case 'topics':
-                      setEditingTopic(null);
-                      setShowTopicModal(true);
-                      break;
+                  if (activeTab === 'coursesBatches') {
+                    setEditingCourse(null);
+                    setShowCourseModal(true);
+                  } else {
+                    setEditingSubject(null);
+                    setShowSubjectModal(true);
                   }
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
               >
                 <Icon name="Plus" size={16} />
-                Add {currentTab?.label.slice(0, -1)}
+                {activeTab === 'coursesBatches' ? 'Add Course' : 'Add Subject'}
               </Button>
             </div>
           </div>
 
-          {/* Content */}
-          {loading && !safeGetCurrentData().length ? (
-            <div className="text-center py-8">
-              <Icon name="Loader" size={24} className="animate-spin mx-auto mb-4" />
-              <p>Loading {currentTab?.label.toLowerCase()}...</p>
-            </div>
-          ) : safeGetCurrentData().length === 0 ? (
+          {/* Tree content */}
+          {loading ? (
             <div className="text-center py-8 text-gray-500">
-              <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium mb-2">No {currentTab?.label} Found</h3>
-              <p className="mb-4">Start by adding your first {currentTab?.label.slice(0, -1).toLowerCase()}</p>
-              <Button 
-                onClick={() => {
-                  switch (activeTab) {
-                    case 'courses':
-                      setEditingCourse(null);
-                      setShowCourseModal(true);
-                      break;
-                    case 'subjects':
-                      setEditingSubject(null);
-                      setShowSubjectModal(true);
-                      break;
-                    case 'chapters':
-                      setEditingChapter(null);
-                      setShowChapterModal(true);
-                      break;
-                    case 'topics':
-                      setEditingTopic(null);
-                      setShowTopicModal(true);
-                      break;
-                  }
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Icon name="Plus" size={16} className="mr-2" />
-                Add First {currentTab?.label.slice(0, -1)}
-              </Button>
+              <Icon name="Loader" size={24} className="animate-spin mx-auto mb-4" />
+              <p>Loading...</p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Name & Code
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Details
-                      </th>
-                      {(activeTab === 'chapters' || activeTab === 'topics') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Parent
-                        </th>
-                      )}
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {safeGetCurrentData().map((item, index) => {
-                      const getParentInfo = () => {
-                        if (activeTab === 'subjects') {
-                          const course = courses.find(c => c.id === item.courseId);
-                          return course ? `${course.name} (${course.code})` : 'N/A';
-                        } else if (activeTab === 'chapters') {
-                          const subject = subjects.find(s => s.id === item.subjectId);
-                          return subject ? `${subject.name} (${subject.code})` : 'N/A';
-                        } else if (activeTab === 'topics') {
-                          const chapter = chapters.find(c => c.id === item.chapterId);
-                          return chapter ? `${chapter.name} (${chapter.code})` : 'N/A';
-                        }
-                        return 'N/A';
-                      };
-
+              {activeTab === 'coursesBatches' ? (
+                /* ---- Courses → Batches tree ---- */
+                filteredCourses.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">No Courses Found</h3>
+                    <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first course.'}</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredCourses.map((course) => {
+                      const open = expandedCourses.has(course.id);
+                      const batches = batchesByCourse[course.id];
+                      const loadingB = loadingBatchCourses.has(course.id);
                       return (
-                        <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                              <div className="text-sm text-gray-500">{item.code}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs truncate">
-                              {item.description || 'No description'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 space-y-1">
-                              {activeTab === 'courses' && (
-                                <>
-                                  {item.level && (
-                                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                      {item.level}
-                                    </span>
-                                  )}
-                                  <div className="text-xs text-gray-600 max-w-xs">
-                                    {(() => {
-                                      const subs = getCourseSubjectsDisplay(item);
-                                      return subs.length ? (
-                                        <span>
-                                          <span className="font-medium">
-                                            {subs.length} subject{subs.length > 1 ? 's' : ''}:
-                                          </span>{' '}
-                                          {subs.join(', ')}
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-400">No subjects</span>
-                                      );
-                                    })()}
-                                  </div>
-                                </>
+                        <div key={course.id}>
+                          {/* Course row */}
+                          <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                            <button
+                              onClick={() => toggleCourse(course.id)}
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                            >
+                              <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-gray-400 flex-shrink-0" />
+                              <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{course.name}</span>
+                              {course.code && <span className="text-xs text-gray-500">({course.code})</span>}
+                              {course.level && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
                               )}
-                              {activeTab === 'subjects' && item.credits && (
-                                <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                                  {item.credits} credits
-                                </span>
+                              {Array.isArray(batches) && (
+                                <span className="text-xs text-gray-400">{batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
                               )}
-                            </div>
-                          </td>
-                          {(activeTab === 'chapters' || activeTab === 'topics') && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {getParentInfo()}
-                              </div>
-                            </td>
-                          )}
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
-                              <button
-                                onClick={() => {
-                                  switch (activeTab) {
-                                    case 'courses': handleEditCourse(item); break;
-                                    case 'subjects': handleEditSubject(item); break;
-                                    case 'chapters': handleEditChapter(item); break;
-                                    case 'topics': handleEditTopic(item); break;
-                                  }
-                                }}
-                                className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
-                                title="Edit"
-                              >
+                            </button>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button onClick={() => openAddBatch(course)} title="Add batch" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
+                                <Icon name="Plus" size={16} />
+                              </button>
+                              <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
                                 <Icon name="Edit" size={16} />
                               </button>
-                              <button
-                                onClick={() => {
-                                  switch (activeTab) {
-                                    case 'courses': handleDeleteCourse(item.id); break;
-                                    case 'subjects': handleDeleteSubject(item.id); break;
-                                    case 'chapters': handleDeleteChapter(item.id); break;
-                                    case 'topics': handleDeleteTopic(item.id); break;
-                                  }
-                                }}
-                                className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
-                                title="Delete"
-                              >
+                              <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
                                 <Icon name="Trash2" size={16} />
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+
+                          {/* Batches under the course */}
+                          {open && (
+                            <div className="bg-gray-50/60 pl-10 pr-4 pb-2">
+                              {loadingB ? (
+                                <div className="py-2 text-sm text-gray-400 flex items-center gap-2">
+                                  <Icon name="Loader" size={14} className="animate-spin" /> Loading batches...
+                                </div>
+                              ) : !batches || batches.length === 0 ? (
+                                <div className="py-2 text-sm text-gray-400">
+                                  No batches yet.{' '}
+                                  <button onClick={() => openAddBatch(course)} className="text-blue-600 hover:underline">Add one</button>
+                                </div>
+                              ) : (
+                                <div className="divide-y divide-gray-100">
+                                  {batches.map((b) => (
+                                    <div key={b.id} className="flex items-center justify-between py-2">
+                                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                        <Icon name="Users" size={14} className="text-gray-400 flex-shrink-0" />
+                                        <span className="text-sm text-gray-800 truncate">{b.name}</span>
+                                        {b.code && <span className="text-xs text-gray-500">({b.code})</span>}
+                                        {b.active === false && (
+                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">Inactive</span>
+                                        )}
+                                        {(b.startDate || b.endDate) && (
+                                          <span className="text-xs text-gray-400">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
+                                        )}
+                                        {b.capacity != null && b.capacity !== '' && (
+                                          <span className="text-xs text-gray-400">· Cap {b.capacity}</span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        <button onClick={() => openEditBatch(course, b)} title="Edit batch" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                          <Icon name="Edit" size={14} />
+                                        </button>
+                                        <button onClick={() => handleDeleteBatch(course.id, b.id)} title="Delete batch" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                          <Icon name="Trash2" size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                )
+              ) : (
+                /* ---- Subjects → Chapters → Topics tree ---- */
+                filteredSubjects.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Icon name="Book" size={48} className="mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">No Subjects Found</h3>
+                    <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first subject.'}</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredSubjects.map((subject) => {
+                      const sOpen = expandedSubjects.has(subject.id);
+                      const subjChapters = chaptersOf(subject.id);
+                      return (
+                        <div key={subject.id}>
+                          {/* Subject row */}
+                          <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                            <button onClick={() => toggleSubject(subject.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                              <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-gray-400 flex-shrink-0" />
+                              <Icon name="Book" size={16} className="text-green-600 flex-shrink-0" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{subject.name}</span>
+                              {subject.code && <span className="text-xs text-gray-500">({subject.code})</span>}
+                              {subject.credits && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">{subject.credits} credits</span>
+                              )}
+                              <span className="text-xs text-gray-400">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
+                            </button>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button onClick={() => openAddChapter(subject)} title="Add chapter" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
+                                <Icon name="Plus" size={16} />
+                              </button>
+                              <button onClick={() => handleEditSubject(subject)} title="Edit subject" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                <Icon name="Edit" size={16} />
+                              </button>
+                              <button onClick={() => handleDeleteSubject(subject.id)} title="Delete subject" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                <Icon name="Trash2" size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Chapters */}
+                          {sOpen && (
+                            <div className="bg-gray-50/40 pl-8">
+                              {subjChapters.length === 0 ? (
+                                <div className="py-2 pl-2 text-sm text-gray-400">
+                                  No chapters yet.{' '}
+                                  <button onClick={() => openAddChapter(subject)} className="text-blue-600 hover:underline">Add one</button>
+                                </div>
+                              ) : (
+                                subjChapters.map((chapter) => {
+                                  const cOpen = expandedChapters.has(chapter.id);
+                                  const chTopics = topicsOf(chapter.id);
+                                  return (
+                                    <div key={chapter.id} className="border-l border-gray-200">
+                                      {/* Chapter row */}
+                                      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100/60">
+                                        <button onClick={() => toggleChapter(chapter.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                                          <Icon name={cOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-gray-400 flex-shrink-0" />
+                                          <Icon name="FileText" size={14} className="text-amber-600 flex-shrink-0" />
+                                          <span className="text-sm text-gray-800 truncate">{chapter.name}</span>
+                                          {chapter.code && <span className="text-xs text-gray-500">({chapter.code})</span>}
+                                          <span className="text-xs text-gray-400">{chTopics.length} topic{chTopics.length === 1 ? '' : 's'}</span>
+                                        </button>
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                          <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
+                                            <Icon name="Plus" size={14} />
+                                          </button>
+                                          <button onClick={() => handleEditChapter(chapter)} title="Edit chapter" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                            <Icon name="Edit" size={14} />
+                                          </button>
+                                          <button onClick={() => handleDeleteChapter(chapter.id)} title="Delete chapter" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                            <Icon name="Trash2" size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Topics */}
+                                      {cOpen && (
+                                        <div className="pl-10 pr-4 pb-2">
+                                          {chTopics.length === 0 ? (
+                                            <div className="py-1 text-sm text-gray-400">
+                                              No topics yet.{' '}
+                                              <button onClick={() => openAddTopic(chapter)} className="text-blue-600 hover:underline">Add one</button>
+                                            </div>
+                                          ) : (
+                                            <div className="divide-y divide-gray-100">
+                                              {chTopics.map((topic) => (
+                                                <div key={topic.id} className="flex items-center justify-between py-2">
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <Icon name="List" size={14} className="text-gray-400 flex-shrink-0" />
+                                                    <span className="text-sm text-gray-700 truncate">{topic.name}</span>
+                                                    {topic.code && <span className="text-xs text-gray-500">({topic.code})</span>}
+                                                  </div>
+                                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                                    <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                                      <Icon name="Edit" size={14} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteTopic(topic.id)} title="Delete topic" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                                      <Icon name="Trash2" size={14} />
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
             </div>
           )}
-
-          {/* Stats Footer */}
-          <div className="mt-6 text-sm text-muted-foreground">
-            Showing {safeGetCurrentData().length} of {
-              activeTab === 'courses' ? courses.length :
-              activeTab === 'subjects' ? subjects.length :
-              activeTab === 'chapters' ? chapters.length :
-              topics.length
-            } {currentTab?.label.toLowerCase()}
-            {searchTerm && ` matching "${searchTerm}"`}
-          </div>
         </div>
 
         {/* Modals */}
@@ -1481,6 +1730,19 @@ const CourseManagement = () => {
             isOpen={showCurriculumUpload}
             onClose={() => setShowCurriculumUpload(false)}
             onUploaded={loadAllData}
+          />
+        )}
+
+        {showBatchModal && (
+          <BatchModal
+            isOpen={showBatchModal}
+            onClose={() => {
+              setShowBatchModal(false);
+              setEditingBatch(null);
+            }}
+            onSubmit={handleBatchSuccess}
+            batch={editingBatch}
+            courseName={batchCourse ? `${batchCourse.name}${batchCourse.code ? ` (${batchCourse.code})` : ''}` : ''}
           />
         )}
       </PageLayout>
