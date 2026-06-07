@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../lib/apiClient';
+import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
 
 // Batch service — backs the Course → Batch relationship (one course has many batches)
 // and the student multi-enrollment flow. Talks to the TestPire REST API (`/api/batches`).
@@ -42,11 +42,14 @@ export const newBatchService = {
   },
 
   // Create a batch under a course. `courseId` + `name` are required by the API
-  // (CreateBatchRequestDto); the rest are optional. instituteId is scoped from the
-  // JWT on the backend but can be passed explicitly for super-admin cross-institute use.
+  // (CreateBatchRequestDto); the rest are optional. For SUPER_ADMIN, instituteId is forced
+  // to the switcher's selected institute (matching the X-Institute-Id header); other roles'
+  // payloads are scoped from their JWT on the backend.
   async createBatch(batchData) {
     try {
-      const { data, error, success } = await post('/batches', batchData);
+      const scopedId = getActiveInstituteId();
+      const body = scopedId != null ? { ...batchData, instituteId: scopedId } : batchData;
+      const { data, error, success } = await post('/batches', body);
       if (!success) return { data: null, error };
       return { data: unwrapOne(data), error: null };
     } catch (error) {

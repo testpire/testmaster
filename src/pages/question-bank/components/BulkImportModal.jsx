@@ -32,7 +32,8 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
       setError('');
       setUploadResult(null);
 
-      // instituteId is now extracted from JWT token on backend
+      // Target institute is scoped server-side via the X-Institute-Id header (the switcher's
+      // selected institute for SUPER_ADMIN) or the JWT for other roles.
       const { data, error: uploadError } = await questionService.bulkUploadQuestions(selectedFile);
       
       if (uploadError) {

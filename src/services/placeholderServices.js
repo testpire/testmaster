@@ -1,60 +1,7 @@
 // Placeholder services for functionality not yet available in the new API
 // These will need to be implemented when the corresponding endpoints are added
-
-export const newTestService = {
-  // Placeholder implementations - need to be updated when test endpoints are available
-  async getTests(filters = {}) {
-    return { data: [], error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async getTest(testId) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async createTest(testData) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async updateTest(testId, updates) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async deleteTest(testId) {
-    return { error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async addQuestionsToTest(testId, questionIds) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async removeQuestionFromTest(testId, questionId) {
-    return { error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async assignTestToBatches(testId, batchIds, assignedBy, dueDate) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async getAssignedTests(studentId) {
-    return { data: [], error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async startTestAttempt(testId, studentId) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async submitTest(submissionId, answers) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async getTestResults(testId, filters) {
-    return { data: [], error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-
-  async publishTest(testId) {
-    return { data: null, error: { message: 'Test endpoints not yet implemented in new API' } };
-  },
-};
+//
+// NOTE: the test lifecycle is now backed by a real service — see newTestService.js.
 
 export const newCourseService = {
   // Placeholder implementations - need to be updated when course endpoints are available

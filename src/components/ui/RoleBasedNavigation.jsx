@@ -53,6 +53,12 @@ const RoleBasedNavigation = ({
         roles: ['inst-admin']
       },
       {
+        label: 'Test Management',
+        path: '/test-management',
+        icon: 'ClipboardList',
+        roles: ['inst-admin']
+      },
+      {
         label: 'Access Control',
         path: '/access-control',
         icon: 'ShieldCheck',
@@ -103,6 +109,12 @@ const RoleBasedNavigation = ({
         roles: ['super-admin']
       },
       {
+        label: 'Test Management',
+        path: '/test-management',
+        icon: 'ClipboardList',
+        roles: ['super-admin']
+      },
+      {
         label: 'Institute Management',
         path: '/institute-management',
         icon: 'Building2',
@@ -132,6 +144,12 @@ const RoleBasedNavigation = ({
         label: 'Question Bank',
         path: '/question-bank',
         icon: 'FileText',
+        roles: ['teacher']
+      },
+      {
+        label: 'Test Management',
+        path: '/test-management',
+        icon: 'ClipboardList',
         roles: ['teacher']
       },
       {
@@ -170,6 +188,12 @@ const RoleBasedNavigation = ({
         label: 'Dashboard',
         path: '/student-dashboard',
         icon: 'LayoutDashboard',
+        roles: ['student']
+      },
+      {
+        label: 'My Tests',
+        path: '/my-tests',
+        icon: 'ClipboardList',
         roles: ['student']
       },
       {

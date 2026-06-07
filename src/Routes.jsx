@@ -4,11 +4,15 @@ import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
 import ProtectedSuperAdminRoutes from "./components/ProtectedSuperAdminRoutes";
 import ProtectedManagementRoutes from "./components/ProtectedManagementRoutes";
+import ProtectedTestManagementRoutes from "./components/ProtectedTestManagementRoutes";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "pages/NotFound";
 import SimpleLogin from './pages/simple-login';
 import SuperAdminDashboard from './pages/super-admin-dashboard';
 import QuestionBank from './pages/question-bank';
+import TestManagement from './pages/test-management';
+import StudentTests from './pages/student-tests';
+import TestTaking from './pages/test-taking';
 import StudentDashboard from './pages/student-dashboard';
 import TeacherDashboard from './pages/teacher-dashboard';
 import InstituteAdminDashboard from './pages/institute-admin-dashboard';
@@ -49,10 +53,17 @@ const Routes = () => {
           <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
           <Route path="/access-control" element={<ProtectedManagementRoutes><AccessControl /></ProtectedManagementRoutes>} />
 
+          {/* Test authoring — shared between SUPER_ADMIN, INST_ADMIN and TEACHER */}
+          <Route path="/test-management" element={<ProtectedTestManagementRoutes><TestManagement /></ProtectedTestManagementRoutes>} />
+
           {/* Institute Admin and other roles (role-guarded) */}
           <Route path="/inst-admin-dashboard" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'INST_ADMIN', 'INSTITUTE_ADMIN', 'ADMIN']}><InstituteAdminDashboard /></ProtectedRoute>} />
           <Route path="/teacher-dashboard" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherDashboard /></ProtectedRoute>} />
           <Route path="/student-dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+
+          {/* Student test-taking */}
+          <Route path="/my-tests" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentTests /></ProtectedRoute>} />
+          <Route path="/test-taking/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestTaking /></ProtectedRoute>} />
 
           {/* Shared — any authenticated user */}
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

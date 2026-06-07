@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../lib/apiClient';
+import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
 import { courseService } from './courseService';
 
 export const questionService = {
@@ -85,7 +85,11 @@ export const questionService = {
 
   async createQuestion(questionData) {
     try {
-      const { data, error, success } = await post('/questions', questionData);
+      // For SUPER_ADMIN, force instituteId to the selected institute so the body agrees
+      // with the X-Institute-Id header; other roles keep their own payload value.
+      const scopedId = getActiveInstituteId();
+      const body = scopedId != null ? { ...questionData, instituteId: scopedId } : questionData;
+      const { data, error, success } = await post('/questions', body);
       if (success) {
         return { data: data?.data || data || null, error: null };
       }
@@ -193,13 +197,15 @@ export const questionService = {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      // instituteId is now extracted from JWT token on backend
 
-      const response = await post('/questions/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Attach X-Institute-Id explicitly (not only via the interceptor) so the upload
+      // doesn't depend on the interceptor's runtime conditions. SUPER_ADMIN → switcher's
+      // selected institute; other roles (scopedId null) fall back to their JWT institute.
+      const scopedId = getActiveInstituteId();
+      const headers = { 'Content-Type': 'multipart/form-data' };
+      if (scopedId != null) headers['X-Institute-Id'] = String(scopedId);
+
+      const response = await post('/questions/bulk-upload', formData, { headers });
       
       return { 
         data: response?.data || { message: 'File uploaded successfully' }, 

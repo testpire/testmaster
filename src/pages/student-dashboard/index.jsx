@@ -7,6 +7,7 @@ import Icon from '../../components/AppIcon';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
+import AssignedTestsWidget from './components/AssignedTestsWidget';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -148,6 +149,9 @@ const StudentDashboard = () => {
               {institute?.name ? institute.name : 'Your student portal'}
             </p>
           </div>
+
+          {/* Assigned tests — most actionable thing on login, shown up top */}
+          <AssignedTestsWidget />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Profile card */}

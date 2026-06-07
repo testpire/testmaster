@@ -4,7 +4,7 @@ import axios from 'axios';
 //const API_BASE_URL = 'http://localhost:8080/api';
 //const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
 //const API_BASE_URL = 'http://80.225.250.247:8080/api';
-const API_BASE_URL = 'https://debian-parish-mostly-briefs.trycloudflare.com/api';
+const API_BASE_URL = 'https://beyond-sunset-organizing-automatic.trycloudflare.com/api';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -277,6 +277,20 @@ export const apiRequest = async (method, url, data = null, config = {}) => {
       success: false,
     };
   }
+};
+
+// Effective institute id for request BODIES. For SUPER_ADMIN this is the institute
+// selected in the switcher (same source as the X-Institute-Id header injected above),
+// so the request body and the tenant header always agree. Returns null for other roles,
+// whose own institute (from the JWT/profile) is already correct and must be preserved.
+export const getActiveInstituteId = () => {
+  const userRole = localStorage.getItem('userRole');
+  const activeInstituteId = localStorage.getItem('activeInstituteId');
+  if (userRole === 'SUPER_ADMIN' && activeInstituteId) {
+    const n = Number(activeInstituteId);
+    return Number.isNaN(n) ? null : n;
+  }
+  return null;
 };
 
 // HTTP method helpers

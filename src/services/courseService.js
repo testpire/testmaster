@@ -1,4 +1,12 @@
-import { get, post, put, del } from '../lib/apiClient';
+import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
+
+// For SUPER_ADMIN, force the request body's instituteId to the institute selected in
+// the switcher so it agrees with the X-Institute-Id header. Other roles keep their own
+// payload (instituteId derived from their JWT/profile) untouched.
+const withInstituteScope = (payload) => {
+  const scopedId = getActiveInstituteId();
+  return scopedId != null ? { ...payload, instituteId: scopedId } : payload;
+};
 
 export const courseService = {
   // Helper method to search specific entity types
@@ -58,7 +66,7 @@ export const courseService = {
 
   async createCourse(courseData) {
     try {
-      const { data, error, success } = await post('/courses', courseData);
+      const { data, error, success } = await post('/courses', withInstituteScope(courseData));
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating course:', error);
@@ -97,7 +105,7 @@ export const courseService = {
 
   async createSubject(subjectData) {
     try {
-      const { data, error, success } = await post('/subjects', subjectData);
+      const { data, error, success } = await post('/subjects', withInstituteScope(subjectData));
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating subject:', error);
@@ -136,7 +144,7 @@ export const courseService = {
 
   async createChapter(chapterData) {
     try {
-      const { data, error, success } = await post('/chapters', chapterData);
+      const { data, error, success } = await post('/chapters', withInstituteScope(chapterData));
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating chapter:', error);
@@ -175,7 +183,7 @@ export const courseService = {
 
   async createTopic(topicData) {
     try {
-      const { data, error, success } = await post('/topics', topicData);
+      const { data, error, success } = await post('/topics', withInstituteScope(topicData));
       return { data, error: success ? null : error };
     } catch (error) {
       console.error('Error creating topic:', error);
@@ -204,18 +212,21 @@ export const courseService = {
   },
 
   // Bulk-create subjects, chapters and topics from a single denormalized CSV file.
-  // instituteId is extracted from the JWT on the backend. The response may carry
-  // row-level failures in an `errors[]` array even on HTTP 200.
+  // Backend scopes the target institute from the X-Institute-Id header. We attach it
+  // explicitly here (not only via the apiClient interceptor) so the upload doesn't depend
+  // on the interceptor's runtime conditions. For SUPER_ADMIN it carries the switcher's
+  // selected institute; other roles (scopedId null) fall back to their JWT institute.
+  // The response may carry row-level failures in an `errors[]` array even on HTTP 200.
   async bulkUploadCurriculum(file) {
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await post('/curriculum/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const scopedId = getActiveInstituteId();
+      const headers = { 'Content-Type': 'multipart/form-data' };
+      if (scopedId != null) headers['X-Institute-Id'] = String(scopedId);
+
+      const response = await post('/curriculum/bulk-upload', formData, { headers });
 
       return {
         data: response?.data || { message: 'File uploaded successfully' },

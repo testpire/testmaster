@@ -78,7 +78,8 @@ const QuestionBank = () => {
         page,
         size: PAGE_SIZE
       };
-      // instituteId is now extracted from JWT token on backend
+      // Institute is scoped server-side via the X-Institute-Id header (selected institute
+      // for SUPER_ADMIN) or the JWT for other roles — no instituteId needed in the body.
 
       // Add filters to search params if they exist
       if (filters.difficulty) searchParams.difficulty = filters.difficulty;

@@ -7,8 +7,8 @@ import { newInstituteService } from './newInstituteService';
 import { newDashboardService } from './newDashboardService';
 import { newLeadService } from './newLeadService';
 import { newBatchService } from './newBatchService';
+import { newTestService } from './newTestService';
 import {
-  newTestService,
   newCourseService,
   newQuestionService,
   newStudyMaterialService
