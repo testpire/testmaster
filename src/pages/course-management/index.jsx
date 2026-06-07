@@ -511,7 +511,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
     name: '',
     code: '',
     description: '',
-    credits: 3,
     duration: '1 Semester'
   });
 
@@ -523,7 +522,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
         name: subject.name || '',
         code: subject.code || '',
         description: subject.description || '',
-        credits: subject.credits || 3,
         duration: subject.duration || '1 Semester'
       });
     } else {
@@ -531,7 +529,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
         name: '',
         code: '',
         description: '',
-        credits: 3,
         duration: '1 Semester'
       });
     }
@@ -548,7 +545,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
     try {
       await onSubmit({
         ...formData,
-        credits: parseInt(formData.credits),
         instituteId: currentUser?.instituteId
       }, subject?.id);
     } finally {
@@ -584,20 +580,6 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="e.g., CS101"
             required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Credits
-          </label>
-          <input
-            type="number"
-            value={formData.credits}
-            onChange={(e) => setFormData({ ...formData, credits: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            min="1"
-            max="10"
           />
         </div>
 
@@ -1656,9 +1638,6 @@ const CourseManagement = () => {
                               <Icon name="Book" size={16} className="text-green-600 flex-shrink-0" />
                               <span className="text-sm font-medium text-gray-900 truncate">{subject.name}</span>
                               {subject.code && <span className="text-xs text-gray-500">({subject.code})</span>}
-                              {subject.credits && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">{subject.credits} credits</span>
-                              )}
                               <span className="text-xs text-gray-400">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">

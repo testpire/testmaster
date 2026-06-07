@@ -17,7 +17,6 @@ const SubjectModal = ({
     code: '',
     courseId: '',
     duration: '',
-    credits: 0,
     prerequisites: '',
     instituteId: instituteId || ''
   });
@@ -33,7 +32,6 @@ const SubjectModal = ({
         code: existingSubject.code || '',
         courseId: existingSubject.courseId || '',
         duration: existingSubject.duration || '',
-        credits: existingSubject.credits || 0,
         prerequisites: existingSubject.prerequisites || '',
         instituteId: existingSubject.instituteId || instituteId || ''
       });
@@ -44,7 +42,6 @@ const SubjectModal = ({
         code: '',
         courseId: '',
         duration: '',
-        credits: 0,
         prerequisites: '',
         instituteId: instituteId || ''
       });
@@ -75,7 +72,6 @@ const SubjectModal = ({
         code: formData.code,
         courseId: parseInt(formData.courseId),
         duration: formData.duration,
-        credits: parseInt(formData.credits) || 0,
         prerequisites: formData.prerequisites,
         instituteId: parseInt(formData.instituteId)
       };
@@ -168,35 +164,19 @@ const SubjectModal = ({
               />
             </div>
 
-            {/* Duration and Credits */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration
-                </label>
-                <input
-                  type="text"
-                  value={formData.duration}
-                  onChange={(e) => handleInputChange('duration', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., 1 semester"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Credits
-                </label>
-                <input
-                  type="number"
-                  value={formData.credits}
-                  onChange={(e) => handleInputChange('credits', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                  min="0"
-                  disabled={loading}
-                />
-              </div>
+            {/* Duration */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Duration
+              </label>
+              <input
+                type="text"
+                value={formData.duration}
+                onChange={(e) => handleInputChange('duration', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 1 semester"
+                disabled={loading}
+              />
             </div>
 
             {/* Description */}
