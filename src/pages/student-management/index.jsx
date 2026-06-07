@@ -343,12 +343,12 @@ const StudentManagement = () => {
           {/* Students Table */}
           <div className="bg-card rounded-lg border border-border overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground">Loading students...</p>
               </div>
             ) : error ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="AlertCircle" size={32} className="mx-auto mb-4 text-destructive" />
                 <p className="text-destructive">{error}</p>
                 <Button onClick={loadStudents} className="mt-4">
@@ -356,7 +356,7 @@ const StudentManagement = () => {
                 </Button>
               </div>
             ) : filteredStudents.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="GraduationCap" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
                   {hasActiveFilter ? 'No students found' : 'No students yet'}

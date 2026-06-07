@@ -222,7 +222,7 @@ const LeadManagement = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[180px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[180px]">
               <Icon
                 name="Search"
                 size={16}

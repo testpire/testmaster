@@ -232,12 +232,12 @@ const TeacherManagement = () => {
           {/* Teachers Table */}
           <div className="bg-card rounded-lg border border-border overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground">Loading teachers...</p>
               </div>
             ) : error ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="AlertCircle" size={32} className="mx-auto mb-4 text-destructive" />
                 <p className="text-destructive">{error}</p>
                 <Button onClick={loadTeachers} className="mt-4">
@@ -245,7 +245,7 @@ const TeacherManagement = () => {
                 </Button>
               </div>
             ) : filteredTeachers.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <Icon name="Users" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
                   {searchTerm ? 'No teachers found' : 'No teachers yet'}

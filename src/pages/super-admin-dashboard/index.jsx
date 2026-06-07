@@ -260,7 +260,7 @@ const SuperAdminDashboard = () => {
       <main className={`transition-all duration-300 ease-out ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
       } pt-16`}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Header Section */}
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">

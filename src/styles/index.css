@@ -28,10 +28,13 @@ body {
   }
 }
 
-/* Touch target improvements */
-button, a, [role="button"] {
-  min-height: 44px; /* Apple's recommended touch target size */
-  min-width: 44px;
+/* Touch target improvements — only on touch devices, height only.
+   A blanket min-width forced text links and inline buttons to 44px wide,
+   distorting flex rows and badges, so it's intentionally dropped. */
+@media (pointer: coarse) {
+  button, [role="button"] {
+    min-height: 44px; /* Apple's recommended touch target size */
+  }
 }
 
 /* Loading state to prevent interaction issues */

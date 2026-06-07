@@ -182,7 +182,7 @@ const NavigationHeader = ({
                     <span className="text-sm text-muted-foreground">Loading institutes...</span>
                   </div>
                 ) : (
-                  <div className="min-w-[280px] relative">
+                  <div className="w-full sm:min-w-[240px] max-w-[55vw] sm:max-w-none relative">
                     <div className="relative">
                       <Select
                         value={selectedInstitute?.id || 'all'}
@@ -233,7 +233,7 @@ const NavigationHeader = ({
 
             {/* Notifications Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg z-[1010]">
+              <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1rem)] bg-popover border border-border rounded-lg shadow-lg z-[1010]">
                 <div className="p-4 border-b border-border">
                   <h3 className="font-medium text-popover-foreground">Notifications</h3>
                 </div>
@@ -294,7 +294,7 @@ const NavigationHeader = ({
 
             {/* User Dropdown Menu */}
             {showUserMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-popover border border-border rounded-lg shadow-lg z-[1010]">
+              <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-1rem)] bg-popover border border-border rounded-lg shadow-lg z-[1010]">
                 <div className="p-3 border-b border-border">
                   <p className="font-medium text-popover-foreground">{displayName}</p>
                   <p className="text-sm text-muted-foreground">{getRoleDisplayName(displayRole)}</p>

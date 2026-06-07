@@ -14,7 +14,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-[calc(100%-2rem)] max-w-md shadow-lg rounded-md bg-white">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-gray-900">{title}</h3>
           <button
@@ -45,11 +45,14 @@ const getCourseSubjectCodes = (course) => {
 
 // Create / edit a single batch under a course. Launched from a course node in the
 // Courses & Batches tree. Submission is delegated to the parent via onSubmit(form, batchId).
-const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', active: true };
+const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', fee: '', active: true };
 
-const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
+const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit }) => {
   const [form, setForm] = useState(EMPTY_BATCH);
   const [loading, setLoading] = useState(false);
+
+  // Course fee is the recommended default for a batch; a batch may override it.
+  const recommendedFee = courseFee == null || courseFee === '' ? null : Number(courseFee);
 
   useEffect(() => {
     if (batch && batch.id) {
@@ -60,14 +63,21 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
         startDate: (batch.startDate || '').slice(0, 10),
         endDate: (batch.endDate || '').slice(0, 10),
         capacity: batch.capacity ?? '',
+        fee: batch.fee ?? '',
         active: batch.active !== undefined ? batch.active : true
       });
     } else {
-      setForm(EMPTY_BATCH);
+      // New batch defaults to the course fee (the recommended value).
+      setForm({ ...EMPTY_BATCH, fee: recommendedFee != null ? recommendedFee : '' });
     }
   }, [batch, isOpen]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  // Compare the entered fee against the course fee to drive the recommendation hint.
+  const feeNum = form.fee === '' || form.fee == null ? null : Number(form.fee);
+  const feeMatchesCourse = recommendedFee != null && feeNum != null && feeNum === recommendedFee;
+  const feeOverridden = recommendedFee != null && feeNum != null && feeNum !== recommendedFee;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,7 +104,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
         {courseName && <p className="text-sm text-gray-500 mb-4">Course: {courseName}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Batch Name *</label>
               <input
@@ -118,7 +128,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
               <input
@@ -148,6 +158,50 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
                 placeholder="e.g., 30"
               />
             </div>
+          </div>
+
+          {/* Batch fee — defaults to the course fee but can be overridden per batch */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fee (₹)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.fee}
+                onChange={(e) => setField('fee', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={recommendedFee != null ? `Course fee: ₹${recommendedFee.toLocaleString('en-IN')}` : 'e.g., 25000'}
+              />
+              {recommendedFee != null && !feeMatchesCourse && (
+                <button
+                  type="button"
+                  onClick={() => setField('fee', recommendedFee)}
+                  className="whitespace-nowrap px-2 py-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0"
+                  title="Reset to the course fee"
+                >
+                  Use course fee
+                </button>
+              )}
+            </div>
+            {recommendedFee != null && (
+              feeMatchesCourse ? (
+                <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
+                  <Icon name="CheckCircle" size={13} />
+                  Matches course fee (recommended)
+                </p>
+              ) : feeOverridden ? (
+                <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                  <Icon name="AlertTriangle" size={13} />
+                  Overridden — course fee is ₹{recommendedFee.toLocaleString('en-IN')}
+                </p>
+              ) : (
+                <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                  <Icon name="Info" size={13} />
+                  Leave blank to use the course fee (₹{recommendedFee.toLocaleString('en-IN')})
+                </p>
+              )
+            )}
           </div>
 
           <div>
@@ -202,6 +256,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     description: '',
     level: 'Undergraduate',
     duration: '4',
+    fee: '',
     subjectCodes: []
   });
 
@@ -216,6 +271,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
         description: course.description || '',
         level: course.level || 'Undergraduate',
         duration: course.duration || '4',
+        fee: course.fee ?? '',
         subjectCodes: getCourseSubjectCodes(course)
       });
     } else {
@@ -225,6 +281,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
         description: '',
         level: 'Undergraduate',
         duration: '4',
+        fee: '',
         subjectCodes: []
       });
     }
@@ -259,6 +316,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     try {
       await onSubmit({
         ...formData,
+        fee: formData.fee === '' || formData.fee == null ? null : Number(formData.fee),
         instituteId: currentUser?.instituteId
       }, course?.id);
     } finally {
@@ -325,6 +383,22 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="e.g., 4"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Fee (₹)
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.fee}
+            onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., 25000"
+          />
+          <p className="mt-1 text-xs text-gray-400">Default fee for batches of this course; each batch can override it.</p>
         </div>
 
         <div>
@@ -628,7 +702,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={chapter?.id ? 'Edit Chapter' : 'Add Chapter'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Chapter Name *
@@ -656,7 +730,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Subject *
@@ -794,7 +868,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={topic?.id ? 'Edit Topic' : 'Add Topic'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Topic Name *
@@ -822,7 +896,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Subject *
@@ -1301,6 +1375,8 @@ const CourseManagement = () => {
     if (formData.startDate) payload.startDate = formData.startDate;
     if (formData.endDate) payload.endDate = formData.endDate;
     if (formData.capacity !== '' && formData.capacity != null) payload.capacity = Number(formData.capacity);
+    // Empty fee means "inherit the course fee" — send null so the backend can fall back.
+    payload.fee = formData.fee === '' || formData.fee == null ? null : Number(formData.fee);
 
     let result;
     if (batchId) {
@@ -1361,6 +1437,7 @@ const CourseManagement = () => {
   const chaptersOf = (subjectId) => chapters.filter((c) => String(c.subjectId) === String(subjectId));
   const topicsOf = (chapterId) => topics.filter((t) => String(t.chapterId) === String(chapterId));
   const fmtDate = (d) => (d ? String(d).slice(0, 10) : '');
+  const fmtFee = (f) => (f == null || f === '' ? null : `₹${Number(f).toLocaleString('en-IN')}`);
 
   // Shared button styles for tree row actions.
   const actionBtn = 'p-1.5 rounded transition-colors';
@@ -1479,6 +1556,9 @@ const CourseManagement = () => {
                               {course.level && (
                                 <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
                               )}
+                              {fmtFee(course.fee) && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(course.fee)}</span>
+                              )}
                               {Array.isArray(batches) && (
                                 <span className="text-xs text-gray-400">{batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
                               )}
@@ -1524,6 +1604,15 @@ const CourseManagement = () => {
                                         )}
                                         {b.capacity != null && b.capacity !== '' && (
                                           <span className="text-xs text-gray-400">· Cap {b.capacity}</span>
+                                        )}
+                                        {fmtFee(b.fee) && (
+                                          b.fee != null && course.fee != null && Number(b.fee) !== Number(course.fee) ? (
+                                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700" title={`Overrides course fee (${fmtFee(course.fee)})`}>
+                                              <Icon name="AlertTriangle" size={11} />{fmtFee(b.fee)}
+                                            </span>
+                                          ) : (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(b.fee)}</span>
+                                          )
                                         )}
                                       </div>
                                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -1743,6 +1832,7 @@ const CourseManagement = () => {
             onSubmit={handleBatchSuccess}
             batch={editingBatch}
             courseName={batchCourse ? `${batchCourse.name}${batchCourse.code ? ` (${batchCourse.code})` : ''}` : ''}
+            courseFee={batchCourse?.fee}
           />
         )}
       </PageLayout>

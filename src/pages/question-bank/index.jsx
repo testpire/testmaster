@@ -486,7 +486,7 @@ const QuestionBank = () => {
                 </Button>
                 
                 {isFilterDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50">
+                  <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[calc(100vw-1rem)] bg-card border border-border rounded-lg shadow-lg z-50">
                     <div className="p-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-medium text-foreground">Filters</h3>

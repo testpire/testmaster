@@ -176,7 +176,7 @@ const UserManagementTree = ({ isOpen, onClose }) => {
         </div>
 
         {/* Statistics Bar */}
-        <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 border-b border-border">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/50 border-b border-border">
           <div className="text-center">
             <div className="text-2xl font-bold text-primary">{stats.totalInstitutes}</div>
             <div className="text-xs text-muted-foreground">Institutes</div>
