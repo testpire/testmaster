@@ -73,7 +73,7 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
   };
 
   const loadStudents = async (courseId) => {
-    const { data } = await newUserService.searchStudents({ courseId }, { page: 0, size: 200 });
+    const { data } = await newUserService.searchStudents({ courseId }, { page: 0, size: 100 });
     setStudents(Array.isArray(data) ? data : []);
   };
 
