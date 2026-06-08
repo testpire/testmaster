@@ -46,18 +46,31 @@ const AttemptReview = ({ attempt, studentName }) => {
       ? (Number(score) / Number(maxScore)) * 100
       : null;
 
+  // Whether the backend revealed per-question correctness for this attempt. When a
+  // test hides answers, it returns `correct`/`correctOptionIds`/`marksAwarded` as null,
+  // so we must not infer "incorrect" from their absence.
+  const correctnessRevealed = useMemo(
+    () => questions.some((q) => q.correct === true || q.correct === false),
+    [questions]
+  );
+
   // Per-question outcome summary.
   const tally = useMemo(() => {
     let correct = 0;
     let incorrect = 0;
+    let answered = 0;
     let unanswered = 0;
     questions.forEach((q) => {
       const sel = q.selectedOptionIds || (q.selectedOptionId != null ? [q.selectedOptionId] : []);
-      if (!Array.isArray(sel) || sel.length === 0) unanswered += 1;
-      else if (q.correct === true) correct += 1;
-      else incorrect += 1;
+      if (!Array.isArray(sel) || sel.length === 0) {
+        unanswered += 1;
+        return;
+      }
+      answered += 1;
+      if (q.correct === true) correct += 1;
+      else if (q.correct === false) incorrect += 1;
     });
-    return { correct, incorrect, unanswered };
+    return { correct, incorrect, answered, unanswered };
   }, [questions]);
 
   return (
@@ -117,12 +130,19 @@ const AttemptReview = ({ attempt, studentName }) => {
           </div>
         </div>
 
-        {/* Outcome counts */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <Tally icon="CheckCircle2" className="text-green-700" label="Correct" value={tally.correct} />
-          <Tally icon="XCircle" className="text-red-600" label="Incorrect" value={tally.incorrect} />
-          <Tally icon="MinusCircle" className="text-muted-foreground" label="Skipped" value={tally.unanswered} />
-        </div>
+        {/* Outcome counts — when answers are hidden, only answered/skipped are knowable. */}
+        {correctnessRevealed ? (
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <Tally icon="CheckCircle2" className="text-green-700" label="Correct" value={tally.correct} />
+            <Tally icon="XCircle" className="text-red-600" label="Incorrect" value={tally.incorrect} />
+            <Tally icon="MinusCircle" className="text-muted-foreground" label="Skipped" value={tally.unanswered} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <Tally icon="CheckCircle2" className="text-foreground" label="Answered" value={tally.answered} />
+            <Tally icon="MinusCircle" className="text-muted-foreground" label="Skipped" value={tally.unanswered} />
+          </div>
+        )}
       </div>
 
       {/* Per-question breakdown */}
@@ -155,14 +175,21 @@ const QuestionCard = ({ q, index }) => {
   const selectedSet = new Set(
     q.selectedOptionIds || (q.selectedOptionId != null ? [q.selectedOptionId] : [])
   );
+  // `correctOptionIds: null` means the backend is hiding the answer key for this test —
+  // don't reveal which options are correct, and don't mark the student's choice wrong.
+  const optionsRevealed = Array.isArray(q.correctOptionIds);
   const correctSet = new Set(q.correctOptionIds || []);
   const answered = selectedSet.size > 0;
+  // Likewise, `correct: null` means correctness is withheld; only true/false are verdicts.
+  const correctnessRevealed = q.correct === true || q.correct === false;
   const isCorrect = q.correct === true;
   const awarded = q.marksAwarded;
   const awardedNum = awarded == null ? null : Number(awarded);
 
   const statusBadge = !answered
     ? { cls: 'bg-slate-100 text-slate-600', icon: 'MinusCircle', text: 'Not answered' }
+    : !correctnessRevealed
+    ? { cls: 'bg-slate-100 text-slate-600', icon: 'CheckCircle2', text: 'Answered' }
     : isCorrect
     ? { cls: 'bg-green-100 text-green-700', icon: 'CheckCircle2', text: 'Correct' }
     : { cls: 'bg-red-100 text-red-700', icon: 'XCircle', text: 'Incorrect' };
@@ -204,18 +231,21 @@ const QuestionCard = ({ q, index }) => {
 
       <div className="space-y-1.5">
         {(q.options || []).map((o) => {
-          const optCorrect = correctSet.has(o.id);
+          const optCorrect = optionsRevealed && correctSet.has(o.id);
           const optSelected = selectedSet.has(o.id);
-          // green = correct option; red = chosen but wrong; neutral otherwise.
+          // When the answer key is revealed: green = correct option, red = chosen but wrong.
+          // When it's hidden: only highlight the student's choice neutrally, nothing as wrong.
           const cls = optCorrect
             ? 'border-green-300 bg-green-50 text-green-800'
-            : optSelected
+            : optSelected && optionsRevealed
             ? 'border-red-300 bg-red-50 text-red-800'
+            : optSelected
+            ? 'border-primary/40 bg-primary/5 text-foreground'
             : 'border-border text-muted-foreground';
           return (
             <div key={o.id} className={`flex items-start gap-2 text-sm px-3 py-2 rounded-lg border ${cls}`}>
               <Icon
-                name={optCorrect ? 'Check' : optSelected ? 'X' : 'Circle'}
+                name={optCorrect ? 'Check' : optSelected && optionsRevealed ? 'X' : optSelected ? 'Dot' : 'Circle'}
                 size={15}
                 className="mt-0.5 flex-shrink-0"
               />
