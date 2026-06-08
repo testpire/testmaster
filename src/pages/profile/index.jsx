@@ -5,17 +5,16 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
-import { courseService } from '../../services/courseService';
 import { CLASS_OPTIONS } from '../../utils/classOptions';
 import EnrollmentEditor, { toEnrollmentPayload } from '../../components/enrollment/EnrollmentEditor';
+import { courseService } from '../../services/courseService';
 
-// Editable fields per role (keys map to UpdateStudentRequestDto / UpdateTeacherRequestDto)
 const STUDENT_FIELDS = [
   { key: 'firstName', label: 'First Name' },
   { key: 'lastName', label: 'Last Name' },
   { key: 'phone', label: 'Phone' },
   { key: 'rollNumber', label: 'Roll Number' },
-  { key: 'currentClass', label: 'Current Class', type: 'select', options: CLASS_OPTIONS },
+  { key: 'currentClass', label: 'Current Class' },
   { key: 'address', label: 'Address' },
   { key: 'bloodGroup', label: 'Blood Group' },
   { key: 'parentName', label: 'Parent Name' },
@@ -36,53 +35,53 @@ const TEACHER_FIELDS = [
   { key: 'bio', label: 'Bio', type: 'textarea' },
 ];
 
+const CLASS_LABEL = Object.fromEntries(CLASS_OPTIONS.map(({ value, label }) => [String(value), label]));
+
 const Profile = () => {
   const { user, userProfile } = useAuth();
   const baseProfile = userProfile || user || {};
   const role = (baseProfile.role || '').toUpperCase();
-  const isEditable = role === 'STUDENT' || role === 'TEACHER';
-  const fields = role === 'TEACHER' ? TEACHER_FIELDS : STUDENT_FIELDS;
+  const isStudent = role === 'STUDENT';
+  const isTeacher = role === 'TEACHER';
 
   const [form, setForm] = useState({});
-  const [enrollments, setEnrollments] = useState([]); // student course+batch rows
+  const [enrollments, setEnrollments] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(isEditable);
+  const [loading, setLoading] = useState(isStudent || isTeacher);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const isStudent = role === 'STUDENT';
-
   useEffect(() => {
+    if (!isStudent && !isTeacher) return;
     let mounted = true;
     const load = async () => {
-      // Always have the base auth profile as a fallback
       let resolved = baseProfile;
       try {
         const { data } = await newAuthService.getProfile();
         resolved = data?.user || data || baseProfile;
       } catch (_) { /* fall back to context profile */ }
 
-      if (isEditable) {
-        const res = role === 'TEACHER'
-          ? await newUserService.getMyTeacherProfile()
-          : await newUserService.getMyStudentProfile();
-        if (res?.data) resolved = { ...resolved, ...res.data };
-      }
+      const res = isTeacher
+        ? await newUserService.getMyTeacherProfile()
+        : await newUserService.getMyStudentProfile();
+      if (res?.data) resolved = { ...resolved, ...res.data };
 
-      // Students manage their own course/batch enrollments — load courses + seed rows.
       if (isStudent) {
-        const { data: courseData } = await courseService.getCourses({ page: 0, size: 100 });
-        if (mounted) setCourses(Array.isArray(courseData) ? courseData : []);
         const rows = Array.isArray(resolved?.enrollments)
           ? resolved.enrollments.map((en) => ({
               courseId: en.courseId ?? '',
               batchId: en.batchId ?? '',
               courseName: en.courseName,
-              batchName: en.batchName
+              batchName: en.batchName,
             }))
           : [];
         if (mounted) setEnrollments(rows);
+
+        // Teacher-only: also load courses for the enrollment editor
+      } else if (isTeacher) {
+        const { data: courseData } = await courseService.getCourses({ page: 0, size: 100 });
+        if (mounted) setCourses(Array.isArray(courseData) ? courseData : []);
       }
 
       if (mounted) {
@@ -105,25 +104,15 @@ const Profile = () => {
     setSaving(true);
     setError('');
     setSuccess('');
-
-    // Only send the editable keys for this role
+    const fields = TEACHER_FIELDS;
     const payload = {};
     fields.forEach(({ key, type }) => {
       let v = form[key];
       if (v === undefined || v === null || v === '') return;
-      if (type === 'number' || type === 'select') v = parseInt(v, 10);
+      if (type === 'number') v = parseInt(v, 10);
       payload[key] = v;
     });
-
-    // Students persist their course/batch enrollments alongside the profile fields.
-    if (isStudent) {
-      payload.enrollments = toEnrollmentPayload(enrollments);
-    }
-
-    const res = role === 'TEACHER'
-      ? await newUserService.updateMyTeacherProfile(payload)
-      : await newUserService.updateMyStudentProfile(payload);
-
+    const res = await newUserService.updateMyTeacherProfile(payload);
     setSaving(false);
     if (res.error) {
       setError(res.error.message || 'Failed to update profile');
@@ -137,7 +126,9 @@ const Profile = () => {
       <div className="p-6 max-w-3xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
-          <p className="text-muted-foreground">View and manage your account details</p>
+          <p className="text-muted-foreground">
+            {isStudent ? 'Your account details' : 'View and manage your account details'}
+          </p>
         </div>
 
         {/* Account summary (always read-only) */}
@@ -171,73 +162,101 @@ const Profile = () => {
           </div>
         )}
 
-        {!isEditable ? (
+        {/* Student: view-only profile */}
+        {isStudent && (
+          loading ? (
+            <div className="bg-card rounded-lg border border-border p-6 text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-muted-foreground text-sm">Loading profile...</p>
+            </div>
+          ) : (
+            <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {STUDENT_FIELDS.map(({ key, label }) => (
+                  <div key={key}>
+                    <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                    <p className="text-sm text-foreground">
+                      {key === 'currentClass'
+                        ? CLASS_LABEL[String(form[key])] || form[key] || '—'
+                        : form[key] || '—'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {enrollments.length > 0 && (
+                <div className="pt-4 border-t border-border">
+                  <p className="text-sm font-semibold text-foreground mb-3">My Courses &amp; Batches</p>
+                  <div className="space-y-2">
+                    {enrollments.map((en, i) => (
+                      <div key={i} className="flex items-center space-x-3 text-sm text-foreground">
+                        <Icon name="BookOpen" size={14} className="text-muted-foreground shrink-0" />
+                        <span>{en.courseName || en.courseId}</span>
+                        {(en.batchName || en.batchId) && (
+                          <>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-muted-foreground">{en.batchName || en.batchId}</span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground pt-2">
+                To update your enrollment or profile details, contact your administrator.
+              </p>
+            </div>
+          )
+        )}
+
+        {/* Teacher: editable profile */}
+        {isTeacher && (
+          loading ? (
+            <div className="bg-card rounded-lg border border-border p-6 text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-muted-foreground text-sm">Loading profile...</p>
+            </div>
+          ) : (
+            <div className="bg-card rounded-lg border border-border p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TEACHER_FIELDS.map(({ key, label, type }) => (
+                  <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
+                    <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+                    {type === 'textarea' ? (
+                      <textarea
+                        value={form[key] ?? ''}
+                        onChange={(e) => handleChange(key, e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    ) : (
+                      <input
+                        type={type === 'number' ? 'number' : 'text'}
+                        value={form[key] ?? ''}
+                        onChange={(e) => handleChange(key, e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground">
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Other roles */}
+        {!isStudent && !isTeacher && (
           <div className="bg-card rounded-lg border border-border p-6">
             <p className="text-sm text-muted-foreground">
               Your account details are managed by your administrator. Contact them to update your information.
             </p>
-          </div>
-        ) : loading ? (
-          <div className="bg-card rounded-lg border border-border p-6 text-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-muted-foreground text-sm">Loading profile...</p>
-          </div>
-        ) : (
-          <div className="bg-card rounded-lg border border-border p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fields.map(({ key, label, type, options }) => (
-                <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
-                  <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
-                  {type === 'textarea' ? (
-                    <textarea
-                      value={form[key] ?? ''}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  ) : type === 'select' ? (
-                    <select
-                      value={form[key] ?? ''}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">Select</option>
-                      {options.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={type === 'number' ? 'number' : 'text'}
-                      value={form[key] ?? ''}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {isStudent && (
-              <div className="mt-6 pt-6 border-t border-border">
-                <h3 className="text-sm font-semibold text-foreground mb-1">My Courses & Batches</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Add the courses you're enrolled in and pick your batch for each.
-                </p>
-                <EnrollmentEditor
-                  courses={courses}
-                  value={enrollments}
-                  onChange={setEnrollments}
-                  disabled={saving}
-                />
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end">
-              <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground">
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
           </div>
         )}
       </div>
