@@ -6,6 +6,8 @@ import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
 import { newInstituteService } from '../../services/newInstituteService';
+import { newTestService } from '../../services/newTestService';
+import { formatDateTime } from '../../pages/test-management/testConstants';
 
 const NavigationHeader = ({
   userRole = 'student',
@@ -43,6 +45,7 @@ const NavigationHeader = ({
   const effectiveRole = (userProfile?.role || user?.role || userRole || '')
     .toString().toUpperCase().replace(/-/g, '_');
   const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || effectiveRole === 'SUPERADMIN';
+  const isStudent = effectiveRole === 'STUDENT';
   const showInstituteDropdown = isSuperAdmin || showInstituteDropdownProp;
 
   // Resolve effective values: context wins when the dropdown is shown (SUPER_ADMIN),
@@ -62,6 +65,9 @@ const NavigationHeader = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [instituteName, setInstituteName] = useState('');
+  // Student-only: tests assigned to the student that they haven't attempted yet.
+  // Fetched once on mount; non-students keep an empty list (blank dropdown).
+  const [testNotifications, setTestNotifications] = useState([]);
 
   // For non-super-admin roles, resolve the user's fixed institute name to show
   // top-left. Uses skipAuthRedirect so a forbidden read can't force a logout.
@@ -81,6 +87,38 @@ const NavigationHeader = ({
       .catch(() => {});
     return () => { mounted = false; };
   }, [showInstituteDropdown, instituteId]);
+
+  // Notifications for students: surface newly assigned tests they haven't started.
+  // A test is "new" when there's no attempt yet (empty or NOT_STARTED status).
+  useEffect(() => {
+    if (!isStudent) {
+      setTestNotifications([]);
+      return;
+    }
+    let mounted = true;
+    newTestService
+      .getAvailableTests()
+      .then(({ data }) => {
+        if (!mounted) return;
+        const rows = Array.isArray(data) ? data : [];
+        const pending = rows.filter((t) => {
+          const status = (t.attemptStatus || t.status || t.attempt?.status || '')
+            .toString().toUpperCase();
+          return status === '' || status === 'NOT_STARTED';
+        });
+        setTestNotifications(
+          pending.map((t) => ({
+            id: t.testId ?? t.id,
+            title: t.title || `Test #${t.testId ?? t.id}`,
+            when: formatDateTime(t.availableFrom) || null,
+          }))
+        );
+      })
+      .catch(() => { if (mounted) setTestNotifications([]); });
+    return () => { mounted = false; };
+  }, [isStudent]);
+
+  const notificationCount = isStudent ? testNotifications.length : notifications;
 
   const handleUserMenuToggle = () => {
     setShowUserMenu(!showUserMenu);
@@ -224,9 +262,9 @@ const NavigationHeader = ({
               className="relative"
             >
               <Icon name="Bell" size={20} />
-              {notifications > 0 && (
+              {notificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-error text-error-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {notifications > 9 ? '9+' : notifications}
+                  {notificationCount > 9 ? '9+' : notificationCount}
                 </span>
               )}
             </Button>
@@ -238,22 +276,23 @@ const NavigationHeader = ({
                   <h3 className="font-medium text-popover-foreground">Notifications</h3>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {notifications > 0 ? (
+                  {testNotifications.length > 0 ? (
                     <div className="p-4 space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-popover-foreground">New test assigned: Mathematics Quiz</p>
-                          <p className="text-xs text-muted-foreground mt-1">2 minutes ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-popover-foreground">Test completed successfully</p>
-                          <p className="text-xs text-muted-foreground mt-1">1 hour ago</p>
-                        </div>
-                      </div>
+                      {testNotifications.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => { setShowNotifications(false); navigate('/my-tests'); }}
+                          className="w-full flex items-start space-x-3 text-left hover:bg-muted -mx-2 px-2 py-1 rounded transition-colors"
+                        >
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <p className="text-sm text-popover-foreground">New test assigned: {n.title}</p>
+                            {n.when && (
+                              <p className="text-xs text-muted-foreground mt-1">Available from {n.when}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   ) : (
                     <div className="p-8 text-center">
