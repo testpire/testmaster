@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { newTestService } from '../../../services/newTestService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import AttemptReview from '../../../components/test/AttemptReview';
 import { formatDateTime } from '../testConstants';
 
 // View per-student results for a test. The results[] row shape isn't strongly typed
@@ -10,6 +11,12 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Per-student attempt drill-down (shares AttemptReview with the student view).
+  const [detailRow, setDetailRow] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -27,6 +34,46 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
       active = false;
     };
   }, [isOpen, test?.id]);
+
+  // Reset the drill-down whenever the modal is (re)opened.
+  useEffect(() => {
+    if (!isOpen) {
+      setDetailRow(null);
+      setDetail(null);
+      setDetailError('');
+    }
+  }, [isOpen]);
+
+  const getAttemptId = (r) =>
+    r?.attemptId ?? r?.attempt?.id ?? r?.latestAttemptId ?? r?.lastAttemptId ?? null;
+
+  const openAttempt = async (row) => {
+    setDetailRow(row);
+    setDetail(null);
+    setDetailError('');
+    const attemptId = getAttemptId(row);
+    if (attemptId == null) {
+      setDetailError("This result row doesn't carry an attempt id, so the breakdown can't be opened.");
+      return;
+    }
+    setDetailLoading(true);
+    const { data, error: err } = await newTestService.getStaffAttempt(test.id, attemptId);
+    setDetailLoading(false);
+    if (err || !data) {
+      setDetailError(
+        err?.message ||
+          "Detailed attempt view isn't available yet — the backend endpoint for staff to read a student's attempt hasn't been added."
+      );
+      return;
+    }
+    setDetail(data);
+  };
+
+  const closeAttempt = () => {
+    setDetailRow(null);
+    setDetail(null);
+    setDetailError('');
+  };
 
   const totalMarks = summary?.totalMarks ?? test?.totalMarks ?? 0;
   const passingMarks = summary?.passingMarks ?? test?.passingMarks ?? null;
@@ -100,12 +147,27 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Results</h2>
-            <p className="text-sm text-muted-foreground">{summary?.testTitle || test?.title}</p>
+          <div className="flex items-center gap-3 min-w-0">
+            {detailRow && (
+              <button
+                onClick={closeAttempt}
+                className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                title="Back to results"
+              >
+                <Icon name="ArrowLeft" size={20} />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground">
+                {detailRow ? 'Attempt Detail' : 'Results'}
+              </h2>
+              <p className="text-sm text-muted-foreground truncate">
+                {detailRow ? getName(detailRow) : summary?.testTitle || test?.title}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            {rows.length > 0 && (
+            {!detailRow && rows.length > 0 && (
               <Button variant="outline" size="sm" onClick={exportCsv} iconName="Download" iconPosition="left">
                 CSV
               </Button>
@@ -117,6 +179,22 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
         </div>
 
         <div className="p-4 overflow-y-auto">
+          {detailRow ? (
+            detailLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : detailError ? (
+              <div className="text-center py-12">
+                <Icon name="Info" size={40} className="mx-auto mb-3 text-muted-foreground" />
+                <p className="text-foreground font-medium mb-1">Can't show this attempt</p>
+                <p className="text-muted-foreground text-sm max-w-md mx-auto">{detailError}</p>
+              </div>
+            ) : (
+              <AttemptReview attempt={detail} studentName={getName(detailRow)} />
+            )
+          ) : (
+          <>
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center space-x-2 mb-4">
               <Icon name="AlertCircle" size={16} className="text-destructive" />
@@ -158,6 +236,7 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
                         <th className="px-4 py-3 font-medium">%</th>
                         <th className="px-4 py-3 font-medium">Result</th>
                         <th className="px-4 py-3 font-medium">Submitted</th>
+                        <th className="px-4 py-3 font-medium sr-only">View</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -166,7 +245,12 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
                         const pct = getPercentage(r);
                         const passed = getPassed(r);
                         return (
-                          <tr key={r.id || r.studentId || i} className="hover:bg-muted/20">
+                          <tr
+                            key={r.id || r.studentId || i}
+                            onClick={() => openAttempt(r)}
+                            className="hover:bg-muted/20 cursor-pointer"
+                            title="View this student's attempt"
+                          >
                             <td className="px-4 py-3 font-medium text-foreground">{getName(r)}</td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {score != null ? `${score} / ${totalMarks}` : '—'}
@@ -190,6 +274,9 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
                             <td className="px-4 py-3 text-muted-foreground">
                               {formatDateTime(getSubmitted(r))}
                             </td>
+                            <td className="px-4 py-3 text-right text-muted-foreground">
+                              <Icon name="ChevronRight" size={16} className="inline" />
+                            </td>
                           </tr>
                         );
                       })}
@@ -198,6 +285,8 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
                 </div>
               )}
             </>
+          )}
+          </>
           )}
         </div>
       </div>

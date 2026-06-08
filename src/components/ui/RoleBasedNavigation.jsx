@@ -197,6 +197,12 @@ const RoleBasedNavigation = ({
         roles: ['student']
       },
       {
+        label: 'Results',
+        path: '/my-results',
+        icon: 'Award',
+        roles: ['student']
+      },
+      {
         label: 'Profile',
         path: '/profile',
         icon: 'User',

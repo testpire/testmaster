@@ -12,6 +12,8 @@ import SuperAdminDashboard from './pages/super-admin-dashboard';
 import QuestionBank from './pages/question-bank';
 import TestManagement from './pages/test-management';
 import StudentTests from './pages/student-tests';
+import StudentResults from './pages/student-results';
+import TestResult from './pages/test-result';
 import TestTaking from './pages/test-taking';
 import StudentDashboard from './pages/student-dashboard';
 import TeacherDashboard from './pages/teacher-dashboard';
@@ -63,6 +65,8 @@ const Routes = () => {
 
           {/* Student test-taking */}
           <Route path="/my-tests" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentTests /></ProtectedRoute>} />
+          <Route path="/my-results" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentResults /></ProtectedRoute>} />
+          <Route path="/test-result/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestResult /></ProtectedRoute>} />
           <Route path="/test-taking/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestTaking /></ProtectedRoute>} />
 
           {/* Shared — any authenticated user */}

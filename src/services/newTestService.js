@@ -133,6 +133,25 @@ export const newTestService = {
     }
   },
 
+  // Staff view of a single student's graded attempt — the per-question breakdown
+  // (same shape as the student's GET /student/tests/attempts/{id}, but addressable
+  // by staff for any student's attempt). NOTE: this endpoint is not yet exposed by
+  // the backend; the UI degrades gracefully on a 404/"no static resource" error
+  // until it lands. `skipAuthRedirect` keeps a missing endpoint from logging staff
+  // out. The conventional path nests the attempt under its test.
+  async getStaffAttempt(testId, attemptId) {
+    try {
+      const { data, error, success } = await get(
+        `/tests/${testId}/attempts/${attemptId}`,
+        { skipAuthRedirect: true }
+      );
+      if (!success) return { data: null, error };
+      return { data: unwrapOne(data), error: null };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to load attempt' } };
+    }
+  },
+
   // ---------------------------------------------------------------------------
   // Staff — Test Assignment
   // ---------------------------------------------------------------------------
@@ -181,6 +200,24 @@ export const newTestService = {
       return { data: unwrapList(data, 'tests'), error: null };
     } catch (error) {
       return { data: [], error: { message: error?.message || 'Failed to load available tests' } };
+    }
+  },
+
+  // List the calling student's own attempts (completed + in-progress), for the
+  // "Results" tab. NOTE: this endpoint does not exist on the backend yet — until it
+  // does it returns a soft error and the Results page falls back to deriving the
+  // list from getAvailableTests(). `skipAuthRedirect` keeps the missing route from
+  // logging the student out. Expected row shape:
+  //   { attemptId, testId, testTitle, status, score, maxScore, submittedAt }
+  async getMyAttempts() {
+    try {
+      const { data, error, success } = await get('/student/tests/attempts', {
+        skipAuthRedirect: true
+      });
+      if (!success) return { data: [], error };
+      return { data: unwrapList(data, 'attempts'), error: null };
+    } catch (error) {
+      return { data: [], error: { message: error?.message || 'Failed to load attempts' } };
     }
   },
 

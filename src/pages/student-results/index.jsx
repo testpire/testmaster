@@ -1,0 +1,153 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageLayout from '../../components/layout/PageLayout';
+import Icon from '../../components/AppIcon';
+import { newTestService } from '../../services/newTestService';
+import { formatDateTime } from '../test-management/testConstants';
+
+// Student's completed-test results.
+//
+// Source of truth is GET /student/tests/attempts (the student's own attempt list).
+// That endpoint isn't on the backend yet, so until it ships we fall back to the
+// assigned-tests feed (GET /student/tests/available) and surface any assigned test
+// that already has a graded/submitted attempt. Either way, rows link to the full
+// per-question breakdown at /test-result/:attemptId.
+//
+// Heads-up: `available` only lists currently-open assignments, so a completed test
+// drops off once its window closes — the dedicated attempts endpoint is what makes
+// historical results reliably visible.
+const StudentResults = () => {
+  const navigate = useNavigate();
+  const [tests, setTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    document.title = 'Test Results - TestMaster';
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      // Prefer the dedicated attempts list; fall back to the assigned-tests feed
+      // while that endpoint is still being built.
+      const attemptsRes = await newTestService.getMyAttempts();
+      if (!active) return;
+      if (!attemptsRes.error && Array.isArray(attemptsRes.data) && attemptsRes.data.length > 0) {
+        setTests(attemptsRes.data);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: err } = await newTestService.getAvailableTests();
+      if (!active) return;
+      if (err) {
+        setError(err.message || 'Failed to load your results');
+        setTests([]);
+      } else {
+        setTests(Array.isArray(data) ? data : []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Defensive field access — the available-test payload isn't strongly typed.
+  const getTestId = (t) => t.testId ?? t.id;
+  const getAttemptId = (t) => t.attemptId ?? t.currentAttemptId ?? t.attempt?.id ?? null;
+  const getStatus = (t) => (t.attemptStatus || t.status || t.attempt?.status || '').toUpperCase();
+  const getScore = (t) => t.score ?? t.marksObtained ?? t.lastScore ?? t.attempt?.score ?? null;
+  const getMax = (t) => t.maxScore ?? t.totalMarks ?? t.maxMarks ?? null;
+  const getSubmitted = (t) => t.submittedAt || t.attempt?.submittedAt || t.completedAt || null;
+
+  const isDone = (t) => ['SUBMITTED', 'COMPLETED', 'GRADED'].includes(getStatus(t));
+
+  // Only completed attempts with an addressable attempt id can show a result.
+  const completed = tests.filter((t) => isDone(t) && getAttemptId(t) != null);
+
+  return (
+    <PageLayout title="Test Results">
+      <div className="p-4 lg:p-6 max-w-4xl mx-auto w-full">
+        <div className="mb-6">
+          <h1 className="text-xl lg:text-2xl font-bold text-foreground">Test Results</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your completed tests. Open one to review every question, your answer, and the correct answer.
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
+            <p className="text-destructive text-sm">{error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        ) : completed.length === 0 ? (
+          <div className="text-center py-16">
+            <Icon name="Award" size={48} className="mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium text-foreground mb-1">No results yet</h3>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+              Once you submit a test it will appear here so you can review your answers.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {completed.map((t) => {
+              const score = getScore(t);
+              const max = getMax(t);
+              const pct = score != null && max ? (Number(score) / Number(max)) * 100 : null;
+              const attemptId = getAttemptId(t);
+              return (
+                <button
+                  key={getTestId(t)}
+                  onClick={() => navigate(`/test-result/${attemptId}`)}
+                  className="w-full text-left bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-foreground truncate">
+                      {t.title || `Test #${getTestId(t)}`}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-green-700">
+                        <Icon name="CheckCircle2" size={13} /> Completed
+                      </span>
+                      {getSubmitted(t) && (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="CalendarCheck" size={13} /> {formatDateTime(getSubmitted(t))}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    {score != null && (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-foreground leading-none">
+                          {score}
+                          {max != null && <span className="text-sm text-muted-foreground"> / {max}</span>}
+                        </div>
+                        {pct != null && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{pct.toFixed(0)}%</div>
+                        )}
+                      </div>
+                    )}
+                    <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </PageLayout>
+  );
+};
+
+export default StudentResults;

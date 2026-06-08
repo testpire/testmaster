@@ -69,8 +69,9 @@ const StudentTests = () => {
     const open = isWithinWindow(t.availableFrom, t.availableUntil);
 
     if (status === 'SUBMITTED' || status === 'COMPLETED' || status === 'GRADED') {
+      const attemptId = getAttemptId(t);
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1 text-sm text-green-700">
             <Icon name="CheckCircle2" size={16} /> Completed
           </span>
@@ -78,6 +79,17 @@ const StudentTests = () => {
             <span className="text-sm font-semibold text-foreground">
               {score}{totalMarks != null ? ` / ${totalMarks}` : ''}
             </span>
+          )}
+          {attemptId != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/test-result/${attemptId}`)}
+              iconName="Eye"
+              iconPosition="left"
+            >
+              View Result
+            </Button>
           )}
         </div>
       );

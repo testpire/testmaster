@@ -219,9 +219,17 @@ const TestTaking = () => {
                 {passed ? 'Passed' : 'Did not pass'}
               </span>
             )}
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button variant="default" onClick={() => navigate('/my-tests')} iconName="ArrowLeft" iconPosition="left">
                 Back to My Tests
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/test-result/${attemptId}`)}
+                iconName="Eye"
+                iconPosition="left"
+              >
+                View detailed result
               </Button>
             </div>
           </div>
