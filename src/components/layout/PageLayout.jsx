@@ -180,7 +180,7 @@ const PageLayout = ({
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || user?.role?.toLowerCase()?.replace('_', '-') || 'student',
     email: userProfile?.email || user?.email,
     avatar: userProfile?.avatar || null,
-    notifications: 3,
+    notifications: 0,
     instituteId: userProfile?.instituteId || user?.instituteId
   };
 
