@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { newTestService } from '../../../services/newTestService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import { toDatetimeLocal } from '../testConstants';
+import { toDatetimeLocal, toUtcIso } from '../testConstants';
 
 // Create / edit a test's metadata. Per-question marks and the question set itself
 // are managed separately in the Question Picker; this modal only handles the test
@@ -64,7 +64,8 @@ const TestFormModal = ({
       setError('Title is required');
       return;
     }
-    if (form.availableFrom && form.availableUntil && form.availableUntil <= form.availableFrom) {
+    if (form.availableFrom && form.availableUntil &&
+        new Date(form.availableUntil) <= new Date(form.availableFrom)) {
       setError('"Available until" must be after "Available from"');
       return;
     }
@@ -82,8 +83,8 @@ const TestFormModal = ({
     if (form.maxAttempts !== '' && form.maxAttempts != null)
       payload.maxAttempts = Number(form.maxAttempts);
     if (form.passingMarks !== '') payload.passingMarks = Number(form.passingMarks);
-    if (form.availableFrom) payload.availableFrom = form.availableFrom;
-    if (form.availableUntil) payload.availableUntil = form.availableUntil;
+    if (form.availableFrom) payload.availableFrom = toUtcIso(form.availableFrom);
+    if (form.availableUntil) payload.availableUntil = toUtcIso(form.availableUntil);
 
     // instituteId is only meaningful on create for a super-admin acting within a
     // selected institute; on update the backend keeps the test's institute.

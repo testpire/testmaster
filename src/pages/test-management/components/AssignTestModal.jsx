@@ -9,7 +9,8 @@ import {
   TARGET_TYPES,
   TARGET_TYPE_LABEL,
   TARGET_TYPE_ICON,
-  formatDateTime
+  formatDateTime,
+  toUtcIso
 } from '../testConstants';
 
 // Assign a test to a COURSE, BATCH or STUDENT and manage existing assignments.
@@ -93,14 +94,15 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
       setError(`Please choose a ${TARGET_TYPE_LABEL[form.targetType].toLowerCase()}.`);
       return;
     }
-    if (form.availableFrom && form.availableUntil && form.availableUntil <= form.availableFrom) {
+    if (form.availableFrom && form.availableUntil &&
+        new Date(form.availableUntil) <= new Date(form.availableFrom)) {
       setError('"Available until" must be after "Available from"');
       return;
     }
 
     const payload = { targetType: form.targetType, targetId: Number(targetId) };
-    if (form.availableFrom) payload.availableFrom = form.availableFrom;
-    if (form.availableUntil) payload.availableUntil = form.availableUntil;
+    if (form.availableFrom) payload.availableFrom = toUtcIso(form.availableFrom);
+    if (form.availableUntil) payload.availableUntil = toUtcIso(form.availableUntil);
 
     setSaving(true);
     const { error: assignErr } = await newTestService.assignTest(test.id, payload);

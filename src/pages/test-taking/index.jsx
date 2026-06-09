@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import TestSecurityWrapper from '../../components/ui/TestSecurityWrapper';
 import { newTestService } from '../../services/newTestService';
 import { resolveImagePath } from '../test-management/testConstants';
+import MathText from '../../components/MathText';
 
 // Student exam runner — one question at a time with a navigator palette,
 // flag-for-review, a countdown that auto-submits on expiry, and per-answer
@@ -244,7 +245,7 @@ const TestTaking = () => {
                 return (
                   <div key={qid} className="bg-card border border-border rounded-lg p-4">
                     <p className="text-sm font-medium text-foreground mb-2">
-                      {i + 1}. {q.text}
+                      {i + 1}. <MathText text={q.text} textFormat={q.textFormat} />
                     </p>
                     <div className="space-y-1">
                       {(q.options || []).map((o) => {
@@ -263,7 +264,7 @@ const TestTaking = () => {
                           >
                             {isCorrect && <Icon name="Check" size={13} className="inline mr-1" />}
                             {isChosen && !isCorrect && <Icon name="X" size={13} className="inline mr-1" />}
-                            {o.text}
+                            <MathText text={o.text} textFormat={q.textFormat} />
                           </div>
                         );
                       })}
@@ -335,7 +336,7 @@ const TestTaking = () => {
                 </button>
               </div>
 
-              <p className="text-foreground mb-3">{q.text}</p>
+              <MathText as="p" className="text-foreground mb-3" text={q.text} textFormat={q.textFormat} />
               {q.questionImagePath && (
                 <img
                   src={resolveImagePath(q.questionImagePath)}
@@ -371,7 +372,7 @@ const TestTaking = () => {
                         className={selected ? 'text-primary mt-0.5' : 'text-muted-foreground mt-0.5'}
                       />
                       <span className="text-sm text-foreground">
-                        {o.text}
+                        <MathText text={o.text} textFormat={q.textFormat} />
                         {o.optionImagePath && (
                           <img
                             src={resolveImagePath(o.optionImagePath)}

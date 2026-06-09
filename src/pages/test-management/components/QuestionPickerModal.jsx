@@ -3,6 +3,7 @@ import { newTestService } from '../../../services/newTestService';
 import { questionService } from '../../../services/questionService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import MathText from '../../../components/MathText';
 import { resolveImagePath } from '../testConstants';
 
 const PAGE_SIZE = 20;
@@ -38,6 +39,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
         negativeMarks: q.negativeMarks ?? 0,
         sortOrder: q.sortOrder ?? i + 1,
         text: q.text,
+        textFormat: q.textFormat,
         questionImagePath: q.questionImagePath,
         questionType: q.questionType
       });
@@ -116,6 +118,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
           negativeMarks: q.negativeMarks ?? 0,
           sortOrder: next.size + 1,
           text: q.text,
+          textFormat: q.textFormat,
           questionImagePath: q.questionImagePath,
           questionType: q.questionType
         });
@@ -268,7 +271,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground line-clamp-2">
-                          {q.text || `Question #${q.id}`}
+                          <MathText text={q.text || `Question #${q.id}`} textFormat={q.textFormat} />
                         </p>
                         <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
                           {q.topicName && <span>📚 {q.topicName}</span>}
@@ -317,7 +320,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-xs text-foreground line-clamp-2 flex-1">
                       <span className="text-muted-foreground mr-1">{i + 1}.</span>
-                      {q.text || `Question #${q.questionId}`}
+                      <MathText text={q.text || `Question #${q.questionId}`} textFormat={q.textFormat} />
                     </p>
                     <button
                       onClick={() => removeSelected(q.questionId)}

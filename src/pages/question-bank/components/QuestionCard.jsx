@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import MathText from '../../../components/MathText';
 
 const QuestionCard = ({ 
   question, 
@@ -30,8 +31,11 @@ const QuestionCard = ({
     marks: question.marks || 4,
     negativeMarks: question.negativeMarks || 0,
     options: Array.isArray(question.options) ? question.options : [],
-    questionImagePath: question.questionImagePath || ''
+    questionImagePath: question.questionImagePath || '',
+    textFormat: question.textFormat || 'PLAIN'
   };
+
+  const isLatex = String(safeQuestion.textFormat).toUpperCase() === 'LATEX';
 
   const getDifficultyColor = (difficulty) => {
     const safeLevel = (difficulty || '').toLowerCase();
@@ -108,17 +112,23 @@ const QuestionCard = ({
       <div className="mb-3">
         <div className="text-sm text-gray-900 leading-relaxed">
           {safeQuestion.text ? (
-            <>
-              {showFullQuestion ? safeQuestion.text : truncateText(safeQuestion.text)}
-              {safeQuestion.text.length > 150 && (
-                <button
-                  onClick={() => setShowFullQuestion(!showFullQuestion)}
-                  className="ml-2 text-blue-600 hover:underline text-xs"
-                >
-                  {showFullQuestion ? 'Show less' : 'Show more'}
-                </button>
-              )}
-            </>
+            isLatex ? (
+              // Truncating LaTeX would slice through $...$ delimiters and break
+              // rendering, so render the full expression for LaTeX questions.
+              <MathText text={safeQuestion.text} textFormat="LATEX" />
+            ) : (
+              <>
+                {showFullQuestion ? safeQuestion.text : truncateText(safeQuestion.text)}
+                {safeQuestion.text.length > 150 && (
+                  <button
+                    onClick={() => setShowFullQuestion(!showFullQuestion)}
+                    className="ml-2 text-blue-600 hover:underline text-xs"
+                  >
+                    {showFullQuestion ? 'Show less' : 'Show more'}
+                  </button>
+                )}
+              </>
+            )
           ) : (
             <span className="text-gray-400 italic">No question text available</span>
           )}
@@ -167,7 +177,7 @@ const QuestionCard = ({
                   </span>
                   
                   <div className="flex-1">
-                    <div>{safeOption.text}</div>
+                    <MathText as="div" text={safeOption.text} textFormat={safeQuestion.textFormat} />
                     
                     {/* Option Image */}
                     {safeOption.optionImagePath && (

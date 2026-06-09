@@ -44,9 +44,18 @@ export const resolveImagePath = (path) => {
 };
 
 // An <input type="datetime-local"> wants "yyyy-MM-ddTHH:mm"; the API returns ISO
-// (possibly with seconds/zone). Trim to the minute for the control, and pass the
-// control value straight back to the API (it accepts second-less ISO).
+// (possibly with seconds/zone). Trim to the minute for the control.
 export const toDatetimeLocal = (value) => (value ? String(value).slice(0, 16) : '');
+
+// Convert a datetime-local string ("yyyy-MM-ddTHH:mm") to a full UTC ISO string
+// before sending to the API. The input is in the browser's local timezone but carries
+// no offset — without this the backend (UTC) misinterprets the time by the user's
+// UTC offset (e.g. IST is 5.5 h off). Returns null for empty/invalid values.
+export const toUtcIso = (localValue) => {
+  if (!localValue) return null;
+  const d = new Date(localValue);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
 
 export const formatDateTime = (value) => {
   if (!value) return '—';

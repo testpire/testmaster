@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import Icon from '../AppIcon';
+import MathText from '../MathText';
 import { formatDateTime, resolveImagePath } from '../../pages/test-management/testConstants';
 
 // Shared, presentational breakdown of a single GRADED test attempt. Used by both
@@ -199,7 +200,7 @@ const QuestionCard = ({ q, index }) => {
       <div className="flex items-start justify-between gap-3 mb-2">
         <p className="text-sm font-medium text-foreground">
           <span className="text-muted-foreground mr-1">{index + 1}.</span>
-          {q.text}
+          <MathText text={q.text} textFormat={q.textFormat} />
         </p>
         <div className="flex flex-shrink-0 items-center gap-2">
           {awardedNum != null && (
@@ -250,7 +251,7 @@ const QuestionCard = ({ q, index }) => {
                 className="mt-0.5 flex-shrink-0"
               />
               <span className="flex-1">
-                {o.text}
+                <MathText text={o.text} textFormat={q.textFormat} />
                 {o.optionImagePath && (
                   <img
                     src={resolveImagePath(o.optionImagePath)}

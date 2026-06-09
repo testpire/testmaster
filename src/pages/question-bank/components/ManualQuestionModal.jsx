@@ -5,6 +5,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
+import MathText, { detectTextFormat } from '../../../components/MathText';
 
 // Mirror the backend allowlist / size cap (app.images.max-size-bytes default = 2 MB).
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -106,6 +107,9 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [uploadingQuestionImage, setUploadingQuestionImage] = useState(false);
   const [uploadingOptionIndex, setUploadingOptionIndex] = useState(null);
+  // Tracks whether the teacher manually picked the text format. While false, the
+  // format auto-detects from the typed content; a manual toggle pins it.
+  const [formatManual, setFormatManual] = useState(false);
 
   const [questionData, setQuestionData] = useState({
     questionText: '',
@@ -118,6 +122,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     difficultyLevel: 'EASY',
     marks: 4,
     negativeMarks: 1,
+    textFormat: 'PLAIN',
     explanation: '',
     options: [
       { label: 'A', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
@@ -132,8 +137,20 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
   // Populate form when editing
   useEffect(() => {
     if (editingQuestion && isOpen) {
+      const loadedOptions = editingQuestion?.options?.map(opt => opt?.text || opt?.option_text) || [];
+      // Honor an explicitly saved format; otherwise infer from the loaded content.
+      const loadedFormat =
+        editingQuestion?.textFormat ||
+        detectTextFormat(
+          editingQuestion?.text || editingQuestion?.question_text || '',
+          editingQuestion?.explanation || '',
+          ...loadedOptions
+        );
+      // Pin the format (no auto re-detect) when the question already had one saved.
+      setFormatManual(!!editingQuestion?.textFormat);
       setQuestionData({
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
+        textFormat: loadedFormat,
         questionImagePath: editingQuestion?.questionImagePath || '',
         // Backend already returns a full public URL, so it doubles as the preview.
         questionImagePreview: editingQuestion?.questionImagePath || '',
@@ -163,6 +180,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       });
     } else if (isOpen && !editingQuestion) {
       // Reset form for new question
+      setFormatManual(false);
       setQuestionData({
         questionText: '',
         questionImagePath: '',
@@ -174,6 +192,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
         difficultyLevel: 'EASY',
         marks: 4,
         negativeMarks: 1,
+        textFormat: 'PLAIN',
         explanation: '',
         options: [
           { label: 'A', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false },
@@ -211,6 +230,19 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
       setTopics([]);
     }
   }, [questionData.chapter, isOpen]);
+
+  // Auto-detect PLAIN vs LATEX from the typed content until the teacher pins it
+  // with the manual toggle. The equality guard prevents a setState loop.
+  useEffect(() => {
+    if (formatManual) return;
+    const optionTexts = (questionData.options || []).map(o => o?.text || '');
+    const detected = detectTextFormat(
+      questionData.questionText,
+      questionData.explanation,
+      ...optionTexts
+    );
+    setQuestionData(prev => (prev.textFormat === detected ? prev : { ...prev, textFormat: detected }));
+  }, [questionData.questionText, questionData.explanation, questionData.options, formatManual]);
 
   const loadSubjects = async () => {
     if (!currentUser) return;
@@ -438,6 +470,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
           questionType: questionData?.questionType,
           marks: parseInt(questionData?.marks) || 4,
           negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
+          textFormat: questionData?.textFormat || 'PLAIN',
           explanation: questionData?.explanation || '',
           ...(questionData?.questionType === 'mcq' && {
             options: questionData?.options?.map((opt, index) => ({
@@ -617,9 +650,30 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
 
             {/* Question Text */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Question Text *
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-foreground">
+                  Question Text *
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Format:</span>
+                  <div className="inline-flex rounded-md border border-border overflow-hidden">
+                    {['PLAIN', 'LATEX'].map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => { setFormatManual(true); handleInputChange('textFormat', fmt); }}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          (questionData?.textFormat || 'PLAIN') === fmt
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-card text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {fmt === 'PLAIN' ? 'Plain' : 'LaTeX'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <textarea
                 value={questionData?.questionText}
                 onChange={(e) => handleInputChange('questionText', e?.target?.value)}
@@ -628,6 +682,24 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                 placeholder="Enter the question text here..."
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {(questionData?.textFormat || 'PLAIN') === 'LATEX'
+                  ? 'LaTeX mode: wrap inline math in $…$ and block math in $$…$$. Applies to the question, options, and explanation.'
+                  : formatManual
+                  ? 'Plain text mode.'
+                  : 'Format auto-detected from your input — switch manually if needed.'}
+              </p>
+              {(questionData?.textFormat || 'PLAIN') === 'LATEX' && questionData?.questionText?.trim() && (
+                <div className="mt-2 p-3 rounded-lg border border-border bg-muted/30">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                  <MathText
+                    as="div"
+                    className="text-sm text-foreground"
+                    text={questionData?.questionText}
+                    textFormat="LATEX"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Question Image */}
@@ -703,6 +775,12 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                       
                       {/* Option Image */}
                       <div className="ml-8">
+                        {(questionData?.textFormat || 'PLAIN') === 'LATEX' && option?.text?.trim() && (
+                          <div className="mb-2 p-2 rounded border border-border bg-muted/30">
+                            <span className="text-xs text-muted-foreground mr-1">Preview:</span>
+                            <MathText className="text-sm text-foreground" text={option?.text} textFormat="LATEX" />
+                          </div>
+                        )}
                         <ImageUploadField
                           previewUrl={option?.optionImagePreview}
                           uploading={uploadingOptionIndex === index}
