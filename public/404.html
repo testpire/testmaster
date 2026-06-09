@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>TestPire</title>
+    <script>
+      // GitHub Pages SPA redirect — encodes the requested path into a query string
+      // so index.html can restore it via history.replaceState (no real 404 served).
+      // pathSegmentsToKeep=0 for a user/org repo (testpire.github.io) where base is "/".
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1).join('/') + '/?/' +
+        l.pathname.slice(1).replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+</html>

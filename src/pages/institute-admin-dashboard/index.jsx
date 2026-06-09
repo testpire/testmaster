@@ -41,10 +41,10 @@ const InstituteAdminDashboard = () => {
     role: userProfile?.role?.toLowerCase()?.replace('_', '-') || 'inst-admin',
     email: userProfile?.email || user?.email,
     avatar: userProfile?.avatar || null,
-    notifications: 3,
+    notifications: 0,
     instituteId: userProfile?.instituteId || user?.instituteId
   };
-  
+
 
   // Update time every minute
   useEffect(() => {
