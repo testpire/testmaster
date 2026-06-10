@@ -71,6 +71,9 @@ const MathText = ({ text, textFormat, as: Tag = 'span', className }) => {
       nodes.push(
         <span
           key={`m${key++}`}
+          // Block (display) math doesn't wrap; on narrow screens a wide equation
+          // would stretch/clip the page, so let it scroll horizontally on its own.
+          className={isBlock ? 'inline-block max-w-full overflow-x-auto align-middle' : undefined}
           // katex output is trusted, generated HTML (not user markup)
           dangerouslySetInnerHTML={{ __html: html }}
         />

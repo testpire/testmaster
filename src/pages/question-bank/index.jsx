@@ -16,13 +16,15 @@ const QuestionBank = () => {
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
-  // Try to get SuperAdmin context for institute-change refetch
-  let superAdminContext = null;
-  try {
-    superAdminContext = useSuperAdmin();
-  } catch (e) {
-    // Not in super-admin context
-  }
+  // Normalized role check — must match InstituteContext's isSuperAdminRole, since
+  // that logic is what actually populates `selectedInstitute` below.
+  const normalizedRole = String(currentUser?.role || '').toUpperCase().replace(/-/g, '_');
+  const isSuperAdmin = normalizedRole === 'SUPER_ADMIN' || normalizedRole === 'SUPERADMIN';
+
+  // SuperAdmin context for the institute switcher / institute-change refetch.
+  // useSuperAdmin() delegates to InstituteContext and never throws, so this is
+  // always a context object (its institute fields are only populated for SUPER_ADMIN).
+  const superAdminContext = useSuperAdmin();
   
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isManualQuestionModalOpen, setIsManualQuestionModalOpen] = useState(false);
@@ -211,10 +213,13 @@ const QuestionBank = () => {
   // initial fetch with no/stale institute that is then immediately repeated.
   useEffect(() => {
     if (!currentUser) return;
-    if (superAdminContext && !superAdminContext?.selectedInstitute?.id) return;
+    // Only SUPER_ADMIN needs to wait for an institute selection (data is institute-
+    // scoped via X-Institute-Id). Other roles (e.g. INST_ADMIN) are scoped by their
+    // JWT and have no selectedInstitute, so they must not be blocked here.
+    if (isSuperAdmin && !superAdminContext?.selectedInstitute?.id) return;
     loadQuestions(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!currentUser, filters, superAdminContext?.selectedInstitute?.id]);
+  }, [!!currentUser, isSuperAdmin, filters, superAdminContext?.selectedInstitute?.id]);
 
   // Load subjects on mount
   useEffect(() => {
@@ -428,13 +433,11 @@ const QuestionBank = () => {
     </div>
   );
 
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'super-admin';
-
   return (
     <PageLayout
       title="Question Bank"
       activeRoute="/question-bank"
-      showInstituteDropdown={isSuperAdmin && !!(superAdminContext)}
+      showInstituteDropdown={isSuperAdmin}
       institutes={superAdminContext?.allInstitutes || []}
       selectedInstitute={superAdminContext?.selectedInstitute || null}
       onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
