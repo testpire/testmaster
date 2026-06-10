@@ -5,6 +5,8 @@ import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newTestService } from '../../services/newTestService';
+import { questionService } from '../../services/questionService';
+import { printTestPaper } from '../../utils/testPaperPdf';
 import TestFormModal from './components/TestFormModal';
 import QuestionPickerModal from './components/QuestionPickerModal';
 import AssignTestModal from './components/AssignTestModal';
@@ -38,6 +40,7 @@ const TestManagement = () => {
   const [assignTest, setAssignTest] = useState(null);
   const [resultsTest, setResultsTest] = useState(null);
   const [busyId, setBusyId] = useState(null); // id mid publish/delete
+  const [downloadId, setDownloadId] = useState(null); // id mid PDF/paper build
 
   const loadTests = async () => {
     if (!currentUser) return;
@@ -101,6 +104,60 @@ const TestManagement = () => {
     if (delErr) {
       setTests(previous);
       setError(delErr.message || 'Failed to delete test');
+    }
+  };
+
+  // Build an offline question paper and open the print → "Save as PDF" dialog.
+  // The test list rows only carry a questionCount, so fetch the full test; and
+  // because the test-detail payload may omit per-question options, enrich any
+  // question that's missing them from the question bank (in parallel).
+  const handleDownloadPaper = async (test) => {
+    setDownloadId(test.id);
+    setError(null);
+    try {
+      const { data: full, error: loadErr } = await newTestService.getTest(test.id);
+      if (loadErr || !full) {
+        setError(loadErr?.message || 'Failed to load test for download');
+        return;
+      }
+
+      const raw = Array.isArray(full.questions) ? full.questions : [];
+      if (raw.length === 0) {
+        setError('This test has no questions to download.');
+        return;
+      }
+
+      const ordered = [...raw].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      );
+
+      const questions = await Promise.all(
+        ordered.map(async (q) => {
+          if (Array.isArray(q.options) && q.options.length > 0) return q;
+          const qid = q.questionId ?? q.id;
+          if (qid == null) return q;
+          const { data: detail } = await questionService.getQuestionById(qid);
+          if (!detail) return q;
+          return {
+            ...detail,
+            ...q,
+            text: q.text || detail.text,
+            textFormat: q.textFormat || detail.textFormat,
+            questionType: q.questionType || detail.questionType,
+            questionImagePath: q.questionImagePath || detail.questionImagePath,
+            options:
+              Array.isArray(q.options) && q.options.length > 0
+                ? q.options
+                : detail.options || [],
+          };
+        })
+      );
+
+      await printTestPaper(full, questions);
+    } catch (e) {
+      setError(e?.message || 'Failed to generate the test paper');
+    } finally {
+      setDownloadId(null);
     }
   };
 
@@ -259,6 +316,20 @@ const TestManagement = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Download paper (PDF) for offline test"
+                              disabled={downloadId === test.id}
+                              onClick={() => handleDownloadPaper(test)}
+                              className="w-8 h-8"
+                            >
+                              <Icon
+                                name={downloadId === test.id ? 'Loader2' : 'FileDown'}
+                                size={16}
+                                className={downloadId === test.id ? 'animate-spin' : ''}
+                              />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
