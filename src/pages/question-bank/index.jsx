@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button';
 import QuestionCard from './components/QuestionCard';
 import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
+import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
 import { questionService } from '../../services/questionService';
 
 const PAGE_SIZE = 20;
@@ -33,8 +34,9 @@ const QuestionBank = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
-  // The questions list scrolls inside its own container (not the window), so the
-  // infinite-scroll listener must be attached to this element, not `window`.
+  // Used to scroll the list back to the top on a fresh load/filter change.
+  // (Infinite scroll itself is driven by an <InfiniteScrollSentinel> observing
+  // the viewport, so it works whether the window or this container scrolls.)
   const scrollContainerRef = useRef(null);
   // Synchronous guard so a burst of scroll events can't fire overlapping fetches
   // before the `loadingMore` state has a chance to update.
@@ -154,15 +156,6 @@ const QuestionBank = () => {
     }
   };
 
-  // Trigger the next-page fetch when the user scrolls near the bottom of the list
-  // container. Bound to the scrollable element's onScroll (not window).
-  const handleScroll = (event) => {
-    const el = event.currentTarget;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
-      loadMoreQuestions();
-    }
-  };
-
   // Load filter data
   const loadSubjects = async () => {
     try {
@@ -209,19 +202,19 @@ const QuestionBank = () => {
     }
   };
 
-  // Load questions when component mounts or filters change (reset to first page)
+  // Load (reset to first page) when a user is present, filters change, or the
+  // super-admin switches institute. Keyed on the *presence* of a user rather than
+  // the `currentUser` object — otherwise this double-fires on initial load, once
+  // when `user` resolves and again when `userProfile` follows (both yield a new
+  // object identity for the same person). For a super-admin the list is
+  // institute-scoped, so we also wait until an institute is selected to avoid an
+  // initial fetch with no/stale institute that is then immediately repeated.
   useEffect(() => {
-    if (currentUser) {
-      loadQuestions(0);
-    }
-  }, [currentUser, filters]);
-
-  // Reload questions when super-admin switches institute
-  useEffect(() => {
-    if (superAdminContext?.selectedInstitute?.id && currentUser) {
-      loadQuestions(0);
-    }
-  }, [superAdminContext?.selectedInstitute?.id]);
+    if (!currentUser) return;
+    if (superAdminContext && !superAdminContext?.selectedInstitute?.id) return;
+    loadQuestions(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!currentUser, filters, superAdminContext?.selectedInstitute?.id]);
 
   // Load subjects on mount
   useEffect(() => {
@@ -461,9 +454,6 @@ const QuestionBank = () => {
                   ) : pagination.totalElements > 0 ? (
                     <>
                       Showing {selectedQuestions.length} of {pagination.totalElements} questions
-                      {pagination.hasMore && (
-                        <span className="text-blue-600 ml-1">(scroll for more)</span>
-                      )}
                     </>
                   ) : (
                     '0 Questions'
@@ -540,7 +530,6 @@ const QuestionBank = () => {
         {/* Questions List */}
         <div
           ref={scrollContainerRef}
-          onScroll={handleScroll}
           className="flex-1 overflow-y-auto p-4 lg:p-6"
         >
           {loading && (
@@ -591,7 +580,14 @@ const QuestionBank = () => {
                   />
                 ))}
               </div>
-              
+
+              {/* Sentinel: fetches the next page when scrolled into view */}
+              <InfiniteScrollSentinel
+                hasMore={pagination.hasMore}
+                loading={loadingMore}
+                onLoadMore={loadMoreQuestions}
+              />
+
               {/* Loading more indicator */}
               {loadingMore && (
                 <div className="py-8 text-center">

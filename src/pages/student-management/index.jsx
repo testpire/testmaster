@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
@@ -9,6 +9,7 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Icon from '../../components/AppIcon';
+import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
 const StudentManagement = () => {
@@ -25,6 +26,9 @@ const StudentManagement = () => {
   // Student management states
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false });
+  const loadingMoreRef = useRef(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -145,34 +149,57 @@ const StudentManagement = () => {
     }
   };
 
-  const loadStudents = async () => {
-    setLoading(true);
-    setError(null);
+  // Load a page of students. page 0 replaces the list (fresh load / filter change);
+  // higher pages append (infinite scroll). Course/batch filtering and institute
+  // scoping are applied server-side via StudentCriteriaDto + the JWT / header.
+  const loadStudents = async (page = 0) => {
+    if (page === 0) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
-      // Single server-side call: course/batch filtering via StudentCriteriaDto
-      // (courseId/batchId). Passing null for either means "don't filter on it".
-      const { data, error } = await newUserService.searchStudents(
+      const { data, pagination: pg, error } = await newUserService.searchStudents(
         {
           courseId: selectedCourseId || null,
           batchId: selectedBatchId || null,
         },
-        { page: 0, size: 100 }
+        { page, size: 20 }
       );
 
       if (error) {
-        setError(typeof error === 'string' ? error : error.message || 'Failed to load students');
-        setStudents([]);
-        setLoading(false);
+        if (page === 0) {
+          setError(typeof error === 'string' ? error : error.message || 'Failed to load students');
+          setStudents([]);
+        }
         return;
       }
 
-      setStudents(data || []);
-      setLoading(false);
+      const list = Array.isArray(data) ? data : [];
+      setStudents((prev) => (page === 0 ? list : [...prev, ...list]));
+      setPagination({ currentPage: pg?.currentPage ?? page, hasMore: !!pg?.hasMore });
     } catch (err) {
       console.error('Error loading students:', err);
-      setError('Failed to load students: ' + err.message);
-      setLoading(false);
+      if (page === 0) {
+        setError('Failed to load students: ' + err.message);
+        setStudents([]);
+      }
+    } finally {
+      if (page === 0) setLoading(false);
+    }
+  };
+
+  // Fetch and append the next page (infinite scroll). loadingMoreRef guards against
+  // a burst of sentinel triggers firing overlapping fetches.
+  const loadMoreStudents = async () => {
+    if (loading || loadingMoreRef.current || !pagination.hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await loadStudents(pagination.currentPage + 1);
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
     }
   };
 
@@ -466,6 +493,23 @@ const StudentManagement = () => {
               </div>
             )}
           </div>
+
+          {/* Infinite scroll: load the next page when scrolled into view */}
+          {!loading && !error && (
+            <>
+              <InfiniteScrollSentinel
+                hasMore={pagination.hasMore}
+                loading={loadingMore}
+                onLoadMore={loadMoreStudents}
+              />
+              {loadingMore && (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  <Icon name="Loader2" size={20} className="animate-spin mx-auto mb-1" />
+                  Loading more students...
+                </div>
+              )}
+            </>
+          )}
 
           {/* Stats Footer */}
           {!loading && !error && (

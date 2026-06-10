@@ -44,9 +44,13 @@ const renderMath = (expr, displayMode) => {
 const MathText = ({ text, textFormat, as: Tag = 'span', className }) => {
   const value = text == null ? '' : String(text);
 
-  // Plain text (or LATEX-flagged but no actual delimiters/commands): let React
-  // escape and render it verbatim. This also keeps whitespace/newlines intact.
-  if (String(textFormat).toUpperCase() !== 'LATEX' || !hasLatex(value)) {
+  // `textFormat` is an override, not a requirement: an explicit "PLAIN" is always
+  // honored as verbatim text, but an absent/unknown flag (e.g. the student
+  // attempt payload omits textFormat) falls back to auto-detection so LaTeX still
+  // renders. An explicit "LATEX" with no actual delimiters/commands also stays
+  // plain. In every case React escapes the text and preserves whitespace/newlines.
+  const fmt = textFormat == null ? '' : String(textFormat).toUpperCase();
+  if (fmt === 'PLAIN' || !hasLatex(value)) {
     return <Tag className={className}>{value}</Tag>;
   }
 

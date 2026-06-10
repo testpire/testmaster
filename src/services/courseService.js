@@ -27,7 +27,8 @@ export const courseService = {
       const response = await post(endpoint, payload);
       const data = response?.data?.data || response?.data || response;
       const content = data?.content || data?.courses || data?.subjects || data?.chapters || data?.topics || data || [];
-      const totalElements = data?.totalElements || data?.total || content.length;
+      // Total lives in `totalCount` for these endpoints (not totalElements/totalPages).
+      const totalElements = data?.totalCount ?? data?.totalElements ?? data?.total ?? content.length;
       const totalPages = data?.totalPages || Math.ceil(totalElements / payload.pagination.size);
       const currentPage = data?.number !== undefined ? data.number : pagination.page || 0;
       const hasMore = currentPage < totalPages - 1;

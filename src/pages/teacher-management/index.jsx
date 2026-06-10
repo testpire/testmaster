@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
@@ -6,6 +6,7 @@ import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
+import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
 const TeacherManagement = () => {
@@ -22,6 +23,9 @@ const TeacherManagement = () => {
   // Teacher management states
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false });
+  const loadingMoreRef = useRef(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -88,33 +92,51 @@ const TeacherManagement = () => {
     }
   };
 
-  const loadTeachers = async () => {
-    setLoading(true);
-    setError(null);
+  // Load a page of teachers. page 0 replaces the list (fresh load / filter change);
+  // higher pages append (infinite scroll). Institute scoping is handled server-side
+  // via the JWT / X-Institute-Id header, so no criteria are passed here.
+  const loadTeachers = async (page = 0) => {
+    if (page === 0) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
-      let searchParams = {};
-      
-      // For super admin, filter by selected institute if available
-      if (currentUser.role === 'super-admin' && superAdminContext?.selectedInstitute) {
-        searchParams.instituteId = superAdminContext.selectedInstitute.id;
-      }
+      const { data, pagination: pg, error } = await newUserService.getTeachers({ page, size: 20 });
 
-      const { data, error } = await newUserService.getTeachers({ page: 0, size: 20 }, searchParams);
-      
       if (error) {
-        setError(typeof error === 'string' ? error : error.message || 'Failed to load teachers');
-        setLoading(false);
+        if (page === 0) {
+          setError(typeof error === 'string' ? error : error.message || 'Failed to load teachers');
+          setTeachers([]);
+        }
         return;
       }
 
-      const teachers = data || [];
-      setTeachers(teachers);
-      setLoading(false);
+      const list = Array.isArray(data) ? data : [];
+      setTeachers((prev) => (page === 0 ? list : [...prev, ...list]));
+      setPagination({ currentPage: pg?.currentPage ?? page, hasMore: !!pg?.hasMore });
     } catch (err) {
       console.error('Error loading teachers:', err);
-      setError('Failed to load teachers: ' + err.message);
-      setLoading(false);
+      if (page === 0) {
+        setError('Failed to load teachers: ' + err.message);
+        setTeachers([]);
+      }
+    } finally {
+      if (page === 0) setLoading(false);
+    }
+  };
+
+  // Fetch and append the next page (infinite scroll). loadingMoreRef guards against
+  // a burst of sentinel triggers firing overlapping fetches.
+  const loadMoreTeachers = async () => {
+    if (loading || loadingMoreRef.current || !pagination.hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await loadTeachers(pagination.currentPage + 1);
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
     }
   };
 
@@ -334,6 +356,23 @@ const TeacherManagement = () => {
               </div>
             )}
           </div>
+
+          {/* Infinite scroll: load the next page when scrolled into view */}
+          {!loading && !error && (
+            <>
+              <InfiniteScrollSentinel
+                hasMore={pagination.hasMore}
+                loading={loadingMore}
+                onLoadMore={loadMoreTeachers}
+              />
+              {loadingMore && (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  <Icon name="Loader2" size={20} className="animate-spin mx-auto mb-1" />
+                  Loading more teachers...
+                </div>
+              )}
+            </>
+          )}
 
           {/* Stats Footer */}
           {!loading && !error && (

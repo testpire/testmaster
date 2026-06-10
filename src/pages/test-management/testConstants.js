@@ -57,12 +57,19 @@ export const toUtcIso = (localValue) => {
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
+// The backend stores/returns times in UTC. Render them in the browser's local
+// timezone (the inverse of toUtcIso, which sends local time as UTC). If the ISO
+// string carries no zone designator, treat it as UTC by appending 'Z' — otherwise
+// new Date() would (mis)interpret it as local time.
 export const formatDateTime = (value) => {
   if (!value) return '—';
-  const s = String(value);
-  const date = s.slice(0, 10);
-  const time = s.slice(11, 16);
-  return time ? `${date} ${time}` : date;
+  let s = String(value);
+  const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!hasZone) s = s.replace(' ', 'T') + 'Z';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '—';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 // Is the test currently inside its availability window?

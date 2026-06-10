@@ -8,6 +8,25 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
+
+// Page through an advanced-search service method until there are no more pages,
+// accumulating every row. The curriculum tree needs the *full* set (not a single
+// page) so its nodes can expand, so we can't stop at the default page size.
+// `fn` receives a pagination object and returns the service's { data, pagination }.
+const fetchAllPages = async (fn) => {
+  let page = 0;
+  let all = [];
+  let more = true;
+  while (more) {
+    const { data, pagination } = (await fn({ page, size: 100 })) || {};
+    all = all.concat(Array.isArray(data) ? data : []);
+    more = !!pagination?.hasMore;
+    page += 1;
+    if (page > 50) break; // safety stop (≤ 5000 rows at size 100)
+  }
+  return all;
+};
+
 // Inline Modal Components
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -1038,50 +1057,48 @@ const CourseManagement = () => {
     }
   };
 
-  // Load functions with error handling
+  // Load functions with error handling. Each pages through the full set (the tree
+  // needs every node available to expand) — institute scoping is server-side via
+  // the JWT / X-Institute-Id header, not a function argument.
   const loadCourses = useCallback(async () => {
     try {
-      const result = await courseService.getCourses(safeCurrentUser?.instituteId);
-      const { data } = result || {};
+      const data = await fetchAllPages((pg) => courseService.getCourses(pg));
       setCourses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading courses:', err);
       setCourses([]);
     }
-  }, [safeCurrentUser?.instituteId]);
+  }, []);
 
   const loadSubjects = useCallback(async (courseId = null) => {
     try {
-      const result = await courseService.getSubjects(courseId);
-      const { data } = result || {};
+      const data = await fetchAllPages((pg) => courseService.getSubjects(courseId, pg));
       setSubjects(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading subjects:', err);
       setSubjects([]);
     }
-  }, [safeCurrentUser?.instituteId]);
+  }, []);
 
   const loadChapters = useCallback(async (subjectId = null) => {
     try {
-      const result = await courseService.getChapters(subjectId);
-      const { data } = result || {};
+      const data = await fetchAllPages((pg) => courseService.getChapters(subjectId, pg));
       setChapters(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading chapters:', err);
       setChapters([]);
     }
-  }, [safeCurrentUser?.instituteId]);
+  }, []);
 
   const loadTopics = useCallback(async (chapterId = null) => {
     try {
-      const result = await courseService.getTopics(chapterId);
-      const { data } = result || {};
+      const data = await fetchAllPages((pg) => courseService.getTopics(chapterId, pg));
       setTopics(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading topics:', err);
       setTopics([]);
     }
-  }, [safeCurrentUser?.instituteId]);
+  }, []);
 
   // Combined load function
   const loadAllData = useCallback(async () => {

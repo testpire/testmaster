@@ -43,10 +43,13 @@ export const questionService = {
 
       const response = await post('/questions/search/advanced', payload);
       
-      // Parse response
+      // Parse response. The backend wraps as { message, success, data } and the
+      // questions page is { questions: [...], totalCount: N } — note the total is
+      // `totalCount` (not totalElements/totalPages), so it must be read explicitly
+      // or pagination collapses to a single page.
       const data = response?.data?.data || response?.data || response;
       const questions = data?.content || data?.questions || data || [];
-      const totalElements = data?.totalElements || data?.total || questions.length;
+      const totalElements = data?.totalCount ?? data?.totalElements ?? data?.total ?? questions.length;
       const totalPages = data?.totalPages || Math.ceil(totalElements / payload.pagination.size);
       const currentPage = data?.number !== undefined ? data.number : searchParams.page || 0;
       const hasMore = currentPage < totalPages - 1;
