@@ -273,8 +273,6 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     name: '',
     code: '',
     description: '',
-    level: 'Undergraduate',
-    duration: '4',
     fee: '',
     subjectCodes: []
   });
@@ -288,8 +286,6 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
         name: course.name || '',
         code: course.code || '',
         description: course.description || '',
-        level: course.level || 'Undergraduate',
-        duration: course.duration || '4',
         fee: course.fee ?? '',
         subjectCodes: getCourseSubjectCodes(course)
       });
@@ -298,8 +294,6 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
         name: '',
         code: '',
         description: '',
-        level: 'Undergraduate',
-        duration: '4',
         fee: '',
         subjectCodes: []
       });
@@ -371,36 +365,6 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="e.g., CSE01"
             required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Level
-          </label>
-          <select
-            value={formData.level}
-            onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="Undergraduate">Undergraduate</option>
-            <option value="Graduate">Graduate</option>
-            <option value="Postgraduate">Postgraduate</option>
-            <option value="Diploma">Diploma</option>
-            <option value="Certificate">Certificate</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Duration (Years)
-          </label>
-          <input
-            type="text"
-            value={formData.duration}
-            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., 4"
           />
         </div>
 
@@ -1552,9 +1516,6 @@ const CourseManagement = () => {
                               <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
                               <span className="text-sm font-medium text-gray-900 truncate">{course.name}</span>
                               {course.code && <span className="text-xs text-gray-500">({course.code})</span>}
-                              {course.level && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
-                              )}
                               {fmtFee(course.fee) && (
                                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(course.fee)}</span>
                               )}

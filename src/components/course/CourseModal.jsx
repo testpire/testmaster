@@ -14,8 +14,6 @@ const CourseModal = ({
     name: '',
     description: '',
     code: '',
-    duration: '',
-    level: '',
     prerequisites: '',
     instituteId: instituteId || ''
   });
@@ -29,8 +27,6 @@ const CourseModal = ({
         name: existingCourse.name || '',
         description: existingCourse.description || '',
         code: existingCourse.code || '',
-        duration: existingCourse.duration || '',
-        level: existingCourse.level || '',
         prerequisites: existingCourse.prerequisites || '',
         instituteId: existingCourse.instituteId || instituteId || ''
       });
@@ -39,8 +35,6 @@ const CourseModal = ({
         name: '',
         description: '',
         code: '',
-        duration: '',
-        level: '',
         prerequisites: '',
         instituteId: instituteId || ''
       });
@@ -69,8 +63,6 @@ const CourseModal = ({
         name: formData.name,
         description: formData.description,
         code: formData.code,
-        duration: formData.duration,
-        level: formData.level,
         prerequisites: formData.prerequisites,
         instituteId: parseInt(formData.instituteId)
       };
@@ -141,41 +133,6 @@ const CourseModal = ({
                 disabled={loading}
                 maxLength={20}
               />
-            </div>
-
-            {/* Duration and Level */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration
-                </label>
-                <input
-                  type="text"
-                  value={formData.duration}
-                  onChange={(e) => handleInputChange('duration', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., 4 years"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Level
-                </label>
-                <select
-                  value={formData.level}
-                  onChange={(e) => handleInputChange('level', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={loading}
-                >
-                  <option value="">Select Level</option>
-                  <option value="Undergraduate">Undergraduate</option>
-                  <option value="Graduate">Graduate</option>
-                  <option value="Postgraduate">Postgraduate</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="Certificate">Certificate</option>
-                </select>
-              </div>
             </div>
 
             {/* Description */}
