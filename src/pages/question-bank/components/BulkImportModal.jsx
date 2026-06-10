@@ -3,6 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { questionService } from '../../../services/questionService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 
 const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
   const { userProfile } = useAuth();
@@ -70,8 +71,6 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
     onClose();
   };
 
-  if (!isOpen) return null;
-
   // Defensively unwrap ApiResponseDto { data: ... } and pull out row-level errors.
   const payload = uploadResult?.data ?? uploadResult ?? {};
   const rowErrors = Array.isArray(payload?.errors) ? payload.errors : [];
@@ -88,25 +87,43 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
       /count|created|updated|imported|questions|rows|processed|failed|skipped|upload|success|total/i.test(key)
   );
 
-  return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">Bulk Import Questions</h2>
-            <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
-              <Icon name="X" size={24} />
-            </button>
-          </div>
-          <p className="text-muted-foreground mt-2">
-            Upload a CSV or Excel file to import multiple questions at once.
-          </p>
-        </div>
+  const footerContent = (
+    <>
+      <div className="text-sm text-muted-foreground mr-auto">
+        {!uploadResult ? 'Select a file and click "Upload & Parse" to import questions' : 'Questions have been successfully imported'}
+      </div>
+      <Button variant="outline" onClick={handleClose} disabled={loading}>
+        {uploadResult ? 'Close' : 'Cancel'}
+      </Button>
+      {!uploadResult ? (
+        <Button
+          variant="primary"
+          onClick={handleFileUpload}
+          disabled={!selectedFile || loading}
+          iconName={loading ? "Loader2" : "Upload"}
+          iconPosition="left"
+          className={loading ? "animate-pulse" : ""}
+        >
+          {loading ? 'Uploading...' : 'Upload & Parse'}
+        </Button>
+      ) : (
+        <Button variant="primary" onClick={handleReset}>
+          Import Another File
+        </Button>
+      )}
+    </>
+  );
 
-        {/* Content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {error && (
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Bulk Import Questions"
+      description="Upload a CSV or Excel file to import multiple questions at once."
+      size="xl"
+      footer={footerContent}
+    >
+      {error && (
             <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
               <div className="flex items-center space-x-2">
                 <Icon name="AlertCircle" size={16} className="text-destructive" />
@@ -246,41 +263,7 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
               )}
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {!uploadResult ? 'Select a file and click "Upload & Parse" to import questions' : 'Questions have been successfully imported'}
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Button variant="outline" onClick={handleClose} disabled={loading}>
-                {uploadResult ? 'Close' : 'Cancel'}
-              </Button>
-              
-              {!uploadResult ? (
-                <Button 
-                  variant="primary" 
-                  onClick={handleFileUpload} 
-                  disabled={!selectedFile || loading}
-                  iconName={loading ? "Loader2" : "Upload"}
-                  iconPosition="left"
-                  className={loading ? "animate-pulse" : ""}
-                >
-                  {loading ? 'Uploading...' : 'Upload & Parse'}
-                </Button>
-              ) : (
-                <Button variant="primary" onClick={handleReset}>
-                  Import Another File
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

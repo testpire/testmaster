@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { newUserService } from '../../../services/newUserService';
+import Modal from '../../../components/ui/Modal';
 
 const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -103,9 +104,8 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
     if (error) setError('');
   };
 
-  if (!isOpen || !user) return null;
-
   const getModalTitle = () => {
+    if (!user) return 'User Action';
     switch (actionType) {
       case 'edit': return `Edit ${user.role === 'TEACHER' ? 'Teacher' : 'Student'}`;
       case 'move': return `Move ${user.role === 'TEACHER' ? 'Teacher' : 'Student'}`;
@@ -142,61 +142,9 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: actionType === 'delete' ? '400px' : '500px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '24px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            color: '#111827',
-            margin: 0
-          }}>
-            {getModalTitle()}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#6b7280',
-              padding: '4px'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal isOpen={isOpen && !!user} onClose={onClose} title={getModalTitle()} size="md">
         {/* Content */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+        <form onSubmit={handleSubmit}>
           {actionType === 'delete' ? (
             // Delete Confirmation
             <div style={{ textAlign: 'center' }}>
@@ -513,8 +461,7 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

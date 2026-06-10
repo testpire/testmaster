@@ -4,6 +4,7 @@ import { newInstituteService } from '../../../services/newInstituteService';
 import { courseService } from '../../../services/courseService';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
 import EnrollmentEditor, { toEnrollmentPayload } from '../../../components/enrollment/EnrollmentEditor';
+import Modal from '../../../components/ui/Modal';
 
 const CreateUserModal = ({ 
   isOpen, 
@@ -311,74 +312,18 @@ const CreateUserModal = ({
     handleInputChange('password', password);
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
-  const modalTitle = editMode 
-    ? (userRole === 'TEACHER' ? 'Edit Teacher' : 
-       userRole === 'INST_ADMIN' ? 'Edit Institute Admin' : 
+  const modalTitle = editMode
+    ? (userRole === 'TEACHER' ? 'Edit Teacher' :
+       userRole === 'INST_ADMIN' ? 'Edit Institute Admin' :
        'Edit Student')
-    : (userRole === 'TEACHER' ? 'Create New Teacher' : 
-       userRole === 'INST_ADMIN' ? 'Create New Institute Admin' : 
+    : (userRole === 'TEACHER' ? 'Create New Teacher' :
+       userRole === 'INST_ADMIN' ? 'Create New Institute Admin' :
        'Create New Student');
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '24px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            color: '#111827',
-            margin: 0
-          }}>
-            {modalTitle}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#6b7280',
-              padding: '4px'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+        <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gap: '20px' }}>
             {/* Name Fields */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -1239,18 +1184,17 @@ const CreateUserModal = ({
                 cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
-              {loading 
-                ? (editMode ? 'Updating...' : 'Creating...') 
-                : (editMode 
-                    ? `Update ${userRole === 'TEACHER' ? 'Teacher' : userRole === 'INST_ADMIN' ? 'Institute Admin' : 'Student'}` 
+              {loading
+                ? (editMode ? 'Updating...' : 'Creating...')
+                : (editMode
+                    ? `Update ${userRole === 'TEACHER' ? 'Teacher' : userRole === 'INST_ADMIN' ? 'Institute Admin' : 'Student'}`
                     : `Create ${userRole === 'TEACHER' ? 'Teacher' : userRole === 'INST_ADMIN' ? 'Institute Admin' : 'Student'}`
                   )
               }
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

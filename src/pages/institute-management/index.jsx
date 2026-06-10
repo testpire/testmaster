@@ -179,6 +179,32 @@ const InstituteManagement = () => {
     }
   };
 
+  const handleDeleteInstitute = async (institute) => {
+    const adminCount = (adminsByInstitute.get(String(institute.id)) || []).length;
+    const warning = adminCount > 0
+      ? `\n\nThis institute has ${adminCount} admin${adminCount === 1 ? '' : 's'} that may also be affected.`
+      : '';
+    if (!window.confirm(`Delete institute "${institute.name}"? This action cannot be undone.${warning}`)) {
+      return;
+    }
+    try {
+      const { error: delError } = await newInstituteService.deleteInstitute(institute.id);
+      if (delError) {
+        const message =
+          typeof delError === 'string' ? delError : delError?.message || delError?.error || JSON.stringify(delError);
+        alert('Failed to delete institute: ' + message);
+        return;
+      }
+      if (superAdminContext?.fetchInstitutes) {
+        superAdminContext.fetchInstitutes(true); // force past the session cache
+      }
+      fetchInstitutes();
+    } catch (err) {
+      console.error('Error deleting institute:', err);
+      alert('Failed to delete institute');
+    }
+  };
+
   const loading = institutesLoading || adminsLoading;
   const totalAdmins = admins.length;
 
@@ -196,7 +222,7 @@ const InstituteManagement = () => {
 
           <Button
             onClick={() => setShowCreateInstituteModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+            className="flex items-center gap-2"
           >
             <Icon name="Building" size={16} />
             Add Institute
@@ -287,13 +313,24 @@ const InstituteManagement = () => {
                       </div>
                     </button>
 
-                    <Button
-                      onClick={() => openCreateAdmin(institute)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 flex-shrink-0"
-                    >
-                      <Icon name="Plus" size={16} />
-                      <span className="hidden sm:inline">Add Admin</span>
-                    </Button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        onClick={() => openCreateAdmin(institute)}
+                        className="flex items-center gap-2"
+                      >
+                        <Icon name="Plus" size={16} />
+                        <span className="hidden sm:inline">Add Admin</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteInstitute(institute)}
+                        className="h-9 w-9 hover:bg-red-50 hover:text-red-600"
+                        title="Delete institute"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Admins (children) */}
@@ -310,7 +347,6 @@ const InstituteManagement = () => {
                           {!term && (
                             <Button
                               onClick={() => openCreateAdmin(institute)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
                               <Icon name="Plus" size={16} className="mr-2" />
                               Add First Admin

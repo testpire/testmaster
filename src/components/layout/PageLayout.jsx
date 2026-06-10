@@ -141,7 +141,7 @@ const PageLayout = ({
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center p-8 max-w-md">
-          <Icon name="RefreshCw" size={48} className="mx-auto text-blue-500 mb-4 animate-spin" />
+          <Icon name="RefreshCw" size={48} className="mx-auto text-primary mb-4 animate-spin" />
           <h3 className="text-xl font-semibold text-foreground mb-2">
             {retryCount < 3 ? 'Recovering...' : 'Temporary Issue'}
           </h3>
@@ -149,15 +149,12 @@ const PageLayout = ({
             {errorMessage}
           </p>
           {retryCount < 3 ? (
-            <div className="text-sm text-blue-600">
+            <div className="text-sm text-primary">
               Auto-recovering in {3 - (Date.now() % 3000) / 1000 | 0}s (Attempt {retryCount + 1}/3)
             </div>
           ) : (
             <div className="space-x-4">
-              <Button 
-                onClick={resetError} 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
+              <Button onClick={resetError}>
                 Try Again
               </Button>
               <Button 
@@ -251,7 +248,7 @@ const PageLayout = ({
   )) || (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center p-8">
-        <Icon name="RefreshCw" size={48} className="mx-auto text-blue-500 mb-4 animate-spin" />
+        <Icon name="RefreshCw" size={48} className="mx-auto text-primary mb-4 animate-spin" />
         <p className="text-muted-foreground">Loading...</p>
       </div>
     </div>

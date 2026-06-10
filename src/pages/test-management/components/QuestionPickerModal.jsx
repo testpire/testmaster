@@ -3,6 +3,7 @@ import { newTestService } from '../../../services/newTestService';
 import { questionService } from '../../../services/questionService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import MathText from '../../../components/MathText';
 import { resolveImagePath } from '../testConstants';
 
@@ -183,33 +184,42 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     }
   };
 
-  if (!isOpen) return null;
-
   const inputCls =
     'px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Manage Questions</h2>
-            <p className="text-sm text-muted-foreground">{test?.title}</p>
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <Icon name="X" size={24} />
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Manage Questions"
+      description={test?.title}
+      size="full"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            onClick={handleSave}
+            disabled={saving}
+            iconName={saving ? 'Loader2' : 'Save'}
+            iconPosition="left"
+            className={saving ? 'animate-pulse' : ''}
+          >
+            {saving ? 'Saving...' : 'Save Questions'}
+          </Button>
+        </>
+      }
+    >
+      {error && (
+        <div className="-mt-4 mb-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center space-x-2">
+          <Icon name="AlertCircle" size={16} className="text-destructive" />
+          <p className="text-destructive text-sm font-medium">{error}</p>
         </div>
-
-        {error && (
-          <div className="mx-4 mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center space-x-2">
-            <Icon name="AlertCircle" size={16} className="text-destructive" />
-            <p className="text-destructive text-sm font-medium">{error}</p>
-          </div>
-        )}
-
-        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+      )}
+        <div className="flex flex-col lg:flex-row -mx-6 -my-4 h-[calc(90vh-8rem)] min-h-0">
           {/* LEFT: question bank browser */}
           <div className="flex-1 flex flex-col border-r border-border min-h-0">
             <div className="p-3 border-b border-border flex flex-wrap gap-2">
@@ -359,26 +369,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-border flex items-center justify-end space-x-3">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            onClick={handleSave}
-            disabled={saving}
-            iconName={saving ? 'Loader2' : 'Save'}
-            iconPosition="left"
-            className={saving ? 'animate-pulse' : ''}
-          >
-            {saving ? 'Saving...' : 'Save Questions'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -6,6 +6,7 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import MathText, { detectTextFormat } from '../../../components/MathText';
+import Modal from '../../../components/ui/Modal';
 
 // Mirror the backend allowlist / size cap (app.images.max-size-bytes default = 2 MB).
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -517,32 +518,16 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-card rounded-xl shadow-lg max-w-4xl w-full max-h-[95vh] overflow-hidden my-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">
-              {editingQuestion ? 'Edit Question' : 'Add Manual Question'}
-            </h2>
-            <p className="text-muted-foreground">
-              {editingQuestion ? 'Update the question details' : 'Create a new question manually'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            <Icon name="X" size={24} className="text-muted-foreground" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto" style={{ maxHeight: 'calc(95vh - 140px)' }}>
-          <div className="p-6 space-y-6">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingQuestion ? 'Edit Question' : 'Add Manual Question'}
+      description={editingQuestion ? 'Update the question details' : 'Create a new question manually'}
+      size="xl"
+    >
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-6">
             {/* Status Messages */}
             {error && (
               <div className="p-4 bg-error/10 border border-error/20 rounded-lg">
@@ -880,11 +865,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-border bg-muted/30 flex items-center justify-between">
+          <div className="pt-4 border-t border-border flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               * indicates required fields
             </div>
-            
             <div className="flex items-center space-x-3">
               <Button
                 type="button"
@@ -911,8 +895,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

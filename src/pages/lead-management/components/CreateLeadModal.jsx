@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { newLeadService } from '../../../services/newLeadService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
 import {
   LEAD_STATUSES,
@@ -144,27 +145,18 @@ const CreateLeadModal = ({
     }
   };
 
-  if (!isOpen) return null;
-
   const inputCls =
     'w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50';
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-foreground">
-            {editMode ? 'Edit Lead' : 'Add Lead'}
-          </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <Icon name="X" size={24} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 max-h-[65vh] overflow-y-auto space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editMode ? 'Edit Lead' : 'Add Lead'}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4">
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center space-x-2">
                 <Icon name="AlertCircle" size={16} className="text-destructive" />
@@ -410,7 +402,7 @@ const CreateLeadModal = ({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-border flex items-center justify-end space-x-3">
+          <div className="pt-4 border-t border-border flex items-center justify-end space-x-3">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
@@ -425,9 +417,8 @@ const CreateLeadModal = ({
               {loading ? 'Saving...' : editMode ? 'Save Changes' : 'Create Lead'}
             </Button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

@@ -300,7 +300,7 @@ const StudentManagement = () => {
             {/* Create Student Button */}
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              className="flex items-center gap-2"
             >
               <Icon name="Plus" size={16} />
               Add Student
@@ -397,7 +397,6 @@ const StudentManagement = () => {
                 {!hasActiveFilter && (
                   <Button
                     onClick={() => setShowCreateModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Icon name="Plus" size={16} className="mr-2" />
                     Add First Student

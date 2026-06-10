@@ -287,7 +287,7 @@ const AccessControl = () => {
               placeholder="Search permissions..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-72"
+              className="pl-9 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-72"
             />
           </div>
 
@@ -320,7 +320,7 @@ const AccessControl = () => {
               disabled={dirtyRoles.length === 0 || saving}
               iconName={saving ? 'Loader2' : 'Save'}
               iconPosition="left"
-              className={`bg-blue-600 hover:bg-blue-700 text-white ${saving ? 'animate-pulse' : ''}`}
+              className={saving ? 'animate-pulse' : ''}
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
@@ -334,31 +334,31 @@ const AccessControl = () => {
             <p className="text-muted-foreground">Loading permissions...</p>
           </div>
         ) : catalog.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-muted-foreground">
             <Icon name="ShieldOff" size={48} className="mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-1">No permissions found</h3>
             <p>The permission catalog returned no entries.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-card rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[16rem]">
+                    <th className="sticky left-0 z-10 bg-muted px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[16rem]">
                       Permission
                     </th>
                     {RBAC_ROLES.map((role) => (
                       <th
                         key={role}
-                        className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                        className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"
                       >
                         {ROLE_LABELS[role]}
                         {role === 'SUPER_ADMIN' && (
                           <Icon
                             name="Lock"
                             size={12}
-                            className="inline ml-1 text-gray-400 align-middle"
+                            className="inline ml-1 text-muted-foreground align-middle"
                           />
                         )}
                         {dirtyRoles.includes(role) && (
@@ -371,10 +371,10 @@ const AccessControl = () => {
                 <tbody className="divide-y divide-gray-200">
                   {groups.map(([group, perms]) => (
                     <React.Fragment key={group}>
-                      <tr className="bg-gray-100/70">
+                      <tr className="bg-muted/70">
                         <td
                           colSpan={RBAC_ROLES.length + 1}
-                          className="sticky left-0 px-6 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide"
+                          className="sticky left-0 px-6 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
                         >
                           {group}
                         </td>
@@ -382,10 +382,10 @@ const AccessControl = () => {
                       {perms.map((perm) => {
                         const { label } = parsePermission(perm);
                         return (
-                          <tr key={perm} className="hover:bg-gray-50">
-                            <td className="sticky left-0 z-10 bg-white px-6 py-3 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{label}</div>
-                              <div className="text-xs text-gray-400 font-mono">{perm}</div>
+                          <tr key={perm} className="hover:bg-muted">
+                            <td className="sticky left-0 z-10 bg-card px-6 py-3 whitespace-nowrap">
+                              <div className="text-sm font-medium text-foreground">{label}</div>
+                              <div className="text-xs text-muted-foreground font-mono">{perm}</div>
                             </td>
                             {RBAC_ROLES.map((role) => (
                               <td

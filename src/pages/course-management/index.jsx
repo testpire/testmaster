@@ -6,6 +6,7 @@ import { newBatchService } from '../../services/newBatchService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
+import Modal from '../../components/ui/Modal';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
 
@@ -25,28 +26,6 @@ const fetchAllPages = async (fn) => {
     if (page > 50) break; // safety stop (≤ 5000 rows at size 100)
   }
   return all;
-};
-
-// Inline Modal Components
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-[calc(100%-2rem)] max-w-md shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <Icon name="X" size={20} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 };
 
 // Derive the list of subject codes already attached to a course, tolerating
@@ -113,35 +92,35 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-16 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+      <div className="relative top-16 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-card">
         <div className="flex justify-between items-center mb-1">
-          <h3 className="text-lg font-bold text-gray-900">{batch?.id ? 'Edit Batch' : 'Add Batch'}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <h3 className="text-lg font-bold text-foreground">{batch?.id ? 'Edit Batch' : 'Add Batch'}</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground transition-colors">
             <Icon name="X" size={20} />
           </button>
         </div>
-        {courseName && <p className="text-sm text-gray-500 mb-4">Course: {courseName}</p>}
+        {courseName && <p className="text-sm text-muted-foreground mb-4">Course: {courseName}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Batch Name *</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Batch Name *</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setField('name', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="e.g., Morning Batch 2026"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Batch Code</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Batch Code</label>
               <input
                 type="text"
                 value={form.code}
                 onChange={(e) => setField('code', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="e.g., MB-26"
               />
             </div>
@@ -149,31 +128,31 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
               <input
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setField('startDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
               <input
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setField('endDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Capacity</label>
               <input
                 type="number"
                 min="0"
                 value={form.capacity}
                 onChange={(e) => setField('capacity', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="e.g., 30"
               />
             </div>
@@ -181,7 +160,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
 
           {/* Batch fee — defaults to the course fee but can be overridden per batch */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fee (₹)</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Fee (₹)</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -189,7 +168,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
                 step="0.01"
                 value={form.fee}
                 onChange={(e) => setField('fee', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder={recommendedFee != null ? `Course fee: ₹${recommendedFee.toLocaleString('en-IN')}` : 'e.g., 25000'}
               />
               {recommendedFee != null && !feeMatchesCourse && (
@@ -215,7 +194,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
                   Overridden — course fee is ₹{recommendedFee.toLocaleString('en-IN')}
                 </p>
               ) : (
-                <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                   <Icon name="Info" size={13} />
                   Leave blank to use the course fee (₹{recommendedFee.toLocaleString('en-IN')})
                 </p>
@@ -224,23 +203,23 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => setField('description', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               rows={2}
               placeholder="Batch description..."
             />
           </div>
 
           {batch?.id && (
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.active}
                 onChange={(e) => setField('active', e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-border text-blue-600 focus:ring-ring"
               />
               Active batch
             </label>
@@ -250,7 +229,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
             >
               Cancel
             </button>
@@ -341,35 +320,35 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     <Modal isOpen={isOpen} onClose={onClose} title={course ? 'Edit Course' : 'Add Course'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Course Name *
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., Computer Science"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Course Code *
           </label>
           <input
             type="text"
             value={formData.code}
             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., CSE01"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Fee (₹)
           </label>
           <input
@@ -378,20 +357,20 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
             step="0.01"
             value={formData.fee}
             onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., 25000"
           />
-          <p className="mt-1 text-xs text-gray-400">Default fee for batches of this course; each batch can override it.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Default fee for batches of this course; each batch can override it.</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Description
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             rows={3}
             placeholder="Course description..."
           />
@@ -399,18 +378,18 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
 
         {/* Attach subjects to this course (maps to subjectCodes on the course API) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Subjects
           </label>
           <button
             type="button"
             onClick={() => setSubjectsOpen((open) => !open)}
-            className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full flex items-center justify-between px-3 py-2 border border-border rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            <span className={selectedCount ? 'text-gray-900' : 'text-gray-400'}>
+            <span className={selectedCount ? 'text-foreground' : 'text-muted-foreground'}>
               {selectedCount ? `${selectedCount} subject${selectedCount > 1 ? 's' : ''} selected` : 'Select subjects'}
             </span>
-            <Icon name={subjectsOpen ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-gray-400" />
+            <Icon name={subjectsOpen ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-muted-foreground" />
           </button>
 
           {/* Selected subjects shown as removable chips */}
@@ -439,9 +418,9 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
           )}
 
           {subjectsOpen && (
-            <div className="mt-2 border border-gray-200 rounded-md max-h-48 overflow-y-auto divide-y divide-gray-100">
+            <div className="mt-2 border border-border rounded-md max-h-48 overflow-y-auto divide-y divide-gray-100">
               {selectableSubjects.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-gray-500">
+                <p className="px-3 py-3 text-sm text-muted-foreground">
                   No subjects available. Create subjects first, then attach them here.
                 </p>
               ) : (
@@ -450,16 +429,16 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
                   return (
                     <label
                       key={subj.id ?? subj.code}
-                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted"
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleSubjectCode(subj.code)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-border text-blue-600 focus:ring-ring"
                       />
-                      <span className="text-gray-900">{subj.name}</span>
-                      <span className="text-gray-500">({subj.code})</span>
+                      <span className="text-foreground">{subj.name}</span>
+                      <span className="text-muted-foreground">({subj.code})</span>
                     </label>
                   );
                 })
@@ -472,7 +451,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -539,54 +518,54 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
     <Modal isOpen={isOpen} onClose={onClose} title={subject ? 'Edit Subject' : 'Add Subject'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Subject Name *
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., Data Structures"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Subject Code *
           </label>
           <input
             type="text"
             value={formData.code}
             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., CS101"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Duration
           </label>
           <input
             type="text"
             value={formData.duration}
             onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., 1 Semester"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Description
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             rows={3}
             placeholder="Subject description..."
           />
@@ -596,7 +575,7 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -669,27 +648,27 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Chapter Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="Enter chapter name"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Chapter Code
             </label>
             <input
               type="text"
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="e.g., CH01"
             />
           </div>
@@ -697,13 +676,13 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Subject *
             </label>
             <select
               value={formData.subjectId}
               onChange={(e) => setFormData({ ...formData, subjectId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               required
             >
               <option value="">Select Subject</option>
@@ -715,27 +694,27 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Duration
             </label>
             <input
               type="text"
               value={formData.duration}
               onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="e.g., 1 Week"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Description
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             rows={3}
             placeholder="Chapter description..."
           />
@@ -745,7 +724,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -835,27 +814,27 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Topic Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="Enter topic name"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Topic Code
             </label>
             <input
               type="text"
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="e.g., T01"
             />
           </div>
@@ -863,13 +842,13 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Subject *
             </label>
             <select
               value={formData.subjectId}
               onChange={(e) => setFormData({ ...formData, subjectId: e.target.value, chapterId: '' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               required
             >
               <option value="">Select Subject</option>
@@ -881,13 +860,13 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Chapter
             </label>
             <select
               value={formData.chapterId}
               onChange={(e) => setFormData({ ...formData, chapterId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={!formData.subjectId}
             >
               <option value="">Select Chapter (Optional)</option>
@@ -901,26 +880,26 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Duration
           </label>
           <input
             type="text"
             value={formData.duration}
             onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., 2 Days"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Description
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             rows={3}
             placeholder="Topic description..."
           />
@@ -930,7 +909,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -1432,7 +1411,7 @@ const CourseManagement = () => {
                 className={`px-4 py-2 border-b-2 font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Icon name={tab.icon} size={16} className="inline mr-2" />
@@ -1448,7 +1427,7 @@ const CourseManagement = () => {
               placeholder={activeTab === 'coursesBatches' ? 'Search courses...' : 'Search subjects...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+              className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-64"
             />
 
             <div className="flex items-center gap-3">
@@ -1474,7 +1453,7 @@ const CourseManagement = () => {
                     setShowSubjectModal(true);
                   }
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                className="flex items-center gap-2"
               >
                 <Icon name="Plus" size={16} />
                 {activeTab === 'coursesBatches' ? 'Add Course' : 'Add Subject'}
@@ -1484,16 +1463,16 @@ const CourseManagement = () => {
 
           {/* Tree content */}
           {loading ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <Icon name="Loader" size={24} className="animate-spin mx-auto mb-4" />
               <p>Loading...</p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-card rounded-lg shadow overflow-hidden">
               {activeTab === 'coursesBatches' ? (
                 /* ---- Courses → Batches tree ---- */
                 filteredCourses.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-gray-300" />
                     <h3 className="text-lg font-medium mb-2">No Courses Found</h3>
                     <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first course.'}</p>
@@ -1507,20 +1486,20 @@ const CourseManagement = () => {
                       return (
                         <div key={course.id}>
                           {/* Course row */}
-                          <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                          <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
                             <button
                               onClick={() => toggleCourse(course.id)}
                               className="flex items-center gap-2 min-w-0 flex-1 text-left"
                             >
-                              <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-gray-400 flex-shrink-0" />
+                              <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
                               <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
-                              <span className="text-sm font-medium text-gray-900 truncate">{course.name}</span>
-                              {course.code && <span className="text-xs text-gray-500">({course.code})</span>}
+                              <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
+                              {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
                               {fmtFee(course.fee) && (
                                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(course.fee)}</span>
                               )}
                               {Array.isArray(batches) && (
-                                <span className="text-xs text-gray-400">{batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
+                                <span className="text-xs text-muted-foreground">{batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
                               )}
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">
@@ -1538,13 +1517,13 @@ const CourseManagement = () => {
 
                           {/* Batches under the course */}
                           {open && (
-                            <div className="bg-gray-50/60 pl-10 pr-4 pb-2">
+                            <div className="bg-muted/60 pl-10 pr-4 pb-2">
                               {loadingB ? (
-                                <div className="py-2 text-sm text-gray-400 flex items-center gap-2">
+                                <div className="py-2 text-sm text-muted-foreground flex items-center gap-2">
                                   <Icon name="Loader" size={14} className="animate-spin" /> Loading batches...
                                 </div>
                               ) : !batches || batches.length === 0 ? (
-                                <div className="py-2 text-sm text-gray-400">
+                                <div className="py-2 text-sm text-muted-foreground">
                                   No batches yet.{' '}
                                   <button onClick={() => openAddBatch(course)} className="text-blue-600 hover:underline">Add one</button>
                                 </div>
@@ -1553,17 +1532,17 @@ const CourseManagement = () => {
                                   {batches.map((b) => (
                                     <div key={b.id} className="flex items-center justify-between py-2">
                                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                        <Icon name="Users" size={14} className="text-gray-400 flex-shrink-0" />
-                                        <span className="text-sm text-gray-800 truncate">{b.name}</span>
-                                        {b.code && <span className="text-xs text-gray-500">({b.code})</span>}
+                                        <Icon name="Users" size={14} className="text-muted-foreground flex-shrink-0" />
+                                        <span className="text-sm text-foreground truncate">{b.name}</span>
+                                        {b.code && <span className="text-xs text-muted-foreground">({b.code})</span>}
                                         {b.active === false && (
-                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">Inactive</span>
+                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-muted-foreground">Inactive</span>
                                         )}
                                         {(b.startDate || b.endDate) && (
-                                          <span className="text-xs text-gray-400">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
+                                          <span className="text-xs text-muted-foreground">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
                                         )}
                                         {b.capacity != null && b.capacity !== '' && (
-                                          <span className="text-xs text-gray-400">· Cap {b.capacity}</span>
+                                          <span className="text-xs text-muted-foreground">· Cap {b.capacity}</span>
                                         )}
                                         {fmtFee(b.fee) && (
                                           b.fee != null && course.fee != null && Number(b.fee) !== Number(course.fee) ? (
@@ -1597,7 +1576,7 @@ const CourseManagement = () => {
               ) : (
                 /* ---- Subjects → Chapters → Topics tree ---- */
                 filteredSubjects.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Icon name="Book" size={48} className="mx-auto mb-4 text-gray-300" />
                     <h3 className="text-lg font-medium mb-2">No Subjects Found</h3>
                     <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first subject.'}</p>
@@ -1610,13 +1589,13 @@ const CourseManagement = () => {
                       return (
                         <div key={subject.id}>
                           {/* Subject row */}
-                          <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                          <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
                             <button onClick={() => toggleSubject(subject.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
-                              <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-gray-400 flex-shrink-0" />
+                              <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
                               <Icon name="Book" size={16} className="text-green-600 flex-shrink-0" />
-                              <span className="text-sm font-medium text-gray-900 truncate">{subject.name}</span>
-                              {subject.code && <span className="text-xs text-gray-500">({subject.code})</span>}
-                              <span className="text-xs text-gray-400">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
+                              <span className="text-sm font-medium text-foreground truncate">{subject.name}</span>
+                              {subject.code && <span className="text-xs text-muted-foreground">({subject.code})</span>}
+                              <span className="text-xs text-muted-foreground">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button onClick={() => openAddChapter(subject)} title="Add chapter" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
@@ -1633,9 +1612,9 @@ const CourseManagement = () => {
 
                           {/* Chapters */}
                           {sOpen && (
-                            <div className="bg-gray-50/40 pl-8">
+                            <div className="bg-muted/40 pl-8">
                               {subjChapters.length === 0 ? (
-                                <div className="py-2 pl-2 text-sm text-gray-400">
+                                <div className="py-2 pl-2 text-sm text-muted-foreground">
                                   No chapters yet.{' '}
                                   <button onClick={() => openAddChapter(subject)} className="text-blue-600 hover:underline">Add one</button>
                                 </div>
@@ -1644,15 +1623,15 @@ const CourseManagement = () => {
                                   const cOpen = expandedChapters.has(chapter.id);
                                   const chTopics = topicsOf(chapter.id);
                                   return (
-                                    <div key={chapter.id} className="border-l border-gray-200">
+                                    <div key={chapter.id} className="border-l border-border">
                                       {/* Chapter row */}
-                                      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100/60">
+                                      <div className="flex items-center justify-between px-4 py-2 hover:bg-muted/60">
                                         <button onClick={() => toggleChapter(chapter.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
-                                          <Icon name={cOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-gray-400 flex-shrink-0" />
+                                          <Icon name={cOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
                                           <Icon name="FileText" size={14} className="text-amber-600 flex-shrink-0" />
-                                          <span className="text-sm text-gray-800 truncate">{chapter.name}</span>
-                                          {chapter.code && <span className="text-xs text-gray-500">({chapter.code})</span>}
-                                          <span className="text-xs text-gray-400">{chTopics.length} topic{chTopics.length === 1 ? '' : 's'}</span>
+                                          <span className="text-sm text-foreground truncate">{chapter.name}</span>
+                                          {chapter.code && <span className="text-xs text-muted-foreground">({chapter.code})</span>}
+                                          <span className="text-xs text-muted-foreground">{chTopics.length} topic{chTopics.length === 1 ? '' : 's'}</span>
                                         </button>
                                         <div className="flex items-center gap-1 flex-shrink-0">
                                           <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
@@ -1671,7 +1650,7 @@ const CourseManagement = () => {
                                       {cOpen && (
                                         <div className="pl-10 pr-4 pb-2">
                                           {chTopics.length === 0 ? (
-                                            <div className="py-1 text-sm text-gray-400">
+                                            <div className="py-1 text-sm text-muted-foreground">
                                               No topics yet.{' '}
                                               <button onClick={() => openAddTopic(chapter)} className="text-blue-600 hover:underline">Add one</button>
                                             </div>
@@ -1680,9 +1659,9 @@ const CourseManagement = () => {
                                               {chTopics.map((topic) => (
                                                 <div key={topic.id} className="flex items-center justify-between py-2">
                                                   <div className="flex items-center gap-2 min-w-0">
-                                                    <Icon name="List" size={14} className="text-gray-400 flex-shrink-0" />
-                                                    <span className="text-sm text-gray-700 truncate">{topic.name}</span>
-                                                    {topic.code && <span className="text-xs text-gray-500">({topic.code})</span>}
+                                                    <Icon name="List" size={14} className="text-muted-foreground flex-shrink-0" />
+                                                    <span className="text-sm text-foreground truncate">{topic.name}</span>
+                                                    {topic.code && <span className="text-xs text-muted-foreground">({topic.code})</span>}
                                                   </div>
                                                   <div className="flex items-center gap-1 flex-shrink-0">
                                                     <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
@@ -1804,9 +1783,8 @@ const CourseManagement = () => {
           <p className="text-red-600 mb-4">
             Something went wrong. Please refresh the page.
           </p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+          <Button
+            onClick={() => window.location.reload()}
           >
             Reload Page
           </Button>

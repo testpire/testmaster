@@ -5,6 +5,7 @@ import { newBatchService } from '../../../services/newBatchService';
 import { newUserService } from '../../../services/newUserService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import {
   TARGET_TYPES,
   TARGET_TYPE_LABEL,
@@ -129,26 +130,24 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
     }
   };
 
-  if (!isOpen) return null;
-
   const inputCls =
     'w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
   const isDraft = (test?.status || '').toUpperCase() === 'DRAFT';
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Assign Test</h2>
-            <p className="text-sm text-muted-foreground">{test?.title}</p>
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <Icon name="X" size={24} />
-          </button>
-        </div>
-
-        <div className="p-4 overflow-y-auto space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Assign Test"
+      description={test?.title}
+      size="lg"
+      footer={
+        <Button type="button" variant="outline" onClick={onClose}>
+          Done
+        </Button>
+      }
+    >
+        <div className="space-y-4">
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center space-x-2">
               <Icon name="AlertCircle" size={16} className="text-destructive" />
@@ -342,14 +341,7 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
             )}
           </div>
         </div>
-
-        <div className="p-4 border-t border-border flex justify-end">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Done
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

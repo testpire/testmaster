@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { newInstituteService } from '../../../services/newInstituteService';
+import Modal from '../../../components/ui/Modal';
 
 const CreateInstituteModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -64,64 +65,10 @@ const CreateInstituteModal = ({ isOpen, onClose, onSuccess }) => {
     if (error) setError(''); // Clear error when user starts typing
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '600px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '24px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            color: '#111827',
-            margin: 0
-          }}>
-            Create New Institute
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: '#6b7280',
-              padding: '4px'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Institute" size="lg">
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+        <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gap: '20px' }}>
             {/* Name and Code */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -458,8 +405,7 @@ const CreateInstituteModal = ({ isOpen, onClose, onSuccess }) => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

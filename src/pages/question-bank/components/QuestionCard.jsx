@@ -43,7 +43,7 @@ const QuestionCard = ({
       case 'easy': return 'text-green-700 bg-green-100';
       case 'medium': return 'text-yellow-700 bg-yellow-100';
       case 'hard': return 'text-red-700 bg-red-100';
-      default: return 'text-gray-700 bg-gray-100';
+      default: return 'text-foreground bg-muted';
     }
   };
 
@@ -63,7 +63,7 @@ const QuestionCard = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm transition-all duration-200 hover:shadow-md">
+    <div className="bg-card border border-border rounded-lg p-4 shadow-sm transition-all duration-200 hover:shadow-md">
       
       {/* Question Header */}
       <div className="flex items-start justify-between mb-3">
@@ -110,7 +110,7 @@ const QuestionCard = ({
 
       {/* Question Content */}
       <div className="mb-3">
-        <div className="text-sm text-gray-900 leading-relaxed">
+        <div className="text-sm text-foreground leading-relaxed">
           {safeQuestion.text ? (
             isLatex ? (
               // Truncating LaTeX would slice through $...$ delimiters and break
@@ -130,7 +130,7 @@ const QuestionCard = ({
               </>
             )
           ) : (
-            <span className="text-gray-400 italic">No question text available</span>
+            <span className="text-muted-foreground italic">No question text available</span>
           )}
         </div>
         
@@ -140,7 +140,7 @@ const QuestionCard = ({
             <img 
               src={safeQuestion.questionImagePath} 
               alt="Question Image"
-              className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+              className="max-w-full h-auto rounded-lg border border-border shadow-sm"
               style={{ maxHeight: '300px' }}
               onError={(e) => {
                 e.target.style.display = 'none';
@@ -168,7 +168,7 @@ const QuestionCard = ({
                 className={`text-xs p-2 rounded border ${
                   safeOption.isCorrect 
                     ? 'bg-green-50 border-green-300 text-green-800' 
-                    : 'bg-gray-50 border-gray-200 text-gray-700'
+                    : 'bg-muted border-border text-foreground'
                 }`}
               >
                 <div className="flex items-start space-x-2">
@@ -185,7 +185,7 @@ const QuestionCard = ({
                         <img 
                           src={safeOption.optionImagePath} 
                           alt={`Option ${String.fromCharCode(65 + optionIndex)} Image`}
-                          className="max-w-full h-auto rounded border border-gray-300 shadow-sm"
+                          className="max-w-full h-auto rounded border border-border shadow-sm"
                           style={{ maxHeight: '150px' }}
                           onError={(e) => {
                             e.target.style.display = 'none';
@@ -203,7 +203,7 @@ const QuestionCard = ({
       )}
 
       {/* Question Metadata */}
-      <div className="flex items-center justify-between text-xs text-gray-500">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center space-x-4">
           {safeQuestion.topicName && (
             <div className="flex items-center space-x-1">

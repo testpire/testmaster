@@ -2,6 +2,16 @@ import React from 'react';
 import Button from '../ui/Button';
 import Icon from '../AppIcon';
 
+// Map the legacy ActionButton variant names onto the design-token Button variants
+// so every action button shares the same palette as the rest of the app.
+const VARIANT_MAP = {
+  primary: 'default',
+  secondary: 'secondary',
+  success: 'success',
+  danger: 'destructive',
+  ghost: 'ghost',
+};
+
 const ActionButton = ({
   onClick,
   variant = 'primary',
@@ -10,27 +20,11 @@ const ActionButton = ({
   className = '',
   ...props
 }) => {
-  const getVariantStyles = () => {
-    switch (variant) {
-      case 'primary':
-        return 'bg-blue-600 hover:bg-blue-700 text-white';
-      case 'secondary':
-        return 'bg-gray-600 hover:bg-gray-700 text-white';
-      case 'success':
-        return 'bg-green-600 hover:bg-green-700 text-white';
-      case 'danger':
-        return 'bg-red-600 hover:bg-red-700 text-white';
-      case 'ghost':
-        return 'bg-transparent hover:bg-muted text-foreground';
-      default:
-        return 'bg-blue-600 hover:bg-blue-700 text-white';
-    }
-  };
-
   return (
     <Button
       onClick={onClick}
-      className={`flex items-center gap-2 ${getVariantStyles()} ${className}`}
+      variant={VARIANT_MAP[variant] || 'default'}
+      className={`flex items-center gap-2 ${className}`}
       {...props}
     >
       {icon && <Icon name={icon} size={16} />}

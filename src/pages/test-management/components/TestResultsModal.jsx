@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { newTestService } from '../../../services/newTestService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import AttemptReview from '../../../components/test/AttemptReview';
 import { formatDateTime } from '../testConstants';
 
@@ -141,44 +142,39 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
     URL.revokeObjectURL(url);
   };
 
-  if (!isOpen) return null;
+  const modalTitle = detailRow ? (
+    <span className="flex items-center gap-2">
+      <button
+        onClick={closeAttempt}
+        className="text-muted-foreground hover:text-foreground flex-shrink-0"
+        title="Back to results"
+      >
+        <Icon name="ArrowLeft" size={20} />
+      </button>
+      Attempt Detail
+    </span>
+  ) : 'Results';
+
+  const modalDescription = detailRow
+    ? getName(detailRow)
+    : summary?.testTitle || test?.title;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            {detailRow && (
-              <button
-                onClick={closeAttempt}
-                className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                title="Back to results"
-              >
-                <Icon name="ArrowLeft" size={20} />
-              </button>
-            )}
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-foreground">
-                {detailRow ? 'Attempt Detail' : 'Results'}
-              </h2>
-              <p className="text-sm text-muted-foreground truncate">
-                {detailRow ? getName(detailRow) : summary?.testTitle || test?.title}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {!detailRow && rows.length > 0 && (
-              <Button variant="outline" size="sm" onClick={exportCsv} iconName="Download" iconPosition="left">
-                CSV
-              </Button>
-            )}
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-              <Icon name="X" size={24} />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4 overflow-y-auto">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modalTitle}
+      description={modalDescription}
+      size="xl"
+      footer={
+        !detailRow && rows.length > 0 ? (
+          <Button variant="outline" size="sm" onClick={exportCsv} iconName="Download" iconPosition="left">
+            Export CSV
+          </Button>
+        ) : undefined
+      }
+    >
+        <div>
           {detailRow ? (
             detailLoading ? (
               <div className="flex items-center justify-center py-16">
@@ -221,7 +217,7 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
 
               {rows.length === 0 ? (
                 <div className="text-center py-10">
-                  <Icon name="ClipboardList" size={40} className="mx-auto mb-3 text-gray-300" />
+                  <Icon name="ClipboardList" size={40} className="mx-auto mb-3 text-muted-foreground/40" />
                   <p className="text-muted-foreground text-sm">
                     No students have attempted this test yet.
                   </p>
@@ -289,8 +285,7 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
           </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 
