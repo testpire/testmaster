@@ -158,7 +158,10 @@ export const newTestService = {
         const rows = Array.isArray(summary.results) ? summary.results : [];
 
         for (const r of rows) {
-          if (String(r.studentId ?? r.userId ?? '') !== sid) continue;
+          // The /tests/{id}/results row keys the student as `studentUserId`
+          // (verified live); keep the older aliases as fallbacks.
+          const rowSid = r.studentUserId ?? r.studentId ?? r.userId ?? '';
+          if (String(rowSid) !== sid) continue;
 
           const score = r.marksObtained ?? r.score ?? r.totalScore ?? r.marks ?? null;
           const percentage =
