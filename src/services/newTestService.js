@@ -133,6 +133,67 @@ export const newTestService = {
     }
   },
 
+  // Per-student test history for STAFF. The backend has no single endpoint for "all of
+  // one student's attempts" addressable by staff (GET /student/tests/attempts is the
+  // *current* user only), so we aggregate: list every test, pull each test's results
+  // in parallel, and keep the row(s) matching this student. This is an N+1 fan-out
+  // bounded by the number of tests in the institute; individual test failures are
+  // tolerated (skipped, not fatal). Returns normalized rows the UI can render directly.
+  async getResultsForStudent(studentId) {
+    try {
+      const sid = String(studentId);
+      const { data: tests, error: listErr } = await this.listTests();
+      if (listErr) return { data: [], error: listErr };
+      if (!Array.isArray(tests) || tests.length === 0) return { data: [], error: null };
+
+      const summaries = await Promise.all(
+        tests.map((t) => this.getResults(t.id).then((r) => ({ test: t, summary: r.data })))
+      );
+
+      const items = [];
+      for (const { test, summary } of summaries) {
+        if (!summary) continue; // failed/empty test result — skip
+        const totalMarks = summary.totalMarks ?? test.totalMarks ?? null;
+        const passingMarks = summary.passingMarks ?? test.passingMarks ?? null;
+        const rows = Array.isArray(summary.results) ? summary.results : [];
+
+        for (const r of rows) {
+          if (String(r.studentId ?? r.userId ?? '') !== sid) continue;
+
+          const score = r.marksObtained ?? r.score ?? r.totalScore ?? r.marks ?? null;
+          const percentage =
+            r.percentage != null
+              ? Number(r.percentage)
+              : score != null && totalMarks
+              ? (Number(score) / Number(totalMarks)) * 100
+              : null;
+          const passed =
+            typeof r.passed === 'boolean'
+              ? r.passed
+              : passingMarks != null && score != null
+              ? Number(score) >= Number(passingMarks)
+              : null;
+
+          items.push({
+            testId: test.id,
+            testTitle: summary.testTitle || test.title || `Test #${test.id}`,
+            totalMarks,
+            passingMarks,
+            attemptId: r.attemptId ?? r.id ?? null,
+            score,
+            percentage,
+            passed,
+            submittedAt: r.submittedAt || r.completedAt || r.attemptedAt || r.updatedAt || null,
+          });
+        }
+      }
+
+      return { data: items, error: null };
+    } catch (error) {
+      return { data: [], error: { message: error?.message || 'Failed to load test history' } };
+    }
+  },
+
   // Staff view of a single student's graded attempt — the per-question breakdown
   // (same shape as the student's GET /student/tests/attempts/{id}, but addressable
   // by staff for any student's attempt). NOTE: this endpoint is not yet exposed by

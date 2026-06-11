@@ -359,6 +359,21 @@ export const newUserService = {
     }
   },
 
+  // Fetch a single student's full record (StudentResponseDto), including embedded
+  // enrollments[] (course/batch). instituteId is scoped from the JWT / X-Institute-Id
+  // header, so a student outside the active institute resolves to a 403/404 the caller
+  // handles. Response may be bare or nested ({ data: {...} }); unwrap defensively.
+  async getStudentById(studentId) {
+    try {
+      const { data, error, success } = await get(`/students/${studentId}`);
+      if (!success) return { data: null, error };
+      const student = data?.data || data?.student || data;
+      return { data: student, error: null };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to load student' } };
+    }
+  },
+
   // Search students with optional course/batch filtering via the advanced-search
   // endpoint (POST /students/search/advanced). StudentCriteriaDto supports courseId
   // and batchId (integer ids), so filtering is a single server-side call — pass either,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
@@ -13,6 +14,7 @@ import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
 import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
 const StudentManagement = () => {
+  const navigate = useNavigate();
   const { user, userProfile } = useAuth();
 
   // Try to get SuperAdmin context for institute-change refetch
@@ -418,7 +420,11 @@ const StudentManagement = () => {
                   </thead>
                   <tbody>
                     {filteredStudents.map((student) => (
-                      <tr key={student.id} className="border-b border-border hover:bg-muted/30">
+                      <tr
+                        key={student.id}
+                        onClick={() => navigate(`/student-profile/${student.id}`)}
+                        className="border-b border-border hover:bg-muted/30 cursor-pointer"
+                      >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -468,7 +474,10 @@ const StudentManagement = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleEditStudent(student)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditStudent(student);
+                              }}
                               className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
                               title="Edit student"
                             >
@@ -477,7 +486,10 @@ const StudentManagement = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteStudent(student.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteStudent(student.id);
+                              }}
                               className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
                               title="Delete student"
                             >

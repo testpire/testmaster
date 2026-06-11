@@ -21,6 +21,7 @@ import InstituteAdminDashboard from './pages/institute-admin-dashboard';
 import SimpleSignup from './pages/simple-signup';
 import TeacherManagement from './pages/teacher-management';
 import StudentManagement from './pages/student-management';
+import StudentProfile from './pages/student-profile';
 import CourseManagement from './pages/course-management';
 import InstituteManagement from './pages/institute-management';
 import LeadManagement from './pages/lead-management';
@@ -50,6 +51,7 @@ const Routes = () => {
           {/* Management routes shared between SUPER_ADMIN and INST_ADMIN */}
           <Route path="/teacher-management" element={<ProtectedManagementRoutes><TeacherManagement /></ProtectedManagementRoutes>} />
           <Route path="/student-management" element={<ProtectedManagementRoutes><StudentManagement /></ProtectedManagementRoutes>} />
+          <Route path="/student-profile/:studentId" element={<ProtectedManagementRoutes><StudentProfile /></ProtectedManagementRoutes>} />
           <Route path="/lead-management" element={<ProtectedManagementRoutes><LeadManagement /></ProtectedManagementRoutes>} />
           <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
           <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
