@@ -10,24 +10,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
-
-// Page through an advanced-search service method until there are no more pages,
-// accumulating every row. The curriculum tree needs the *full* set (not a single
-// page) so its nodes can expand, so we can't stop at the default page size.
-// `fn` receives a pagination object and returns the service's { data, pagination }.
-const fetchAllPages = async (fn) => {
-  let page = 0;
-  let all = [];
-  let more = true;
-  while (more) {
-    const { data, pagination } = (await fn({ page, size: 100 })) || {};
-    all = all.concat(Array.isArray(data) ? data : []);
-    more = !!pagination?.hasMore;
-    page += 1;
-    if (page > 50) break; // safety stop (≤ 5000 rows at size 100)
-  }
-  return all;
-};
+import { fetchAllPages } from '../../utils/pagination';
 
 // Derive the list of subject codes already attached to a course, tolerating
 // either a `subjectCodes: string[]` field or a populated `subjects: [...]` array.

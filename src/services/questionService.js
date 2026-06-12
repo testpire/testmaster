@@ -76,7 +76,9 @@ export const questionService = {
           hasMore: false,
           size: 20
         },
-        error: null 
+        // Surface the failure so callers *can* distinguish "no results" from "request
+        // failed". data stays [] so the UI still degrades gracefully.
+        error: { message: error?.message || 'Failed to search questions' }
       };
     }
   },

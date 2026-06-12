@@ -9,13 +9,7 @@ import {
   MATERIAL_MAX_BYTES,
   resolveFileMaterial,
 } from '../../services/newMaterialService';
-
-const fmtBytes = (b) => {
-  if (b == null) return '';
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`;
-  return `${(b / 1024 / 1024).toFixed(1)} MB`;
-};
+import { formatBytes as fmtBytes } from '../../utils/formatters';
 
 const COMPOSER_ICON = { FILE: 'Upload', NOTE: 'StickyNote', LINK: 'Link' };
 

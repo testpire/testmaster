@@ -8,6 +8,7 @@ import MaterialComposer from '../../components/course/MaterialComposer';
 import { cn } from '../../utils/cn';
 import { courseService } from '../../services/courseService';
 import { newMaterialService } from '../../services/newMaterialService';
+import { formatBytes as fmtBytes } from '../../utils/formatters';
 
 // Per-type display metadata.
 const TYPE_META = {
@@ -19,12 +20,6 @@ const TYPE_META = {
 };
 const metaFor = (type) => TYPE_META[type] || { icon: 'File', label: type || 'File', color: 'text-muted-foreground', badge: 'bg-muted text-muted-foreground' };
 const FILE_TYPES = new Set(['PDF', 'PPT', 'VIDEO']);
-const fmtBytes = (b) => {
-  if (b == null) return '';
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`;
-  return `${(b / 1024 / 1024).toFixed(1)} MB`;
-};
 
 // Standalone teaching page: a topic's materials with a list sidebar and a large viewer
 // pane that renders the selected material inline (PDF/video embedded, notes rendered,

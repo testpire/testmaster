@@ -1,3 +1,9 @@
+// Canonical role-alias groups for route guards, so allowedRoles lists aren't
+// hand-duplicated (and kept in sync) across Routes.jsx. The guards normalize roles
+// (toUpperCase + '-'→'_'), so these cover the known aliases per role.
+export const ADMIN_ROLES = ['SUPER_ADMIN', 'SUPERADMIN', 'INST_ADMIN', 'INSTITUTE_ADMIN', 'ADMIN'];
+export const MANAGEMENT_ROLES = [...ADMIN_ROLES, 'TEACHER'];
+
 /**
  * Get the appropriate dashboard route based on user role
  * @param {string} role - User role (SUPER_ADMIN, INST_ADMIN, TEACHER, STUDENT)

@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// Base API configuration
-//const API_BASE_URL = 'http://localhost:8080/api';
-//const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
-//const API_BASE_URL = 'http://80.225.250.247:8080/api';
-const API_BASE_URL = 'https://lists-rolling-zoloft-comment.trycloudflare.com/api';
+// Base API configuration. Override per-environment via VITE_API_BASE_URL in .env
+// (see .env.example); falls back to the current dev tunnel if unset so existing
+// setups keep working. Examples:
+//   http://localhost:8080/api
+//   https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'https://lists-rolling-zoloft-comment.trycloudflare.com/api';
 
 // Create axios instance
 const apiClient = axios.create({

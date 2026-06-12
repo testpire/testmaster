@@ -1,4 +1,5 @@
 import { get, post, put, del } from '../lib/apiClient';
+import { unwrapOne, unwrapList } from '../utils/responseHelpers';
 
 // Material service — study material (PDF / PPT / VIDEO files, inline NOTEs, external
 // LINKs) attached to a topic. Backs the per-topic Materials UI in course management.
@@ -14,14 +15,6 @@ import { get, post, put, del } from '../lib/apiClient';
 //   3) POST .../materials         → register the material with the returned s3Key
 // Step 2 hits S3 directly (a different host), so it must NOT go through apiClient
 // (no Authorization / X-Institute-Id) — we use a bare XHR to also surface progress.
-
-const unwrapOne = (data) => data?.data ?? data ?? null;
-
-const unwrapList = (data) => {
-  const body = data?.data ?? data ?? [];
-  if (Array.isArray(body)) return body;
-  return body.materials || body.content || body.items || [];
-};
 
 // Allowed file kinds (mirrors the backend's accepted content types). The `type` sent
 // in step 3 must match the file's content-type family.
@@ -100,7 +93,7 @@ export const newMaterialService = {
     try {
       const { data, error, success } = await get(`/topics/${topicId}/materials`);
       if (!success) return { data: [], error };
-      return { data: unwrapList(data), error: null };
+      return { data: unwrapList(data, 'materials'), error: null };
     } catch (error) {
       return { data: [], error: { message: error?.message || 'Failed to load materials' } };
     }

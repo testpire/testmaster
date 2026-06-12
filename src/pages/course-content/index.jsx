@@ -4,21 +4,7 @@ import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import { cn } from '../../utils/cn';
 import { courseService } from '../../services/courseService';
-
-// Pull every page of an advanced-search service method (the tree needs the full set).
-const fetchAllPages = async (fn) => {
-  let page = 0;
-  let all = [];
-  let more = true;
-  while (more) {
-    const { data, pagination } = await fn({ page, size: 50 });
-    if (Array.isArray(data)) all = all.concat(data);
-    more = pagination?.hasMore;
-    page += 1;
-    if (page > 50) break; // safety
-  }
-  return all;
-};
+import { fetchAllPages } from '../../utils/pagination';
 
 // Read-only curriculum browser for teachers: drill Course → Subject → Chapter → Topic,
 // then open a topic's Materials page (where they can teach from / manage materials).

@@ -1,4 +1,5 @@
 import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
+import { unwrapOne, unwrapList } from '../utils/responseHelpers';
 
 // Batch service — backs the Course → Batch relationship (one course has many batches)
 // and the student multi-enrollment flow. Talks to the TestPire REST API (`/api/batches`).
@@ -6,17 +7,7 @@ import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
 //
 // Note: the backend exposes batches per-course (GET /batches/course/{courseId}); there is
 // no list-all endpoint. Response bodies may be wrapped as { data: ... } or { batches: [...] },
-// so we unwrap defensively like the other new* services.
-
-// Pull a batch array out of whatever shape the API returns.
-const unwrapList = (data) => {
-  const body = data?.data ?? data ?? {};
-  if (Array.isArray(body)) return body;
-  return body.batches || body.content || body.data || [];
-};
-
-// Pull a single batch object out of the response envelope.
-const unwrapOne = (data) => data?.data ?? data ?? null;
+// so we unwrap defensively (shared helpers in utils/responseHelpers).
 
 export const newBatchService = {
   // List all batches belonging to a course.
@@ -25,7 +16,7 @@ export const newBatchService = {
     try {
       const { data, error, success } = await get(`/batches/course/${courseId}`);
       if (!success) return { data: [], error };
-      return { data: unwrapList(data), error: null };
+      return { data: unwrapList(data, 'batches'), error: null };
     } catch (error) {
       return { data: [], error: { message: error?.message || 'Failed to load batches' } };
     }

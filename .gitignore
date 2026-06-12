@@ -8,3 +8,7 @@ node_modules
 vite.config.*s.*
 .playwright-mcp
 *.md
+
+# Local env (contains secrets)
+.env
+.env.local

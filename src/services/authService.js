@@ -50,11 +50,6 @@ export const authService = {
     return newAuthService.resetPassword(email);
   },
 
-  // Update password
-  async updatePassword(newPassword) {
-    return newAuthService.updatePassword(newPassword);
-  },
-
   // Update user profile (auth metadata)
   async updateProfile(updates) {
     return newAuthService.updateProfile(updates);

@@ -1,4 +1,5 @@
 import { get, post, put, del } from '../lib/apiClient';
+import { unwrapOne, unwrapList } from '../utils/responseHelpers';
 
 // Test service — backs the full test lifecycle against the TestPire REST API:
 //   • Staff (Test Management + Test Assignment): create/curate/publish tests, assign
@@ -14,16 +15,6 @@ import { get, post, put, del } from '../lib/apiClient';
 // Assignment uses *dynamic resolution* server-side: assigning a test to a COURSE
 // reaches every batch and student in it, and to a BATCH every student in it — there
 // is no client-side fan-out. Students see the union via GET /student/tests/available.
-
-// Pull a list out of whatever shape the API returns.
-const unwrapList = (data, key) => {
-  const body = data?.data ?? data ?? {};
-  if (Array.isArray(body)) return body;
-  return body[key] || body.content || body.items || body.data || [];
-};
-
-// Pull a single object out of the response envelope.
-const unwrapOne = (data) => data?.data ?? data ?? null;
 
 export const newTestService = {
   // ---------------------------------------------------------------------------
