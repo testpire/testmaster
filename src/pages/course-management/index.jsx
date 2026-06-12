@@ -1660,15 +1660,16 @@ const CourseManagement = () => {
                                             <div className="divide-y divide-gray-100">
                                               {chTopics.map((topic) => (
                                                 <div key={topic.id} className="flex items-center justify-between py-2">
-                                                  <div className="flex items-center gap-2 min-w-0">
+                                                  <button
+                                                    onClick={() => navigate(`/topic-materials/${topic.id}`, { state: { topic } })}
+                                                    title="Open materials"
+                                                    className="flex items-center gap-2 min-w-0 text-left group flex-1"
+                                                  >
                                                     <Icon name="List" size={14} className="text-muted-foreground flex-shrink-0" />
-                                                    <span className="text-sm text-foreground truncate">{topic.name}</span>
+                                                    <span className="text-sm text-foreground truncate group-hover:text-primary group-hover:underline">{topic.name}</span>
                                                     {topic.code && <span className="text-xs text-muted-foreground">({topic.code})</span>}
-                                                  </div>
+                                                  </button>
                                                   <div className="flex items-center gap-1 flex-shrink-0">
-                                                    <button onClick={() => navigate(`/topic-materials/${topic.id}`, { state: { topic } })} title="Open materials" className={`${actionBtn} text-amber-600 hover:text-amber-800 hover:bg-amber-50`}>
-                                                      <Icon name="Library" size={14} />
-                                                    </button>
                                                     <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
                                                       <Icon name="Edit" size={14} />
                                                     </button>
