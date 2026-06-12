@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { courseService } from '../../services/courseService';
@@ -927,6 +928,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
 };
 
 const CourseManagement = () => {
+  const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
@@ -1664,6 +1666,9 @@ const CourseManagement = () => {
                                                     {topic.code && <span className="text-xs text-muted-foreground">({topic.code})</span>}
                                                   </div>
                                                   <div className="flex items-center gap-1 flex-shrink-0">
+                                                    <button onClick={() => navigate(`/topic-materials/${topic.id}`, { state: { topic } })} title="Open materials" className={`${actionBtn} text-amber-600 hover:text-amber-800 hover:bg-amber-50`}>
+                                                      <Icon name="Library" size={14} />
+                                                    </button>
                                                     <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
                                                       <Icon name="Edit" size={14} />
                                                     </button>

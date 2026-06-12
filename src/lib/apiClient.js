@@ -4,7 +4,7 @@ import axios from 'axios';
 //const API_BASE_URL = 'http://localhost:8080/api';
 //const API_BASE_URL = 'https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api';
 //const API_BASE_URL = 'http://80.225.250.247:8080/api';
-const API_BASE_URL = 'https://bradley-provincial-establishing-converted.trycloudflare.com/api';
+const API_BASE_URL = 'https://lists-rolling-zoloft-comment.trycloudflare.com/api';
 
 // Create axios instance
 const apiClient = axios.create({

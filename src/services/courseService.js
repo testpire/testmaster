@@ -182,6 +182,19 @@ export const courseService = {
     return await this.searchEntityAdvanced('/topics/search/advanced', criteria, pagination);
   },
 
+  // Fetch a single topic by id (GET /topics/{id}). Used by the standalone topic
+  // materials page on direct load / refresh, when no topic object was passed in state.
+  async getTopic(topicId) {
+    try {
+      const { data, error, success } = await get(`/topics/${topicId}`);
+      if (!success) return { data: null, error };
+      return { data: data?.data ?? data ?? null, error: null };
+    } catch (error) {
+      console.error('Error fetching topic:', error);
+      return { data: null, error: error.message || 'Failed to fetch topic' };
+    }
+  },
+
   async createTopic(topicData) {
     try {
       const { data, error, success } = await post('/topics', withInstituteScope(topicData));

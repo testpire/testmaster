@@ -141,6 +141,12 @@ const RoleBasedNavigation = ({
         roles: ['teacher']
       },
       {
+        label: 'Course Content',
+        path: '/course-content',
+        icon: 'BookOpen',
+        roles: ['teacher']
+      },
+      {
         label: 'Question Bank',
         path: '/question-bank',
         icon: 'FileText',
