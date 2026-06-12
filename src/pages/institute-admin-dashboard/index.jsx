@@ -248,14 +248,8 @@ const InstituteAdminDashboard = () => {
               </div>
               
               <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                <Button variant="outline" size="sm" onClick={fetchInstituteData}>
+                <Button variant="outline" size="sm" onClick={fetchInstituteData} aria-label="Refresh data" title="Refresh data">
                   <Icon name="RefreshCw" size={16} />
-                  <span className="hidden sm:inline">Refresh </span>Data
-                </Button>
-                
-                <Button variant="outline" size="sm">
-                  <Icon name="Download" size={16} />
-                  <span className="hidden sm:inline">Export </span>Report
                 </Button>
               </div>
             </div>

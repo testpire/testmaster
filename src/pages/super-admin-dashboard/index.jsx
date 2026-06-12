@@ -11,7 +11,7 @@ import CreateUserModal from './components/CreateUserModal';
 import UserManagementTree from './components/UserManagementTree';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
-import { newDashboardService } from '../../services/newDashboardService';
+import { newUserService } from '../../services/newUserService';
 import { formatDisplayTime } from '../../utils/timeUtils';
 import useSidebar from '../../hooks/useSidebar';
 
@@ -33,14 +33,13 @@ const SuperAdminDashboard = () => {
   // Notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
-  // Dashboard statistics state — all values come from the backend
+  // Dashboard statistics state — scoped to the institute selected in the header.
   const [dashboardStats, setDashboardStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
     totalInstAdmins: 0,
     totalInstitutes: 0,
-    totalUsers: 0,
-    instituteUserCount: null, // users in the currently selected institute
+    instituteUserCount: 0, // students + teachers + admins in the selected institute
     loading: true,
     error: null
   });
@@ -66,38 +65,33 @@ const SuperAdminDashboard = () => {
 
   // Institutes are now managed by SuperAdminContext
 
-  // Fetch dashboard statistics from the backend.
-  // Platform totals come from GET /super-admin/dashboard; the per-institute
-  // user count is derived from the real GET /super-admin/users list.
+  // Fetch dashboard statistics scoped to the selected institute.
+  // The student/teacher/admin counts are JWT/X-Institute-Id scoped: for a
+  // SUPER_ADMIN the apiClient injects X-Institute-Id from the active institute
+  // (persisted by setActiveInstitute), so these endpoints return data for the
+  // selected institute only — not all institutes combined. "Institutes" stays a
+  // platform-wide count (the dropdown's full list).
   const fetchDashboardStats = async () => {
+    if (!selectedInstitute?.id) return;
     try {
       setDashboardStats(prev => ({ ...prev, loading: true, error: null }));
 
-      const [dashResult, usersResult] = await Promise.all([
-        newDashboardService.getSuperAdminDashboard(),
-        newDashboardService.getAllUsers(),
+      const [studentsResult, teachersResult, adminsResult] = await Promise.all([
+        newUserService.getStudentsByBatch(null, { page: 0, size: 1 }),
+        newUserService.getTeachers({ page: 0, size: 1 }),
+        newUserService.getInstituteAdmins(),
       ]);
 
-      if (dashResult.error || !dashResult.data) {
-        throw new Error(dashResult.error?.message || 'Dashboard data unavailable');
-      }
-      const d = dashResult.data;
-
-      // Real count of users belonging to the selected institute
-      let instituteUserCount = null;
-      if (selectedInstitute?.id && Array.isArray(usersResult.data)) {
-        instituteUserCount = usersResult.data.filter(
-          user => String(user.instituteId ?? user.institute_id) === String(selectedInstitute.id)
-        ).length;
-      }
+      const totalStudents = studentsResult?.pagination?.totalElements || 0;
+      const totalTeachers = teachersResult?.pagination?.totalElements || 0;
+      const totalInstAdmins = Array.isArray(adminsResult?.data) ? adminsResult.data.length : 0;
 
       setDashboardStats({
-        totalStudents: d.totalStudents ?? 0,
-        totalTeachers: d.totalTeachers ?? 0,
-        totalInstAdmins: d.totalInstAdmins ?? 0,
-        totalInstitutes: d.totalInstitutes ?? (allInstitutes?.length || 0),
-        totalUsers: d.totalUsers ?? 0,
-        instituteUserCount,
+        totalStudents,
+        totalTeachers,
+        totalInstAdmins,
+        totalInstitutes: allInstitutes?.length || 0,
+        instituteUserCount: totalStudents + totalTeachers + totalInstAdmins,
         loading: false,
         error: null
       });
