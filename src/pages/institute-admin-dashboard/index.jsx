@@ -9,6 +9,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newInstituteService } from '../../services/newInstituteService';
 import { newUserService } from '../../services/newUserService';
+import { newTestService } from '../../services/newTestService';
 import { formatDisplayTime } from '../../utils/timeUtils';
 import useSidebar from '../../hooks/useSidebar';
 
@@ -29,7 +30,10 @@ const InstituteAdminDashboard = () => {
     institute: null,
     totalStudents: 0,
     totalTeachers: 0,
+    totalTests: 0,
     ongoingTests: 0,
+    recentStudents: [],
+    recentTeachers: [],
     loading: true,
     error: null
   });
@@ -64,13 +68,16 @@ const InstituteAdminDashboard = () => {
         throw new Error('Institute ID not found for user');
       }
 
-      // Fetch institute details and institute-scoped counts.
+      // Fetch institute details and institute-scoped data.
       // NOTE: do NOT use /super-admin/users here — it is super-admin only and
       // would 403 for an institute admin. The search endpoints are JWT-scoped.
-      const [instituteResult, studentsResult, teachersResult] = await Promise.all([
+      // Students/teachers searches sort by createdAt desc, so the first page
+      // doubles as the "recent" list and carries the total in pagination.
+      const [instituteResult, studentsResult, teachersResult, testsResult] = await Promise.all([
         newInstituteService.getInstituteById(currentUser.instituteId),
-        newUserService.getStudentsByBatch(null, { page: 0, size: 1 }),
-        newUserService.getTeachers({ page: 0, size: 1 }),
+        newUserService.getStudentsByBatch(null, { page: 0, size: 5 }),
+        newUserService.getTeachers({ page: 0, size: 5 }),
+        newTestService.listTests(),
       ]);
 
       let institute = null;
@@ -83,11 +90,20 @@ const InstituteAdminDashboard = () => {
       const totalStudents = studentsResult?.pagination?.totalElements || 0;
       const totalTeachers = teachersResult?.pagination?.totalElements || 0;
 
+      const tests = Array.isArray(testsResult?.data) ? testsResult.data : [];
+      const totalTests = tests.length;
+      const ongoingTests = tests.filter(
+        (t) => (t?.status || '').toUpperCase() === 'PUBLISHED'
+      ).length;
+
       setInstituteData({
         institute,
         totalStudents,
         totalTeachers,
-        ongoingTests: 8, // This would come from tests API
+        totalTests,
+        ongoingTests,
+        recentStudents: studentsResult?.data || [],
+        recentTeachers: teachersResult?.data || [],
         loading: false,
         error: null
       });
@@ -106,38 +122,31 @@ const InstituteAdminDashboard = () => {
     fetchInstituteData();
   }, [currentUser.instituteId]);
 
-  // Create stats data from institute state
+  // Create stats data from institute state. Values are real, JWT-scoped counts;
+  // there is no historical/trend API, so no fabricated "vs last month" change.
   const statsData = [
     {
       title: 'Total Students',
       value: instituteData.loading ? '...' : instituteData.totalStudents?.toLocaleString() || '0',
-      change: '+15.2%',
-      changeType: 'increase',
       icon: 'Users',
       color: 'primary'
     },
     {
       title: 'Total Teachers',
       value: instituteData.loading ? '...' : instituteData.totalTeachers?.toLocaleString() || '0',
-      change: '+5.1%',
-      changeType: 'increase',
       icon: 'GraduationCap',
       color: 'secondary'
     },
     {
-      title: 'Ongoing Tests',
+      title: 'Published Tests',
       value: instituteData.loading ? '...' : instituteData.ongoingTests?.toString() || '0',
-      change: '+12.3%',
-      changeType: 'increase',
       icon: 'FileText',
       color: 'accent'
     },
     {
-      title: 'Institute Performance',
-      value: instituteData.loading ? '...' : '92.4%',
-      change: '+2.1%',
-      changeType: 'increase',
-      icon: 'TrendingUp',
+      title: 'Total Tests',
+      value: instituteData.loading ? '...' : instituteData.totalTests?.toString() || '0',
+      icon: 'ClipboardList',
       color: 'success'
     }
   ];
@@ -370,13 +379,25 @@ const InstituteAdminDashboard = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Active Tests</span>
+                  <span className="text-sm text-muted-foreground">Published Tests</span>
                   <span className="text-sm font-medium">{instituteData.ongoingTests}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Institute Status</span>
-                  <span className="text-sm font-medium text-success">Active</span>
-                </div>
+                {(() => {
+                  const inst = instituteData.institute;
+                  const isActive = inst?.status
+                    ? inst.status.toUpperCase() === 'ACTIVE'
+                    : inst?.active !== false;
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Institute Status</span>
+                      <span className={`text-sm font-medium ${isActive ? 'text-success' : 'text-muted-foreground'}`}>
+                        {inst?.status
+                          ? inst.status.charAt(0).toUpperCase() + inst.status.slice(1).toLowerCase()
+                          : isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -392,15 +413,27 @@ const InstituteAdminDashboard = () => {
                 </Button>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Icon name="User" size={14} className="text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">New enrollments coming soon</p>
-                    <p className="text-xs text-muted-foreground">Check student management for details</p>
-                  </div>
-                </div>
+                {instituteData.loading ? (
+                  <p className="text-sm text-muted-foreground p-2">Loading…</p>
+                ) : instituteData.recentStudents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-2">No students enrolled yet.</p>
+                ) : (
+                  instituteData.recentStudents.map((student) => (
+                    <div key={student.id || student.email} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-blue-600">
+                          {student.firstName?.[0]?.toUpperCase() || student.username?.[0]?.toUpperCase() || 'S'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {`${student.firstName || ''} ${student.lastName || ''}`.trim() || student.username || 'Unnamed student'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{student.email}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -413,15 +446,27 @@ const InstituteAdminDashboard = () => {
                 </Button>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <Icon name="GraduationCap" size={14} className="text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Faculty updates coming soon</p>
-                    <p className="text-xs text-muted-foreground">Manage teaching staff efficiently</p>
-                  </div>
-                </div>
+                {instituteData.loading ? (
+                  <p className="text-sm text-muted-foreground p-2">Loading…</p>
+                ) : instituteData.recentTeachers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-2">No teachers added yet.</p>
+                ) : (
+                  instituteData.recentTeachers.map((teacher) => (
+                    <div key={teacher.id || teacher.email} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-green-600">
+                          {teacher.firstName?.[0]?.toUpperCase() || teacher.username?.[0]?.toUpperCase() || 'T'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {`${teacher.firstName || ''} ${teacher.lastName || ''}`.trim() || teacher.username || 'Unnamed teacher'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{teacher.email}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

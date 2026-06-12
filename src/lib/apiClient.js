@@ -32,6 +32,35 @@ const isValidJWT = (token) => {
   }
 };
 
+// Decode a JWT's `exp` claim into epoch-milliseconds, or null if the token is
+// unparseable or carries no `exp`. Structure is validated first.
+export const getTokenExpiryMs = (token) => {
+  if (!isValidJWT(token)) return null;
+  try {
+    const payload = JSON.parse(
+      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+    );
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// A structurally valid token is "expired" once the wall clock passes its `exp`.
+// Tokens with no `exp` claim are treated as non-expiring here — the backend
+// still gets the final say via a 401.
+export const isTokenExpired = (token) => {
+  const expMs = getTokenExpiryMs(token);
+  return expMs != null && Date.now() >= expMs;
+};
+
+// The single source of truth for "is the stored session usable right now":
+// present, structurally valid, and not past its expiry.
+export const hasUsableToken = () => {
+  const t = localStorage.getItem('authToken');
+  return !!t && isValidJWT(t) && !isTokenExpired(t);
+};
+
 // Token management
 let authToken = null;
 
@@ -57,10 +86,10 @@ export const setAuthToken = (token) => {
 // Initialize token from localStorage on app start
 const storedToken = localStorage.getItem('authToken');
 if (storedToken) {
-  if (isValidJWT(storedToken)) {
+  if (isValidJWT(storedToken) && !isTokenExpired(storedToken)) {
     setAuthToken(storedToken);
   } else {
-    console.warn('Invalid JWT token found in localStorage, clearing...');
+    console.warn('Invalid or expired JWT token found in localStorage, clearing...');
     localStorage.removeItem('authToken');
   }
 }
@@ -73,6 +102,18 @@ const PUBLIC_ENDPOINTS = [
   '/auth/register/teacher',
   '/auth/refresh'
 ];
+
+// Clear the session and bounce to login from anywhere. Used both proactively
+// (an expired/invalid token spotted before a request leaves) and reactively
+// (a backend 401). Idempotent and safe to call when already on the login page.
+const redirectToLogin = (reason) => {
+  console.warn(`🔒 ${reason}; redirecting to login`);
+  setAuthToken(null);
+  clearAuthState();
+  if (!window.location.pathname.includes('/login')) {
+    window.location.replace('/login-screen');
+  }
+};
 
 // Request interceptor for token refresh/validation
 apiClient.interceptors.request.use(
@@ -91,17 +132,17 @@ apiClient.interceptors.request.use(
         delete config.headers.common.Authorization;
       }
     } else {
-      // For authenticated endpoints, ensure we have a valid token
+      // For authenticated endpoints, ensure we have a usable token.
       const currentToken = localStorage.getItem('authToken');
-      if (currentToken && isValidJWT(currentToken)) {
+      if (currentToken && isValidJWT(currentToken) && !isTokenExpired(currentToken)) {
         if (!config.headers.Authorization && !config.headers.common?.Authorization) {
           config.headers.Authorization = `Bearer ${currentToken}`;
         }
-      } else if (currentToken && !isValidJWT(currentToken)) {
-        // Clear invalid token
-        console.warn('Invalid JWT token detected, clearing...');
-        localStorage.removeItem('authToken');
-        setAuthToken(null);
+      } else if (currentToken) {
+        // Token present but structurally invalid or expired → we already KNOW the
+        // user is logged out. Don't fire a doomed request; clear and redirect now.
+        redirectToLogin(isTokenExpired(currentToken) ? 'Session expired' : 'Invalid token');
+        return Promise.reject({ isAuthRedirect: true, message: 'Session expired' });
       }
 
       // Inject X-Institute-Id header for SUPER_ADMIN only.
@@ -144,17 +185,10 @@ apiClient.interceptors.response.use(
       if (originalRequest?.skipAuthRedirect) {
         return Promise.reject(error);
       }
-      console.warn('🔒 Session invalid/expired, redirecting to login');
-      setAuthToken(null);
-      clearAuthState();
 
       // Mark this as an auth redirect to prevent other error handlers
       error.isAuthRedirect = true;
-
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.replace('/login-screen');
-      }
+      redirectToLogin('Session invalid/expired');
 
       // Return a resolved promise with auth error info to prevent error boundaries
       return Promise.resolve({

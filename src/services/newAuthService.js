@@ -1,4 +1,4 @@
-import { post, get, postUnauthenticated, setAuthToken } from '../lib/apiClient';
+import { post, get, postUnauthenticated, setAuthToken, isTokenExpired } from '../lib/apiClient';
 
 export const newAuthService = {
   // User login
@@ -123,6 +123,12 @@ export const newAuthService = {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
+        return { data: { session: null }, error: null };
+      }
+      // An expired token is not a session — drop it so init treats the user as
+      // logged out (and the guards send them to login) without a round-trip.
+      if (isTokenExpired(token)) {
+        setAuthToken(null);
         return { data: { session: null }, error: null };
       }
 

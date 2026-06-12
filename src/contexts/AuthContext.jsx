@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { newAuthService } from '../services/newAuthService';
+import { getTokenExpiryMs, clearAuthState } from '../lib/apiClient';
+
+// setTimeout delays are 32-bit; anything larger overflows and fires immediately.
+const MAX_TIMEOUT_MS = 2147483647;
 
 const AuthContext = createContext({});
 
@@ -76,6 +80,32 @@ export const AuthProvider = ({ children }) => {
       mounted = false;
     };
   }, []);
+
+  // Proactively expire the in-memory session the moment the JWT's `exp` passes,
+  // so the route guards redirect to login even on a screen that never fires an
+  // API call (otherwise an expired session is only caught on the next 401).
+  useEffect(() => {
+    if (!user) return undefined;
+    const token = localStorage.getItem('authToken');
+    const expMs = getTokenExpiryMs(token);
+    if (expMs == null) return undefined; // no expiry claim → backend 401 is the backstop
+
+    const expire = () => {
+      console.warn('🔒 Session expired; clearing auth state');
+      clearAuthState();
+      setUser(null);
+      setUserProfile(null);
+    };
+
+    const remaining = expMs - Date.now();
+    if (remaining <= 0) {
+      expire();
+      return undefined;
+    }
+    if (remaining > MAX_TIMEOUT_MS) return undefined; // too far off to schedule; 401 covers it
+    const id = setTimeout(expire, remaining);
+    return () => clearTimeout(id);
+  }, [user]);
 
   const signIn = async (email, password) => {
     try {
