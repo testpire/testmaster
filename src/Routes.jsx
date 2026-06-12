@@ -25,6 +25,7 @@ import StudentProfile from './pages/student-profile';
 import CourseManagement from './pages/course-management';
 import InstituteManagement from './pages/institute-management';
 import LeadManagement from './pages/lead-management';
+import LeadProfile from './pages/lead-profile';
 import ForgotPassword from './pages/forgot-password';
 import SetPassword from './pages/set-password';
 import Profile from './pages/profile';
@@ -53,6 +54,7 @@ const Routes = () => {
           <Route path="/student-management" element={<ProtectedManagementRoutes><StudentManagement /></ProtectedManagementRoutes>} />
           <Route path="/student-profile/:studentId" element={<ProtectedManagementRoutes><StudentProfile /></ProtectedManagementRoutes>} />
           <Route path="/lead-management" element={<ProtectedManagementRoutes><LeadManagement /></ProtectedManagementRoutes>} />
+          <Route path="/lead-profile/:leadId" element={<ProtectedManagementRoutes><LeadProfile /></ProtectedManagementRoutes>} />
           <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
           <Route path="/question-bank" element={<ProtectedManagementRoutes><QuestionBank /></ProtectedManagementRoutes>} />
           <Route path="/access-control" element={<ProtectedManagementRoutes><AccessControl /></ProtectedManagementRoutes>} />

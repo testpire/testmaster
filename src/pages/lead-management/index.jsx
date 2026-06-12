@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import PageLayout from '../../components/layout/PageLayout';
@@ -13,6 +14,7 @@ import { LEAD_STATUSES, LEAD_SOURCES, prettyEnum, LEAD_STATUS_BADGE } from './le
 const PAGE_SIZE = 20;
 
 const LeadManagement = () => {
+  const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
@@ -184,6 +186,11 @@ const LeadManagement = () => {
 
   const formatDate = (value) => (value ? String(value).slice(0, 10) : '—');
 
+  const formatFee = (value) =>
+    value == null || value === ''
+      ? '—'
+      : `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
   const inputCls =
     'px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
 
@@ -318,7 +325,9 @@ const LeadManagement = () => {
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Source</th>
                       <th className="px-4 py-3 font-medium">Interested Course</th>
+                      <th className="px-4 py-3 font-medium">Committed Fee</th>
                       <th className="px-4 py-3 font-medium">Next Follow-up</th>
+                      <th className="px-4 py-3 font-medium">Created</th>
                       <th className="px-4 py-3 font-medium text-right">Actions</th>
                     </tr>
                   </thead>
@@ -326,7 +335,11 @@ const LeadManagement = () => {
                     {leads.map((lead) => {
                       const converted = !!lead.convertedUserId;
                       return (
-                        <tr key={lead.id} className="hover:bg-muted/20">
+                        <tr
+                          key={lead.id}
+                          onClick={() => navigate(`/lead-profile/${lead.id}`)}
+                          className="hover:bg-muted/20 cursor-pointer"
+                        >
                           <td className="px-4 py-3">
                             <div className="font-medium text-foreground">
                               {`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || '—'}
@@ -358,8 +371,14 @@ const LeadManagement = () => {
                               ? courseMap[lead.interestedCourseId] || `#${lead.interestedCourseId}`
                               : '—'}
                           </td>
+                          <td className="px-4 py-3 text-foreground">
+                            {formatFee(lead.courseFeeCommitted)}
+                          </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {formatDate(lead.nextFollowUpDate)}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {formatDate(lead.createdAt)}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-1">
@@ -367,7 +386,10 @@ const LeadManagement = () => {
                                 variant="ghost"
                                 size="icon"
                                 title="Edit"
-                                onClick={() => setEditingLead(lead)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingLead(lead);
+                                }}
                                 className="w-8 h-8"
                               >
                                 <Icon name="Pencil" size={16} />
@@ -377,7 +399,10 @@ const LeadManagement = () => {
                                 size="icon"
                                 title={converted ? 'Already converted' : 'Convert to student'}
                                 disabled={converted}
-                                onClick={() => setConvertingLead(lead)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConvertingLead(lead);
+                                }}
                                 className="w-8 h-8"
                               >
                                 <Icon name="UserCheck" size={16} />
@@ -386,7 +411,10 @@ const LeadManagement = () => {
                                 variant="ghost"
                                 size="icon"
                                 title="Delete"
-                                onClick={() => handleDelete(lead)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(lead);
+                                }}
                                 className="w-8 h-8 text-destructive"
                               >
                                 <Icon name="Trash2" size={16} />
