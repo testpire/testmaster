@@ -51,24 +51,22 @@ const TeacherManagement = () => {
   };
 
 
-  // Load institute data and teachers
+  // Load institute data + teachers on mount, and reload when a super-admin switches
+  // institute. Keyed on the stable auth user id (user/userProfile settle in separate
+  // renders, so depending on both double-fires the load) and the active institute id.
+  // loadInstituteData is a no-op for super-admins (they have no own instituteId).
+  const authUserId = (userProfile || user)?.id ?? null;
+  const selectedInstituteId = superAdminContext?.selectedInstitute?.id ?? null;
   useEffect(() => {
-    // Only load data if we have user authentication data
-    if (user || userProfile) {
-      loadInstituteData();
-      loadTeachers();
-    } else {
+    if (!authUserId) {
       setLoading(true);
       setError('Loading user information...');
+      return;
     }
-  }, [user, userProfile]);
-
-  // Reload teachers when selected institute changes (for super admin)
-  useEffect(() => {
-    if (currentUser.role === 'super-admin' && superAdminContext?.selectedInstitute) {
-      loadTeachers();
-    }
-  }, [superAdminContext?.selectedInstitute?.id]);
+    loadInstituteData();
+    loadTeachers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId, selectedInstituteId]);
 
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;

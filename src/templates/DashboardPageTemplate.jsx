@@ -34,7 +34,7 @@ const DashboardPageTemplate = ({
   };
 
   const handleLogout = () => {
-    navigate('/login-screen');
+    navigate('/login');
   };
 
   return (

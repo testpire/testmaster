@@ -192,7 +192,7 @@ const PageLayout = ({
   };
 
   const handleLogout = () => {
-    navigate('/login-screen');
+    navigate('/login');
   };
 
   return safeRender(() => (

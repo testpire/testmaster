@@ -97,18 +97,15 @@ const AccessControl = () => {
     }
   }, []);
 
+  // Load on mount, and reload when a super-admin switches the active institute.
+  // Keyed on the stable auth user id (user/userProfile settle in separate renders,
+  // so depending on both double-fires the load) and the active institute id.
+  const authUserId = (userProfile || user)?.id ?? null;
+  const selectedInstituteId = superAdminContext?.selectedInstitute?.id ?? null;
   useEffect(() => {
-    if (user || userProfile) {
-      loadData();
-    }
-  }, [user, userProfile, loadData]);
-
-  // Reload when a super-admin switches the active institute.
-  useEffect(() => {
-    if (superAdminContext?.selectedInstitute?.id) {
-      loadData();
-    }
-  }, [superAdminContext?.selectedInstitute?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!authUserId) return;
+    loadData();
+  }, [authUserId, selectedInstituteId, loadData]);
 
   const togglePermission = (role, permission) => {
     if (role === 'SUPER_ADMIN') return; // locked

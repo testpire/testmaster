@@ -1048,24 +1048,20 @@ const CourseManagement = () => {
     }
   }, [loadCourses, loadSubjects, loadChapters, loadTopics]);
 
-  // Initial data load
+  // Initial data load + reload when a super-admin switches institute.
+  // Keyed on the stable user id (not user/userProfile, which settle in separate
+  // renders and would double-fire) and the selected institute id.
+  const selectedInstituteId = superAdminContext?.selectedInstitute?.id ?? null;
   useEffect(() => {
+    if (!currentUser?.id) return;
     const initializeData = async () => {
-      if (user || userProfile) {
-        await loadInstituteData();
-        await loadAllData();
-      }
+      await loadInstituteData();
+      await loadAllData();
     };
-
     initializeData();
-  }, [user, userProfile, loadAllData]);
-
-  // Reload all data when super-admin switches institute
-  useEffect(() => {
-    if (superAdminContext?.selectedInstitute?.id) {
-      loadAllData();
-    }
-  }, [superAdminContext?.selectedInstitute?.id]);
+    // loadInstituteData is intentionally omitted: it's recreated each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, selectedInstituteId, loadAllData]);
 
   // Course CRUD operations
   const handleCourseSuccess = async (courseData, courseId = null) => {

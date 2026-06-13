@@ -42,12 +42,15 @@ const InstituteManagement = () => {
   // Load institutes + institute admins once. The /users/INST_ADMIN endpoint returns
   // ALL institute admins (it does not scope by the active institute), so we fetch the
   // full list once and group client-side by instituteId rather than calling per-institute.
+  // Keyed on the stable auth user id: user/userProfile settle in separate renders,
+  // so depending on both would fire this load twice.
+  const authUserId = (userProfile || user)?.id ?? null;
   useEffect(() => {
-    if (user || userProfile) {
-      fetchInstitutes();
-      fetchAdmins();
-    }
-  }, [user, userProfile]);
+    if (!authUserId) return;
+    fetchInstitutes();
+    fetchAdmins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
 
   const fetchInstitutes = async () => {
     setInstitutesLoading(true);

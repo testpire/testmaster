@@ -44,7 +44,7 @@ class GlobalErrorBoundary extends Component {
               <button 
                 onClick={() => {
                   localStorage.clear();
-                  window.location.href = '/login-screen';
+                  window.location.href = '/login';
                 }}
                 className="w-full bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
               >

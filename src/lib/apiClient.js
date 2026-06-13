@@ -114,7 +114,7 @@ const redirectToLogin = (reason) => {
   setAuthToken(null);
   clearAuthState();
   if (!window.location.pathname.includes('/login')) {
-    window.location.replace('/login-screen');
+    window.location.replace('/login');
   }
 };
 

@@ -177,7 +177,7 @@ const InstituteAdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    navigate('/login-screen');
+    navigate('/login');
   };
 
   // Modal handlers

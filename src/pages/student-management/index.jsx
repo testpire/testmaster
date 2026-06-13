@@ -63,27 +63,27 @@ const StudentManagement = () => {
     instituteId: userProfile?.instituteId || user?.instituteId
   };
 
-  // Load institute data + course list once we have an authenticated user.
+  // Stable load keys: user/userProfile settle in separate renders, so depending on
+  // both would double-fire every load below. Use the auth user id instead.
+  const authUserId = (userProfile || user)?.id ?? null;
+  const selectedInstituteId = superAdminContext?.selectedInstitute?.id ?? null;
+
+  // Load institute data + course list on mount, and reload when a super-admin switches
+  // institute (courses/batches/students all change, so the filters reset too — a no-op
+  // on the initial mount when they're already empty).
   useEffect(() => {
-    if (user || userProfile) {
-      loadInstituteData();
-      loadCourses();
-    } else {
+    if (!authUserId) {
       setLoading(true);
       setError('Loading user information...');
+      return;
     }
-  }, [user, userProfile]);
-
-  // When the super-admin switches institute, courses/batches/students all change.
-  // Reset the filters and reload the course list for the new institute.
-  useEffect(() => {
-    if (superAdminContext?.selectedInstitute?.id) {
-      setSelectedCourseId('');
-      setSelectedBatchId('');
-      setBatches([]);
-      loadCourses();
-    }
-  }, [superAdminContext?.selectedInstitute?.id]);
+    setSelectedCourseId('');
+    setSelectedBatchId('');
+    setBatches([]);
+    loadInstituteData();
+    loadCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId, selectedInstituteId]);
 
   // Load the batches for the selected course (course → many batches). Clearing the
   // course resets the batch filter too.
@@ -98,10 +98,10 @@ const StudentManagement = () => {
 
   // (Re)load students whenever auth, the active institute, or the filters change.
   useEffect(() => {
-    if (user || userProfile) {
-      loadStudents();
-    }
-  }, [user, userProfile, superAdminContext?.selectedInstitute?.id, selectedCourseId, selectedBatchId]);
+    if (!authUserId) return;
+    loadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId, selectedInstituteId, selectedCourseId, selectedBatchId]);
 
   const loadInstituteData = async () => {
     if (!currentUser.instituteId) return;

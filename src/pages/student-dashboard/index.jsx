@@ -67,7 +67,10 @@ const StudentDashboard = () => {
     };
     load();
     return () => { mounted = false; };
-  }, [user, userProfile]);
+    // Keyed on the stable auth user id: user/userProfile settle in separate renders,
+    // so depending on both would run this load (incl. the /auth/profile fetch) twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(userProfile || user)?.id]);
 
   const handleNavigation = (path) => navigate(path);
   const handleMobileNavToggle = () => setIsMobileNavOpen(!isMobileNavOpen);

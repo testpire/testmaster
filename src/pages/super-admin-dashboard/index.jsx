@@ -179,7 +179,7 @@ const SuperAdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    navigate('/login-screen');
+    navigate('/login');
   };
 
   // Institute selection is handled by SuperAdminContext

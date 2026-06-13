@@ -44,7 +44,6 @@ const Routes = () => {
           {/* Auth */}
           <Route path="/" element={<SimpleLogin />} />
           <Route path="/login" element={<SimpleLogin />} />
-          <Route path="/login-screen" element={<SimpleLogin />} />
           <Route path="/signup" element={<SimpleSignup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/set-password" element={<SetPassword />} />
