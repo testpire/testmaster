@@ -45,6 +45,11 @@
     
     /* Radius */
     --radius: 0.5rem;
+
+    /* MathLive virtual keyboard: default is 105, which sits BEHIND our modals
+       (z-[1000]). Raise it above so the on-screen keyboard (⌨) opened from the
+       Insert Equation dialog floats over the modal instead of behind it. */
+    --keyboard-zindex: 1100;
   }
 
   * {
