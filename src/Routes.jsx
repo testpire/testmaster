@@ -11,6 +11,7 @@ import NotFound from "pages/NotFound";
 import SimpleLogin from './pages/simple-login';
 import SuperAdminDashboard from './pages/super-admin-dashboard';
 import QuestionBank from './pages/question-bank';
+import AddQuestions from './pages/add-questions';
 import TestManagement from './pages/test-management';
 import StudentTests from './pages/student-tests';
 import StudentResults from './pages/student-results';
@@ -66,6 +67,7 @@ const Routes = () => {
           <Route path="/course-content" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><CourseContent /></ProtectedRoute>} />
           {/* Question bank — usable by admins and teachers */}
           <Route path="/question-bank" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><QuestionBank /></ProtectedRoute>} />
+          <Route path="/question-bank/add" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><AddQuestions /></ProtectedRoute>} />
           <Route path="/access-control" element={<ProtectedManagementRoutes><AccessControl /></ProtectedManagementRoutes>} />
 
           {/* Test authoring — shared between SUPER_ADMIN, INST_ADMIN and TEACHER */}

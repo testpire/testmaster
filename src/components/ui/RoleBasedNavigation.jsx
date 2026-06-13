@@ -169,24 +169,6 @@ const RoleBasedNavigation = ({
         path: '/profile',
         icon: 'User',
         roles: ['teacher']
-      },
-      {
-        label: 'divider',
-        type: 'divider'
-      },
-      {
-        label: 'Create Student',
-        action: 'show-student-modal',
-        icon: 'UserPlus',
-        roles: ['teacher'],
-        type: 'action'
-      },
-      {
-        label: 'Bulk Import',
-        action: 'show-bulk-import',
-        icon: 'Upload',
-        roles: ['teacher'],
-        type: 'action'
       }
     ],
     'student': [

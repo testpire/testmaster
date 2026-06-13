@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import PageLayout from '../../components/layout/PageLayout';
@@ -13,6 +14,7 @@ import { questionService } from '../../services/questionService';
 const PAGE_SIZE = 20;
 
 const QuestionBank = () => {
+  const navigate = useNavigate();
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
@@ -518,13 +520,13 @@ const QuestionBank = () => {
 
               <Button
                 variant="primary"
-                onClick={() => setIsManualQuestionModalOpen(true)}
+                onClick={() => navigate('/question-bank/add')}
                 iconName="Plus"
                 iconPosition="left"
                 className="text-sm"
               >
-                <span className="hidden sm:inline">Add Manual Question</span>
-                <span className="sm:hidden">Add Question</span>
+                <span className="hidden sm:inline">Add Questions</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </div>
           </div>
@@ -557,7 +559,7 @@ const QuestionBank = () => {
               <p className="text-muted-foreground mb-4">Start by adding your first question or adjust your filters.</p>
               <Button
                 variant="primary"
-                onClick={() => setIsManualQuestionModalOpen(true)}
+                onClick={() => navigate('/question-bank/add')}
                 iconName="Plus"
                 iconPosition="left"
               >
