@@ -8,12 +8,24 @@ const withInstituteScope = (payload) => {
   return scopedId != null ? { ...payload, instituteId: scopedId } : payload;
 };
 
+// Shared wrapper for simple create/update/delete operations.
+// Returns { data, error } — never throws, per project convention.
+const crudOp = async (fn, errorMsg) => {
+  try {
+    const { data, error, success } = await fn();
+    return { data, error: success ? null : error };
+  } catch (error) {
+    console.error(errorMsg, error);
+    return { data: null, error: error.message || errorMsg };
+  }
+};
+
 export const courseService = {
-  // Helper method to search specific entity types
+  // Shared advanced-search implementation used by all get* methods.
   async searchEntityAdvanced(endpoint, criteria = {}, pagination = { page: 0, size: 20 }) {
     try {
       const payload = {
-        criteria: criteria,
+        criteria,
         pagination: {
           page: pagination.page || 0,
           size: pagination.size || 20
@@ -32,154 +44,79 @@ export const courseService = {
       const totalPages = data?.totalPages || Math.ceil(totalElements / payload.pagination.size);
       const currentPage = data?.number !== undefined ? data.number : pagination.page || 0;
       const hasMore = currentPage < totalPages - 1;
-      
-      return { 
-        data: content, 
-        pagination: {
-          currentPage,
-          totalPages,
-          totalElements,
-          hasMore,
-          size: payload.pagination.size
-        },
-        error: null 
+
+      return {
+        data: content,
+        pagination: { currentPage, totalPages, totalElements, hasMore, size: payload.pagination.size },
+        error: null
       };
     } catch (error) {
       console.warn(`Failed to search ${endpoint}:`, error);
-      return { 
-        data: [], 
-        pagination: {
-          currentPage: 0,
-          totalPages: 0,
-          totalElements: 0,
-          hasMore: false,
-          size: 20
-        },
-        error: null 
+      return {
+        data: [],
+        pagination: { currentPage: 0, totalPages: 0, totalElements: 0, hasMore: false, size: 20 },
+        error: null
       };
     }
   },
 
   // Course operations
   async getCourses(pagination = { page: 0, size: 20 }) {
-    return await this.searchEntityAdvanced('/courses/search/advanced', {}, pagination);
+    return this.searchEntityAdvanced('/courses/search/advanced', {}, pagination);
   },
 
   async createCourse(courseData) {
-    try {
-      const { data, error, success } = await post('/courses', withInstituteScope(courseData));
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error creating course:', error);
-      return { data: null, error: error.message || 'Failed to create course' };
-    }
+    return crudOp(() => post('/courses', withInstituteScope(courseData)), 'Error creating course');
   },
 
   async updateCourse(courseId, courseData) {
-    try {
-      const { data, error, success } = await put(`/courses/${courseId}`, courseData);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error updating course:', error);
-      return { data: null, error: error.message || 'Failed to update course' };
-    }
+    return crudOp(() => put(`/courses/${courseId}`, courseData), 'Error updating course');
   },
 
   async deleteCourse(courseId) {
-    try {
-      const { data, error, success } = await del(`/courses/${courseId}`);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      return { data: null, error: error.message || 'Failed to delete course' };
-    }
+    return crudOp(() => del(`/courses/${courseId}`), 'Error deleting course');
   },
 
   // Subject operations
   async getSubjects(courseId = null, pagination = { page: 0, size: 20 }) {
-    const criteria = {};
-    if (courseId) {
-      criteria.courseId = courseId;
-    }
-    return await this.searchEntityAdvanced('/subjects/search/advanced', criteria, pagination);
+    const criteria = courseId ? { courseId } : {};
+    return this.searchEntityAdvanced('/subjects/search/advanced', criteria, pagination);
   },
 
   async createSubject(subjectData) {
-    try {
-      const { data, error, success } = await post('/subjects', withInstituteScope(subjectData));
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error creating subject:', error);
-      return { data: null, error: error.message || 'Failed to create subject' };
-    }
+    return crudOp(() => post('/subjects', withInstituteScope(subjectData)), 'Error creating subject');
   },
 
   async updateSubject(subjectId, subjectData) {
-    try {
-      const { data, error, success } = await put(`/subjects/${subjectId}`, subjectData);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error updating subject:', error);
-      return { data: null, error: error.message || 'Failed to update subject' };
-    }
+    return crudOp(() => put(`/subjects/${subjectId}`, subjectData), 'Error updating subject');
   },
 
   async deleteSubject(subjectId) {
-    try {
-      const { data, error, success } = await del(`/subjects/${subjectId}`);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error deleting subject:', error);
-      return { data: null, error: error.message || 'Failed to delete subject' };
-    }
+    return crudOp(() => del(`/subjects/${subjectId}`), 'Error deleting subject');
   },
 
   // Chapter operations
   async getChapters(subjectId = null, pagination = { page: 0, size: 20 }) {
-    const criteria = {};
-    if (subjectId) {
-      criteria.subjectId = subjectId;
-    }
-    return await this.searchEntityAdvanced('/chapters/search/advanced', criteria, pagination);
+    const criteria = subjectId ? { subjectId } : {};
+    return this.searchEntityAdvanced('/chapters/search/advanced', criteria, pagination);
   },
 
   async createChapter(chapterData) {
-    try {
-      const { data, error, success } = await post('/chapters', withInstituteScope(chapterData));
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error creating chapter:', error);
-      return { data: null, error: error.message || 'Failed to create chapter' };
-    }
+    return crudOp(() => post('/chapters', withInstituteScope(chapterData)), 'Error creating chapter');
   },
 
   async updateChapter(chapterId, chapterData) {
-    try {
-      const { data, error, success } = await put(`/chapters/${chapterId}`, chapterData);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error updating chapter:', error);
-      return { data: null, error: error.message || 'Failed to update chapter' };
-    }
+    return crudOp(() => put(`/chapters/${chapterId}`, chapterData), 'Error updating chapter');
   },
 
   async deleteChapter(chapterId) {
-    try {
-      const { data, error, success } = await del(`/chapters/${chapterId}`);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error deleting chapter:', error);
-      return { data: null, error: error.message || 'Failed to delete chapter' };
-    }
+    return crudOp(() => del(`/chapters/${chapterId}`), 'Error deleting chapter');
   },
 
   // Topic operations
   async getTopics(chapterId = null, pagination = { page: 0, size: 20 }) {
-    const criteria = {};
-    if (chapterId) {
-      criteria.chapterId = chapterId;
-    }
-    return await this.searchEntityAdvanced('/topics/search/advanced', criteria, pagination);
+    const criteria = chapterId ? { chapterId } : {};
+    return this.searchEntityAdvanced('/topics/search/advanced', criteria, pagination);
   },
 
   // Fetch a single topic by id (GET /topics/{id}). Used by the standalone topic
@@ -196,33 +133,15 @@ export const courseService = {
   },
 
   async createTopic(topicData) {
-    try {
-      const { data, error, success } = await post('/topics', withInstituteScope(topicData));
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error creating topic:', error);
-      return { data: null, error: error.message || 'Failed to create topic' };
-    }
+    return crudOp(() => post('/topics', withInstituteScope(topicData)), 'Error creating topic');
   },
 
   async updateTopic(topicId, topicData) {
-    try {
-      const { data, error, success } = await put(`/topics/${topicId}`, topicData);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error updating topic:', error);
-      return { data: null, error: error.message || 'Failed to update topic' };
-    }
+    return crudOp(() => put(`/topics/${topicId}`, topicData), 'Error updating topic');
   },
 
   async deleteTopic(topicId) {
-    try {
-      const { data, error, success } = await del(`/topics/${topicId}`);
-      return { data, error: success ? null : error };
-    } catch (error) {
-      console.error('Error deleting topic:', error);
-      return { data: null, error: error.message || 'Failed to delete topic' };
-    }
+    return crudOp(() => del(`/topics/${topicId}`), 'Error deleting topic');
   },
 
   // Bulk-create subjects, chapters and topics from a single denormalized CSV file.

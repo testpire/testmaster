@@ -59,7 +59,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
 
     } catch (error) {
       const errorMessage = error?.message?.includes('Failed to fetch')
-        ? 'Cannot connect to database. Please check your Supabase connection.'
+        ? 'Cannot connect to the server. Please check your connection and try again.'
         : `Error ${editingQuestion ? 'updating' : 'creating'} question: ${error?.message}`;
       form.setError(errorMessage);
     } finally {

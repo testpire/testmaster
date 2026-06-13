@@ -17,28 +17,20 @@ export const questionService = {
         }
       };
 
-      // Ensure criteria is never completely empty - some backends require at least one field
-      let hasCriteria = false;
-
-      // Add filters to criteria (instituteId is extracted from JWT token on backend)
+      // instituteId is extracted from the JWT on the backend; no need to include it here.
       if (searchParams.difficulty && searchParams.difficulty.trim() !== '') {
         payload.criteria.difficultyLevel = searchParams.difficulty.trim();
-        hasCriteria = true;
       }
       if (searchParams.subjectId && searchParams.subjectId !== '') {
         payload.criteria.subjectId = parseInt(searchParams.subjectId);
-        hasCriteria = true;
       }
       if (searchParams.chapterId && searchParams.chapterId !== '') {
         payload.criteria.chapterId = parseInt(searchParams.chapterId);
-        hasCriteria = true;
       }
       if (searchParams.topicId && searchParams.topicId !== '') {
         payload.criteria.topicId = parseInt(searchParams.topicId);
-        hasCriteria = true;
       }
 
-      // If no criteria provided, we still need to send the request (institute filtering happens on backend via JWT)
 
 
       const response = await post('/questions/search/advanced', payload);
@@ -83,15 +75,13 @@ export const questionService = {
     }
   },
 
-  // Keep the old method for backward compatibility, but use the new search internally
+  // Kept for backward compatibility — delegates to searchQuestions.
   async getQuestions(filters = {}) {
     return await this.searchQuestions(filters);
   },
 
   async createQuestion(questionData) {
     try {
-      // For SUPER_ADMIN, force instituteId to the selected institute so the body agrees
-      // with the X-Institute-Id header; other roles keep their own payload value.
       const scopedId = getActiveInstituteId();
       const body = scopedId != null ? { ...questionData, instituteId: scopedId } : questionData;
       const { data, error, success } = await post('/questions', body);
@@ -140,25 +130,22 @@ export const questionService = {
     }
   },
 
-  // Use courseService methods for common search APIs  
+  // Delegates to courseService — large page size to populate dropdowns fully.
   async getSubjects(pagination = { page: 0, size: 100 }) {
-    // For dropdowns, use larger page size to get all options
     return await courseService.getSubjects(null, pagination);
   },
 
   async getChaptersBySubject(subjectId, pagination = { page: 0, size: 100 }) {
-    // For dropdowns, use larger page size to get all options
     return await courseService.getChapters(subjectId, pagination);
   },
 
   async getTopicsByChapter(chapterId, pagination = { page: 0, size: 100 }) {
-    // For dropdowns, use larger page size to get all options
     return await courseService.getTopics(chapterId, pagination);
   },
 
-  // Keep searchTopics for backward compatibility if needed elsewhere
+  // Kept for backward compatibility.
   async searchTopics(params = {}) {
-    const pagination = { page: 0, size: 100 }; // For dropdowns
+    const pagination = { page: 0, size: 100 };
     if (params.chapterId) {
       return await courseService.getTopics(params.chapterId, pagination);
     } else if (params.subjectId) {
