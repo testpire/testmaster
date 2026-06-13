@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { extractApiErrorMessage, parseSpringValidationMessage } from '../utils/responseHelpers';
 
 // Base API configuration. Override per-environment via VITE_API_BASE_URL in .env
 // (see .env.example); falls back to the current dev tunnel if unset so existing
@@ -276,14 +277,19 @@ export const apiRequest = async (method, url, data = null, config = {}) => {
     }
     
     let errorMessage;
-    
+
     // Handle different error types gracefully
     if (!error.response) {
       // Network error
       errorMessage = 'Connection issue. Please check your internet connection.';
     } else if (error.response.status >= 500) {
-      // Server error
-      errorMessage = 'Server is temporarily unavailable. Please try again in a moment.';
+      // Most 5xx are genuine server faults → keep a calm, generic message. BUT the
+      // backend currently returns bean-validation failures as 500 with the real
+      // reason buried in `message` (a Spring MethodArgumentNotValidException dump).
+      // Surface that readable reason instead of hiding it behind the generic text.
+      errorMessage =
+        parseSpringValidationMessage(error.response?.data?.message || error.response?.data?.error) ||
+        'Server is temporarily unavailable. Please try again in a moment.';
     } else if (error.response.status === 404) {
       // Not found
       errorMessage = 'Requested resource not found.';
@@ -294,13 +300,11 @@ export const apiRequest = async (method, url, data = null, config = {}) => {
       // Unauthorized
       errorMessage = 'Your session has expired. Please log in again.';
     } else {
-      // Other errors
-      errorMessage = error.response?.data?.message || 
-                    error.response?.data?.error || 
-                    error.message || 
-                    'An unexpected error occurred';
+      // Other 4xx (e.g. 400 validation) — prefer the backend's own message,
+      // parsed for readability when it's a Spring validation dump.
+      errorMessage = extractApiErrorMessage(error) || 'An unexpected error occurred';
     }
-    
+
     return {
       data: null,
       error: {

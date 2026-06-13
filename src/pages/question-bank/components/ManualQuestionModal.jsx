@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { questionService } from '../../../services/questionService';
 import { useAuth } from '../../../contexts/AuthContext';
 import Icon from '../../../components/AppIcon';
@@ -7,6 +7,23 @@ import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import MathText, { detectTextFormat } from '../../../components/MathText';
 import Modal from '../../../components/ui/Modal';
+
+// Lazy so MathLive's bundle is fetched only when an author opens the equation
+// editor — never on the question list or the student exam runner.
+const MathEquationEditor = lazy(() => import('../../../components/MathEquationEditor'));
+
+// Small "fx" trigger placed beside each text field that opens the equation editor.
+const InsertEquationButton = ({ onClick, className }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${className || ''}`}
+    title="Insert a math equation"
+  >
+    <Icon name="Sigma" size={14} />
+    <span>Insert equation</span>
+  </button>
+);
 
 // Mirror the backend allowlist / size cap (app.images.max-size-bytes default = 2 MB).
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -111,6 +128,49 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
   // Tracks whether the teacher manually picked the text format. While false, the
   // format auto-detects from the typed content; a manual toggle pins it.
   const [formatManual, setFormatManual] = useState(false);
+
+  // Equation editor state. `activeField` records the last-focused text field and
+  // caret position so an inserted equation lands where the author was typing.
+  // field is 'questionText' | 'explanation' | <option index>.
+  const [editorOpen, setEditorOpen] = useState(false);
+  const activeFieldRef = useRef({ field: 'questionText', caret: null });
+
+  const recordCaret = (field) => (e) => {
+    activeFieldRef.current = { field, caret: e?.target?.selectionStart ?? null };
+  };
+
+  const openEquationEditor = (field) => {
+    // Keep the recorded caret only if it belongs to the field being targeted;
+    // otherwise insert at the end of that field's current text.
+    if (activeFieldRef.current?.field !== field) {
+      activeFieldRef.current = { field, caret: null };
+    }
+    setEditorOpen(true);
+  };
+
+  // Splice `$latex$` into the targeted field at the saved caret (functional
+  // update so it reads the freshest text).
+  const insertLatexAtCursor = (latex) => {
+    const snippet = `$${latex}$`;
+    const { field, caret } = activeFieldRef.current || { field: 'questionText', caret: null };
+    const splice = (text) => {
+      const current = text || '';
+      const pos = caret == null ? current.length : Math.min(caret, current.length);
+      return current.slice(0, pos) + snippet + current.slice(pos);
+    };
+    setQuestionData((prev) => {
+      if (field === 'questionText' || field === 'explanation') {
+        return { ...prev, [field]: splice(prev[field]) };
+      }
+      if (typeof field === 'number') {
+        return {
+          ...prev,
+          options: prev.options.map((opt, i) => (i === field ? { ...opt, text: splice(opt.text) } : opt)),
+        };
+      }
+      return prev;
+    });
+  };
 
   const [questionData, setQuestionData] = useState({
     questionText: '',
@@ -640,6 +700,7 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                   Question Text *
                 </label>
                 <div className="flex items-center gap-2">
+                  <InsertEquationButton onClick={() => openEquationEditor('questionText')} />
                   <span className="text-xs text-muted-foreground">Format:</span>
                   <div className="inline-flex rounded-md border border-border overflow-hidden">
                     {['PLAIN', 'LATEX'].map((fmt) => (
@@ -662,6 +723,8 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
               <textarea
                 value={questionData?.questionText}
                 onChange={(e) => handleInputChange('questionText', e?.target?.value)}
+                onFocus={recordCaret('questionText')}
+                onSelect={recordCaret('questionText')}
                 rows={4}
                 className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-vertical"
                 placeholder="Enter the question text here..."
@@ -752,6 +815,8 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                         <Input
                           value={option?.text}
                           onChange={(e) => handleOptionChange(index, 'text', e?.target?.value)}
+                          onFocus={recordCaret(index)}
+                          onSelect={recordCaret(index)}
                           placeholder={`Enter text for option ${option?.label}`}
                           className={`flex-1 ${option?.isCorrect ? 'border-success' : ''}`}
                           required
@@ -760,6 +825,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
                       
                       {/* Option Image */}
                       <div className="ml-8">
+                        <InsertEquationButton
+                          onClick={() => openEquationEditor(index)}
+                          className="mb-2"
+                        />
                         {(questionData?.textFormat || 'PLAIN') === 'LATEX' && option?.text?.trim() && (
                           <div className="mb-2 p-2 rounded border border-border bg-muted/30">
                             <span className="text-xs text-muted-foreground mr-1">Preview:</span>
@@ -813,16 +882,32 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
 
             {/* Explanation */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Explanation (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-foreground">
+                  Explanation (Optional)
+                </label>
+                <InsertEquationButton onClick={() => openEquationEditor('explanation')} />
+              </div>
               <textarea
                 value={questionData?.explanation}
                 onChange={(e) => handleInputChange('explanation', e?.target?.value)}
+                onFocus={recordCaret('explanation')}
+                onSelect={recordCaret('explanation')}
                 rows={3}
                 className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-vertical"
                 placeholder="Provide a detailed explanation of the solution..."
               />
+              {(questionData?.textFormat || 'PLAIN') === 'LATEX' && questionData?.explanation?.trim() && (
+                <div className="mt-2 p-3 rounded-lg border border-border bg-muted/30">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                  <MathText
+                    as="div"
+                    className="text-sm text-foreground"
+                    text={questionData?.explanation}
+                    textFormat="LATEX"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Question Properties */}
@@ -895,6 +980,18 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
             </div>
           </div>
         </form>
+
+        {/* Equation editor — mounted outside the form so its buttons never submit
+            it, and only when open so MathLive's chunk loads on demand. */}
+        {editorOpen && (
+          <Suspense fallback={null}>
+            <MathEquationEditor
+              isOpen={editorOpen}
+              onClose={() => setEditorOpen(false)}
+              onInsert={insertLatexAtCursor}
+            />
+          </Suspense>
+        )}
     </Modal>
   );
 };
