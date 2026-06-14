@@ -8,6 +8,7 @@ import MaterialComposer from '../../components/course/MaterialComposer';
 import { cn } from '../../utils/cn';
 import { courseService } from '../../services/courseService';
 import { newMaterialService } from '../../services/newMaterialService';
+import { fetchAllPages } from '../../utils/pagination';
 import { formatBytes as fmtBytes } from '../../utils/formatters';
 
 // Per-type display metadata.
@@ -74,7 +75,7 @@ const TopicMaterialsPage = () => {
     if (!chapterId) return undefined;
     if (siblings.some((t) => String(t.chapterId) === String(chapterId))) return undefined;
     let cancelled = false;
-    courseService.getTopics(chapterId, { page: 0, size: 200 }).then(({ data }) => {
+    fetchAllPages((pg) => courseService.getTopics(chapterId, pg)).then(({ data }) => {
       if (cancelled) return;
       const list = Array.isArray(data) ? [...data] : [];
       list.sort((a, b) => (a.orderIndex ?? a.order ?? 0) - (b.orderIndex ?? b.order ?? 0));

@@ -1,4 +1,5 @@
 import { get, post, put, patch, del } from '../lib/apiClient';
+import { fetchAllPages } from '../utils/pagination';
 
 export const newUserService = {
   // Get user profile by ID
@@ -24,10 +25,12 @@ export const newUserService = {
       
       // Delegate to specific methods that use proper POST APIs
       if (role.toUpperCase() === 'TEACHER') {
-        const { data, pagination, error } = await this.getTeachers({ page: 0, size: 1000 }); // Large size for backward compatibility
+        // Page through all teachers (backend caps page size at 100) for the full list.
+        const { data, error } = await fetchAllPages((pg) => this.getTeachers(pg));
         return { data, error };
       } else if (role.toUpperCase() === 'STUDENT') {
-        const { data, pagination, error } = await this.getStudentsByBatch(null, { page: 0, size: 1000 }); // Large size for backward compatibility
+        // Page through all students (backend caps page size at 100) for the full list.
+        const { data, error } = await fetchAllPages((pg) => this.getStudentsByBatch(null, pg));
         return { data, error };
       } else {
         // For other roles, return empty (this was mainly used for students/teachers)

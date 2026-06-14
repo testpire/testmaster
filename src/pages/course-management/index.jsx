@@ -978,7 +978,7 @@ const CourseManagement = () => {
   // the JWT / X-Institute-Id header, not a function argument.
   const loadCourses = useCallback(async () => {
     try {
-      const data = await fetchAllPages((pg) => courseService.getCourses(pg));
+      const { data } = await fetchAllPages((pg) => courseService.getCourses(pg));
       setCourses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading courses:', err);
@@ -988,7 +988,7 @@ const CourseManagement = () => {
 
   const loadSubjects = useCallback(async (courseId = null) => {
     try {
-      const data = await fetchAllPages((pg) => courseService.getSubjects(courseId, pg));
+      const { data } = await fetchAllPages((pg) => courseService.getSubjects(courseId, pg));
       setSubjects(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading subjects:', err);

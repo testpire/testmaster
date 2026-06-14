@@ -27,7 +27,7 @@ const CourseContent = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const list = await fetchAllPages((pg) => courseService.getCourses(pg));
+      const { data: list } = await fetchAllPages((pg) => courseService.getCourses(pg));
       setCourses(Array.isArray(list) ? list : []);
       setLoading(false);
     })().catch((e) => {

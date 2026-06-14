@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
+import { fetchAllPages } from '../../utils/pagination';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
@@ -55,7 +56,7 @@ const InstituteManagement = () => {
   const fetchInstitutes = async () => {
     setInstitutesLoading(true);
     try {
-      const { data, error: instError } = await newInstituteService.getInstitutes({}, { page: 0, size: 1000 });
+      const { data, error: instError } = await fetchAllPages((pg) => newInstituteService.getInstitutes({}, pg));
       if (instError) {
         console.error('Error fetching institutes:', instError);
         setInstitutes([]);

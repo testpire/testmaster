@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { newInstituteService } from '../services/newInstituteService';
+import { fetchAllPages } from '../utils/pagination';
 import { useAuth } from './AuthContext';
 
 const InstituteContext = createContext(null);
@@ -60,9 +61,9 @@ export const InstituteProvider = ({ children }) => {
 
     try {
       setInstitutesLoading(true);
-      // size:1000 so the cached list holds every institute (the dropdown is the
-      // single source of truth) rather than just the first page.
-      const { data, error } = await newInstituteService.getInstitutes({}, { page: 0, size: 1000 });
+      // Page through all institutes (backend caps page size at 100) so the cached list
+      // holds every institute — the dropdown is the single source of truth.
+      const { data, error } = await fetchAllPages((pg) => newInstituteService.getInstitutes({}, pg));
 
       if (data && !error) {
         const institutes = Array.isArray(data) ? data : [];
