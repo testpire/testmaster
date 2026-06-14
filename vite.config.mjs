@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
-import tagger from "@dhiwise/component-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -17,11 +16,11 @@ export default defineConfig({
     const repoName = repository.split("/")[1] || "";
     return repoName.endsWith(".github.io") ? "/" : `/${repoName}/`;
   })(),
-  plugins: [tsconfigPaths(), react(), tagger()],
+  plugins: [tsconfigPaths(), react()],
   server: {
     port: "4028",
     host: "0.0.0.0",
     strictPort: true,
-    allowedHosts: ['.amazonaws.com', '.builtwithrocket.new']
+    allowedHosts: ['.amazonaws.com']
   }
 });
