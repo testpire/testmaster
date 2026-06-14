@@ -174,7 +174,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       setTopics([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionData.subject, active, subjects]);
+  }, [questionData.subject, active]);
 
   // Load topics when chapter changes
   useEffect(() => {
@@ -184,7 +184,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       setTopics([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionData.chapter, active, chapters]);
+  }, [questionData.chapter, active]);
 
   // Auto-detect PLAIN vs LATEX from the typed content until the teacher pins it
   // with the manual toggle. The equality guard prevents a setState loop.
@@ -211,7 +211,6 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
         return;
       }
 
-      // Extract subjects from nested structure - data is already the subjects array
       setSubjects(data || []);
     } catch (err) {
       console.error('Error loading subjects:', err);
@@ -227,9 +226,14 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
 
     try {
       setLoadingChapters(true);
-      // Find the selected subject and extract its chapters
-      const selectedSubject = subjects.find(subject => subject.id?.toString() === subjectId?.toString());
-      setChapters(selectedSubject?.chapters || []);
+      // Fetch chapters for the selected subject (flat list, parent-id filtered).
+      const { data, error: loadError } = await questionService.getChaptersBySubject(subjectId);
+      if (loadError) {
+        console.error('❌ Error loading chapters:', loadError);
+        setChapters([]);
+        return;
+      }
+      setChapters(data || []);
     } catch (err) {
       console.error('Error loading chapters:', err);
       setChapters([]);
@@ -246,9 +250,14 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
 
     try {
       setLoadingTopics(true);
-      // Find the selected chapter and extract its topics
-      const selectedChapter = chapters.find(chapter => chapter.id?.toString() === chapterId?.toString());
-      setTopics(selectedChapter?.topics || []);
+      // Fetch topics for the selected chapter (flat list, parent-id filtered).
+      const { data, error: loadError } = await questionService.getTopicsByChapter(chapterId);
+      if (loadError) {
+        console.error('❌ Error loading topics:', loadError);
+        setTopics([]);
+        return;
+      }
+      setTopics(data || []);
     } catch (err) {
       console.error('Error loading topics:', err);
       setTopics([]);

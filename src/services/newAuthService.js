@@ -81,6 +81,12 @@ export const newAuthService = {
       
       if (success && data) {
         console.log('✅ Profile retrieved successfully');
+        // /auth/profile returns no `id`. Synthesize a stable one from username/email
+        // so pages can use it as an auth-readiness key. The backend scopes by JWT and
+        // updateUserProfile ignores this value, so it only needs to be stable & truthy.
+        if (data.user && data.user.id == null) {
+          data.user.id = data.user.username || data.user.email || null;
+        }
         return { data, error: null };
       }
       

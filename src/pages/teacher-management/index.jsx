@@ -69,10 +69,13 @@ const TeacherManagement = () => {
   }, [authUserId, selectedInstituteId]);
 
   const loadInstituteData = async () => {
-    if (!currentUser.instituteId) return;
+    // Super-admins operate on the switcher-selected institute (shown via
+    // selectedInstitute), not their profile's home institute — fetching that one
+    // 403s ("you may only access your own institute"). Only fixed-institute roles fetch.
+    if (currentUser.role === 'super-admin' || !currentUser.instituteId) return;
 
     try {
-      const { data, error } = await newInstituteService.getInstituteById(currentUser.instituteId);
+      const { data, error } = await newInstituteService.getInstituteById(currentUser.instituteId, { skipAuthRedirect: true });
       
       if (error) {
         setInstituteData(prev => ({ ...prev, error, loading: false }));

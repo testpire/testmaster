@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { courseService } from '../../services/courseService';
 import { newBatchService } from '../../services/newBatchService';
-import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -725,7 +724,7 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
   );
 };
 
-const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, currentUser }) => {
+const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser }) => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -763,18 +762,27 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, chapters, curr
     }
   }, [topic, subjects]);
 
+  // Lazy-load the chosen subject's chapters via ?include=chapters for the dropdown.
   useEffect(() => {
-    if (formData.subjectId) {
-      const filtered = chapters.filter(ch => ch.subjectId == formData.subjectId);
-      setFilteredChapters(filtered);
-      // Reset chapter if it doesn't belong to selected subject
-      if (formData.chapterId && !filtered.find(ch => ch.id == formData.chapterId)) {
-        setFormData(prev => ({ ...prev, chapterId: '' }));
-      }
-    } else {
+    let cancelled = false;
+    if (!formData.subjectId) {
       setFilteredChapters([]);
+      return;
     }
-  }, [formData.subjectId, chapters]);
+    (async () => {
+      const { data } = await courseService.getSubjectById(formData.subjectId, { include: 'chapters' });
+      if (cancelled) return;
+      const list = data?.chapters || [];
+      setFilteredChapters(list);
+      // Drop a stale chapter selection that doesn't belong to the chosen subject.
+      setFormData((prev) =>
+        prev.chapterId && !list.find((ch) => String(ch.id) === String(prev.chapterId))
+          ? { ...prev, chapterId: '' }
+          : prev
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [formData.subjectId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -926,8 +934,12 @@ const CourseManagement = () => {
   // State management
   const [courses, setCourses] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [chapters, setChapters] = useState([]);
-  const [topics, setTopics] = useState([]);
+  // Curriculum children are lazy-loaded per node via the ?include= endpoints,
+  // keyed by parent id, with a per-parent loading set for spinners.
+  const [chaptersBySubject, setChaptersBySubject] = useState({}); // subjectId -> chapter[]
+  const [topicsByChapter, setTopicsByChapter] = useState({}); // chapterId -> topic[]
+  const [loadingChapterSubjects, setLoadingChapterSubjects] = useState(() => new Set());
+  const [loadingTopicChapters, setLoadingTopicChapters] = useState(() => new Set());
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -943,12 +955,6 @@ const CourseManagement = () => {
   const [loadingBatchCourses, setLoadingBatchCourses] = useState(() => new Set());
   
   // Institute data
-  const [instituteData, setInstituteData] = useState({
-    institute: null,
-    loading: true,
-    error: null
-  });
-
   // Modal states
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -966,24 +972,6 @@ const CourseManagement = () => {
 
   // Safe user check
   const safeCurrentUser = currentUser || {};
-
-  // Load institute data
-  const loadInstituteData = async () => {
-    if (!safeCurrentUser.instituteId) return;
-    
-    try {
-      setInstituteData(prev => ({ ...prev, loading: true }));
-      const result = await newInstituteService.getInstituteById(safeCurrentUser.instituteId);
-      if (result.data) {
-        setInstituteData({ institute: result.data, loading: false, error: null });
-      } else {
-        setInstituteData(prev => ({ ...prev, loading: false, error: 'Institute not found' }));
-      }
-    } catch (err) {
-      console.error('Error loading institute:', err);
-      setInstituteData(prev => ({ ...prev, error: err.message, loading: false }));
-    }
-  };
 
   // Load functions with error handling. Each pages through the full set (the tree
   // needs every node available to expand) — institute scoping is server-side via
@@ -1008,24 +996,19 @@ const CourseManagement = () => {
     }
   }, []);
 
-  const loadChapters = useCallback(async (subjectId = null) => {
-    try {
-      const data = await fetchAllPages((pg) => courseService.getChapters(subjectId, pg));
-      setChapters(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error loading chapters:', err);
-      setChapters([]);
-    }
+  // Lazy per-node loaders for the curriculum tree, via the ?include= endpoints.
+  const loadChaptersForSubject = useCallback(async (subjectId) => {
+    setLoadingChapterSubjects((prev) => new Set(prev).add(subjectId));
+    const { data } = await courseService.getSubjectById(subjectId, { include: 'chapters' });
+    setChaptersBySubject((prev) => ({ ...prev, [subjectId]: data?.chapters || [] }));
+    setLoadingChapterSubjects((prev) => { const next = new Set(prev); next.delete(subjectId); return next; });
   }, []);
 
-  const loadTopics = useCallback(async (chapterId = null) => {
-    try {
-      const data = await fetchAllPages((pg) => courseService.getTopics(chapterId, pg));
-      setTopics(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error loading topics:', err);
-      setTopics([]);
-    }
+  const loadTopicsForChapter = useCallback(async (chapterId) => {
+    setLoadingTopicChapters((prev) => new Set(prev).add(chapterId));
+    const { data } = await courseService.getChapterById(chapterId, { include: 'topics' });
+    setTopicsByChapter((prev) => ({ ...prev, [chapterId]: data?.topics || [] }));
+    setLoadingTopicChapters((prev) => { const next = new Set(prev); next.delete(chapterId); return next; });
   }, []);
 
   // Combined load function
@@ -1033,12 +1016,13 @@ const CourseManagement = () => {
     try {
       setLoading(true);
       setError(null);
-      
+      // Children load lazily on expand — clear any cached subtree so a fresh
+      // expand refetches (e.g. after an institute switch or curriculum upload).
+      setChaptersBySubject({});
+      setTopicsByChapter({});
       await Promise.all([
         loadCourses(),
-        loadSubjects(),
-        loadChapters(),
-        loadTopics()
+        loadSubjects()
       ]);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -1046,22 +1030,18 @@ const CourseManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadCourses, loadSubjects, loadChapters, loadTopics]);
+  }, [loadCourses, loadSubjects]);
 
   // Initial data load + reload when a super-admin switches institute.
-  // Keyed on the stable user id (not user/userProfile, which settle in separate
-  // renders and would double-fire) and the selected institute id.
+  // Keyed on a stable user identifier — the profile from /auth/profile has no `id`,
+  // so we key on username/email (institute scoping is server-side via the JWT /
+  // X-Institute-Id header, not the user id) and the selected institute id.
+  const currentUserKey = currentUser?.username || currentUser?.email || null;
   const selectedInstituteId = superAdminContext?.selectedInstitute?.id ?? null;
   useEffect(() => {
-    if (!currentUser?.id) return;
-    const initializeData = async () => {
-      await loadInstituteData();
-      await loadAllData();
-    };
-    initializeData();
-    // loadInstituteData is intentionally omitted: it's recreated each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id, selectedInstituteId, loadAllData]);
+    if (!currentUserKey) return;
+    loadAllData();
+  }, [currentUserKey, selectedInstituteId, loadAllData]);
 
   // Course CRUD operations
   const handleCourseSuccess = async (courseData, courseId = null) => {
@@ -1126,7 +1106,8 @@ const CourseManagement = () => {
       
       setShowChapterModal(false);
       setEditingChapter(null);
-      await loadChapters();
+      // Refresh just the affected subject's chapters in the lazy cache.
+      if (chapterData.subjectId != null) await loadChaptersForSubject(chapterData.subjectId);
     } catch (err) {
       console.error('Chapter operation error:', err);
       alert(`An error occurred: ${err.message}`);
@@ -1149,7 +1130,8 @@ const CourseManagement = () => {
       
       setShowTopicModal(false);
       setEditingTopic(null);
-      await loadTopics();
+      // Refresh just the affected chapter's topics in the lazy cache.
+      if (topicData.chapterId != null) await loadTopicsForChapter(topicData.chapterId);
     } catch (err) {
       console.error('Topic operation error:', err);
       alert(`An error occurred: ${err.message}`);
@@ -1210,14 +1192,14 @@ const CourseManagement = () => {
     }
   };
 
-  const handleDeleteChapter = async (chapterId) => {
+  const handleDeleteChapter = async (chapterId, subjectId) => {
     if (confirm('Are you sure you want to delete this chapter?')) {
       try {
         const result = await courseService.deleteChapter(chapterId);
         if (result.error) {
           alert('Failed to delete chapter: ' + result.error);
-        } else {
-          await loadChapters();
+        } else if (subjectId != null) {
+          await loadChaptersForSubject(subjectId);
         }
       } catch (err) {
         console.error('Error deleting chapter:', err);
@@ -1226,14 +1208,14 @@ const CourseManagement = () => {
     }
   };
 
-  const handleDeleteTopic = async (topicId) => {
+  const handleDeleteTopic = async (topicId, chapterId) => {
     if (confirm('Are you sure you want to delete this topic?')) {
       try {
         const result = await courseService.deleteTopic(topicId);
         if (result.error) {
           alert('Failed to delete topic: ' + result.error);
-        } else {
-          await loadTopics();
+        } else if (chapterId != null) {
+          await loadTopicsForChapter(chapterId);
         }
       } catch (err) {
         console.error('Error deleting topic:', err);
@@ -1267,14 +1249,32 @@ const CourseManagement = () => {
     });
   };
 
-  const toggleInSet = (setter) => (id) =>
-    setter((prev) => {
+  // Expand/collapse a subject; lazy-load its chapters on first expand.
+  const toggleSubject = (subjectId) => {
+    setExpandedSubjects((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(subjectId)) {
+        next.delete(subjectId);
+      } else {
+        next.add(subjectId);
+        if (chaptersBySubject[subjectId] === undefined) loadChaptersForSubject(subjectId);
+      }
       return next;
     });
-  const toggleSubject = toggleInSet(setExpandedSubjects);
-  const toggleChapter = toggleInSet(setExpandedChapters);
+  };
+  // Expand/collapse a chapter; lazy-load its topics on first expand.
+  const toggleChapter = (chapterId) => {
+    setExpandedChapters((prev) => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) {
+        next.delete(chapterId);
+      } else {
+        next.add(chapterId);
+        if (topicsByChapter[chapterId] === undefined) loadTopicsForChapter(chapterId);
+      }
+      return next;
+    });
+  };
 
   const openAddBatch = (course) => { setBatchCourse(course); setEditingBatch(null); setShowBatchModal(true); };
   const openEditBatch = (course, batch) => { setBatchCourse(course); setEditingBatch(batch); setShowBatchModal(true); };
@@ -1282,11 +1282,13 @@ const CourseManagement = () => {
   // and expand that parent so the newly-created child is visible after the list reloads.
   const openAddChapter = (subject) => {
     setExpandedSubjects((prev) => new Set(prev).add(subject.id));
+    if (chaptersBySubject[subject.id] === undefined) loadChaptersForSubject(subject.id);
     setEditingChapter({ subjectId: subject.id });
     setShowChapterModal(true);
   };
   const openAddTopic = (chapter) => {
     setExpandedChapters((prev) => new Set(prev).add(chapter.id));
+    if (topicsByChapter[chapter.id] === undefined) loadTopicsForChapter(chapter.id);
     setEditingTopic({ subjectId: chapter.subjectId, chapterId: chapter.id });
     setShowTopicModal(true);
   };
@@ -1356,9 +1358,10 @@ const CourseManagement = () => {
   // Root nodes filtered by the search box (courses for one tab, subjects for the other).
   const filteredCourses = getFilteredData(courses, searchTerm);
   const filteredSubjects = getFilteredData(subjects, searchTerm);
-  // Child lookups for the curriculum tree (string-compare to tolerate id type drift).
-  const chaptersOf = (subjectId) => chapters.filter((c) => String(c.subjectId) === String(subjectId));
-  const topicsOf = (chapterId) => topics.filter((t) => String(t.chapterId) === String(chapterId));
+  // Child lookups for the curriculum tree — read from the lazy per-parent caches
+  // (undefined until that node is first expanded).
+  const chaptersOf = (subjectId) => chaptersBySubject[subjectId] || [];
+  const topicsOf = (chapterId) => topicsByChapter[chapterId] || [];
   const fmtDate = (d) => (d ? String(d).slice(0, 10) : '');
   const fmtFee = (f) => (f == null || f === '' ? null : `₹${Number(f).toLocaleString('en-IN')}`);
 
@@ -1567,6 +1570,8 @@ const CourseManagement = () => {
                     {filteredSubjects.map((subject) => {
                       const sOpen = expandedSubjects.has(subject.id);
                       const subjChapters = chaptersOf(subject.id);
+                      const chaptersLoaded = chaptersBySubject[subject.id] !== undefined;
+                      const chaptersLoading = loadingChapterSubjects.has(subject.id);
                       return (
                         <div key={subject.id}>
                           {/* Subject row */}
@@ -1576,7 +1581,9 @@ const CourseManagement = () => {
                               <Icon name="Book" size={16} className="text-green-600 flex-shrink-0" />
                               <span className="text-sm font-medium text-foreground truncate">{subject.name}</span>
                               {subject.code && <span className="text-xs text-muted-foreground">({subject.code})</span>}
-                              <span className="text-xs text-muted-foreground">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
+                              {chaptersLoaded && (
+                                <span className="text-xs text-muted-foreground">{subjChapters.length} chapter{subjChapters.length === 1 ? '' : 's'}</span>
+                              )}
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button onClick={() => openAddChapter(subject)} title="Add chapter" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
@@ -1594,7 +1601,9 @@ const CourseManagement = () => {
                           {/* Chapters */}
                           {sOpen && (
                             <div className="bg-muted/40 pl-8">
-                              {subjChapters.length === 0 ? (
+                              {chaptersLoading ? (
+                                <div className="py-2 pl-2 text-sm text-muted-foreground">Loading chapters…</div>
+                              ) : subjChapters.length === 0 ? (
                                 <div className="py-2 pl-2 text-sm text-muted-foreground">
                                   No chapters yet.{' '}
                                   <button onClick={() => openAddChapter(subject)} className="text-blue-600 hover:underline">Add one</button>
@@ -1603,6 +1612,8 @@ const CourseManagement = () => {
                                 subjChapters.map((chapter) => {
                                   const cOpen = expandedChapters.has(chapter.id);
                                   const chTopics = topicsOf(chapter.id);
+                                  const topicsLoaded = topicsByChapter[chapter.id] !== undefined;
+                                  const topicsLoading = loadingTopicChapters.has(chapter.id);
                                   return (
                                     <div key={chapter.id} className="border-l border-border">
                                       {/* Chapter row */}
@@ -1612,7 +1623,9 @@ const CourseManagement = () => {
                                           <Icon name="FileText" size={14} className="text-amber-600 flex-shrink-0" />
                                           <span className="text-sm text-foreground truncate">{chapter.name}</span>
                                           {chapter.code && <span className="text-xs text-muted-foreground">({chapter.code})</span>}
-                                          <span className="text-xs text-muted-foreground">{chTopics.length} topic{chTopics.length === 1 ? '' : 's'}</span>
+                                          {topicsLoaded && (
+                                            <span className="text-xs text-muted-foreground">{chTopics.length} topic{chTopics.length === 1 ? '' : 's'}</span>
+                                          )}
                                         </button>
                                         <div className="flex items-center gap-1 flex-shrink-0">
                                           <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
@@ -1621,7 +1634,7 @@ const CourseManagement = () => {
                                           <button onClick={() => handleEditChapter(chapter)} title="Edit chapter" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
                                             <Icon name="Edit" size={14} />
                                           </button>
-                                          <button onClick={() => handleDeleteChapter(chapter.id)} title="Delete chapter" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                          <button onClick={() => handleDeleteChapter(chapter.id, chapter.subjectId)} title="Delete chapter" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
                                             <Icon name="Trash2" size={14} />
                                           </button>
                                         </div>
@@ -1630,7 +1643,9 @@ const CourseManagement = () => {
                                       {/* Topics */}
                                       {cOpen && (
                                         <div className="pl-10 pr-4 pb-2">
-                                          {chTopics.length === 0 ? (
+                                          {topicsLoading ? (
+                                            <div className="py-1 text-sm text-muted-foreground">Loading topics…</div>
+                                          ) : chTopics.length === 0 ? (
                                             <div className="py-1 text-sm text-muted-foreground">
                                               No topics yet.{' '}
                                               <button onClick={() => openAddTopic(chapter)} className="text-blue-600 hover:underline">Add one</button>
@@ -1652,7 +1667,7 @@ const CourseManagement = () => {
                                                     <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
                                                       <Icon name="Edit" size={14} />
                                                     </button>
-                                                    <button onClick={() => handleDeleteTopic(topic.id)} title="Delete topic" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                                    <button onClick={() => handleDeleteTopic(topic.id, topic.chapterId)} title="Delete topic" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
                                                       <Icon name="Trash2" size={14} />
                                                     </button>
                                                   </div>
@@ -1730,7 +1745,6 @@ const CourseManagement = () => {
             onSubmit={handleTopicSuccess}
             topic={editingTopic}
             subjects={subjects}
-            chapters={chapters}
             currentUser={safeCurrentUser}
           />
         )}

@@ -10,5 +10,4 @@ vite.config.*s.*
 *.md
 
 # Local env (contains secrets)
-.env
 .env.local

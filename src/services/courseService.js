@@ -8,6 +8,31 @@ const withInstituteScope = (payload) => {
   return scopedId != null ? { ...payload, instituteId: scopedId } : payload;
 };
 
+// Build an axios config carrying the `?include=` query param for opt-in nesting.
+// Accepts a string ('chapters,topics') or array (['chapters','topics']); returns an
+// empty config when nothing is requested so responses stay flat by default.
+// Token sets per the API: courses → subjects,chapters,topics; subjects → chapters,topics;
+// chapters → topics (must include every ancestor level to expand a deeper one).
+const withInclude = (include) => {
+  const tokens = (Array.isArray(include) ? include : String(include ?? '').split(','))
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  return tokens.length ? { params: { include: tokens.join(',') } } : {};
+};
+
+// Fetch a single hierarchy entity by id, optionally expanding children via ?include=.
+// Returns { data, error } where data is the unwrapped entity (or null on failure).
+const getEntityById = async (endpoint, include) => {
+  try {
+    const { data, error, success } = await get(endpoint, withInclude(include));
+    if (!success) return { data: null, error };
+    return { data: data?.data ?? data ?? null, error: null };
+  } catch (error) {
+    console.error(`Error fetching ${endpoint}:`, error);
+    return { data: null, error: error.message || `Failed to fetch ${endpoint}` };
+  }
+};
+
 // Shared wrapper for simple create/update/delete operations.
 // Returns { data, error } — never throws, per project convention.
 const crudOp = async (fn, errorMsg) => {
@@ -22,7 +47,9 @@ const crudOp = async (fn, errorMsg) => {
 
 export const courseService = {
   // Shared advanced-search implementation used by all get* methods.
-  async searchEntityAdvanced(endpoint, criteria = {}, pagination = { page: 0, size: 20 }) {
+  // `include` (string | string[]) opts into nested children via the `?include=` query
+  // param (e.g. 'subjects,chapters,topics'). Omitted by default → flat responses.
+  async searchEntityAdvanced(endpoint, criteria = {}, pagination = { page: 0, size: 20 }, { include } = {}) {
     try {
       const payload = {
         criteria,
@@ -36,7 +63,8 @@ export const courseService = {
         }
       };
 
-      const response = await post(endpoint, payload);
+      const config = withInclude(include);
+      const response = await post(endpoint, payload, config);
       const data = response?.data?.data || response?.data || response;
       const content = data?.content || data?.courses || data?.subjects || data?.chapters || data?.topics || data || [];
       // Total lives in `totalCount` for these endpoints (not totalElements/totalPages).
@@ -61,8 +89,13 @@ export const courseService = {
   },
 
   // Course operations
-  async getCourses(pagination = { page: 0, size: 20 }) {
-    return this.searchEntityAdvanced('/courses/search/advanced', {}, pagination);
+  async getCourses(pagination = { page: 0, size: 20 }, { include } = {}) {
+    return this.searchEntityAdvanced('/courses/search/advanced', {}, pagination, { include });
+  },
+
+  // Single course by id. `include` opts into the nested subtree (subjects,chapters,topics).
+  async getCourseById(courseId, { include } = {}) {
+    return getEntityById(`/courses/${courseId}`, include);
   },
 
   async createCourse(courseData) {
@@ -78,9 +111,14 @@ export const courseService = {
   },
 
   // Subject operations
-  async getSubjects(courseId = null, pagination = { page: 0, size: 20 }) {
+  async getSubjects(courseId = null, pagination = { page: 0, size: 20 }, { include } = {}) {
     const criteria = courseId ? { courseId } : {};
-    return this.searchEntityAdvanced('/subjects/search/advanced', criteria, pagination);
+    return this.searchEntityAdvanced('/subjects/search/advanced', criteria, pagination, { include });
+  },
+
+  // Single subject by id. `include` opts into nested children (chapters,topics).
+  async getSubjectById(subjectId, { include } = {}) {
+    return getEntityById(`/subjects/${subjectId}`, include);
   },
 
   async createSubject(subjectData) {
@@ -96,9 +134,14 @@ export const courseService = {
   },
 
   // Chapter operations
-  async getChapters(subjectId = null, pagination = { page: 0, size: 20 }) {
+  async getChapters(subjectId = null, pagination = { page: 0, size: 20 }, { include } = {}) {
     const criteria = subjectId ? { subjectId } : {};
-    return this.searchEntityAdvanced('/chapters/search/advanced', criteria, pagination);
+    return this.searchEntityAdvanced('/chapters/search/advanced', criteria, pagination, { include });
+  },
+
+  // Single chapter by id. `include` opts into nested children (topics).
+  async getChapterById(chapterId, { include } = {}) {
+    return getEntityById(`/chapters/${chapterId}`, include);
   },
 
   async createChapter(chapterData) {

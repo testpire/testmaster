@@ -56,8 +56,8 @@ const CourseContent = () => {
       toggleSet('course', course.id);
       if (subjectsByCourse[course.id] === undefined) {
         markLoading('subject', course.id, true);
-        const rows = await fetchAllPages((pg) => courseService.getSubjects(course.id, pg));
-        setSubjectsByCourse((prev) => ({ ...prev, [course.id]: rows }));
+        const { data } = await courseService.getCourseById(course.id, { include: 'subjects' });
+        setSubjectsByCourse((prev) => ({ ...prev, [course.id]: data?.subjects || [] }));
         markLoading('subject', course.id, false);
       }
     },
@@ -69,8 +69,8 @@ const CourseContent = () => {
       toggleSet('subject', subject.id);
       if (chaptersBySubject[subject.id] === undefined) {
         markLoading('chapter', subject.id, true);
-        const rows = await fetchAllPages((pg) => courseService.getChapters(subject.id, pg));
-        setChaptersBySubject((prev) => ({ ...prev, [subject.id]: rows }));
+        const { data } = await courseService.getSubjectById(subject.id, { include: 'chapters' });
+        setChaptersBySubject((prev) => ({ ...prev, [subject.id]: data?.chapters || [] }));
         markLoading('chapter', subject.id, false);
       }
     },
@@ -82,8 +82,8 @@ const CourseContent = () => {
       toggleSet('chapter', chapter.id);
       if (topicsByChapter[chapter.id] === undefined) {
         markLoading('topic', chapter.id, true);
-        const rows = await fetchAllPages((pg) => courseService.getTopics(chapter.id, pg));
-        setTopicsByChapter((prev) => ({ ...prev, [chapter.id]: rows }));
+        const { data } = await courseService.getChapterById(chapter.id, { include: 'topics' });
+        setTopicsByChapter((prev) => ({ ...prev, [chapter.id]: data?.topics || [] }));
         markLoading('topic', chapter.id, false);
       }
     },

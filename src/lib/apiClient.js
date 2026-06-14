@@ -6,8 +6,7 @@ import { extractApiErrorMessage, parseSpringValidationMessage } from '../utils/r
 // setups keep working. Examples:
 //   http://localhost:8080/api
 //   https://testpire.v43d8nfv0vckm.ap-south-1.cs.amazonlightsail.com/api
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://lists-rolling-zoloft-comment.trycloudflare.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Create axios instance
 const apiClient = axios.create({
