@@ -6,16 +6,82 @@ import { newBatchService } from '../../../services/newBatchService';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
 import StudentEnrollmentFields from '../../../components/enrollment/StudentEnrollmentFields';
 import Modal from '../../../components/ui/Modal';
+import Input from '../../../components/ui/Input';
+import Button from '../../../components/ui/Button';
+import { Checkbox } from '../../../components/ui/Checkbox';
+import Icon from '../../../components/AppIcon';
+import { cn } from '../../../utils/cn';
 
-const CreateUserModal = ({ 
-  isOpen, 
-  onClose, 
-  onSuccess, 
-  userRole = 'STUDENT', 
+// ---- Small presentational helpers ---------------------------------------
+// These keep the form markup declarative and consistent with the app's design
+// tokens (border-input, ring, foreground, …) instead of repeating inline styles.
+
+const FIELD_CLASS =
+  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+
+const FieldLabel = ({ htmlFor, required, children }) => (
+  <label htmlFor={htmlFor} className="text-sm font-medium leading-none text-foreground">
+    {children}
+    {required && <span className="text-destructive ml-1">*</span>}
+  </label>
+);
+
+const SelectField = ({ label, required, className, children, ...props }) => (
+  <div className="space-y-2">
+    {label && <FieldLabel required={required}>{label}</FieldLabel>}
+    <select className={cn(FIELD_CLASS, className)} {...props}>
+      {children}
+    </select>
+  </div>
+);
+
+const TextareaField = ({ label, required, rows = 3, className, ...props }) => (
+  <div className="space-y-2">
+    {label && <FieldLabel required={required}>{label}</FieldLabel>}
+    <textarea
+      rows={rows}
+      className={cn(
+        'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y',
+        className
+      )}
+      {...props}
+    />
+  </div>
+);
+
+// A titled group of fields with an icon badge. Sections after the first are
+// separated by a subtle divider (handled by the parent container).
+const Section = ({ icon, title, description, children }) => (
+  <section className="space-y-4">
+    <div className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon name={icon} size={16} />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-foreground leading-tight">{title}</h3>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+    </div>
+    {children}
+  </section>
+);
+
+// Responsive two-column grid that collapses to one column on narrow screens.
+const TwoCol = ({ children }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
+);
+
+const FORM_ID = 'create-user-form';
+
+const CreateUserModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  userRole = 'STUDENT',
   defaultInstituteId = '',
   defaultInstitute = null,
   editMode = false,
-  existingUser = null 
+  existingUser = null
 }) => {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -335,220 +401,127 @@ const CreateUserModal = ({
     handleInputChange('password', password);
   };
 
-  const modalTitle = editMode
-    ? (userRole === 'TEACHER' ? 'Edit Teacher' :
-       userRole === 'INST_ADMIN' ? 'Edit Institute Admin' :
-       'Edit Student')
-    : (userRole === 'TEACHER' ? 'Create New Teacher' :
-       userRole === 'INST_ADMIN' ? 'Create New Institute Admin' :
-       'Create New Student');
+  // ---- Derived display values -------------------------------------------
+  const roleWord =
+    userRole === 'TEACHER' ? 'Teacher' :
+    userRole === 'INST_ADMIN' ? 'Institute Admin' :
+    'Student';
+
+  // Email / username / password are only editable while creating a teacher or
+  // student (they're immutable account credentials once provisioned).
+  const hideAccountFields = (userRole === 'TEACHER' || userRole === 'STUDENT') && editMode;
+
+  // Submit button colour follows the role accent used elsewhere in the app.
+  const submitVariant =
+    userRole === 'TEACHER' ? 'success' :
+    userRole === 'INST_ADMIN' ? 'warning' :
+    'default';
+
+  const modalTitle = `${editMode ? 'Edit' : 'Create New'} ${roleWord}`;
+  const modalDescription = editMode
+    ? `Update the ${roleWord.toLowerCase()}'s details below.`
+    : `Fill in the details to add a new ${roleWord.toLowerCase()}.`;
+
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button type="submit" form={FORM_ID} variant={submitVariant} loading={loading} disabled={loading}>
+        {editMode ? `Update ${roleWord}` : `Create ${roleWord}`}
+      </Button>
+    </>
+  );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="lg">
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gap: '20px' }}>
-            {/* Name Fields */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="First name"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Last name"
-                  disabled={loading}
-                />
-              </div>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modalTitle}
+      description={modalDescription}
+      size={userRole === 'STUDENT' ? 'xl' : 'lg'}
+      footer={footer}
+    >
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit}
+        className="[&>section+section]:mt-6 [&>section+section]:border-t [&>section+section]:border-border [&>section+section]:pt-6"
+      >
+        {/* ---- Basic information (all roles) ---- */}
+        <Section icon="User" title="Basic Information">
+          <TwoCol>
+            <Input
+              label="First Name"
+              required
+              value={formData.firstName}
+              onChange={(e) => handleInputChange('firstName', e.target.value)}
+              placeholder="First name"
+              disabled={loading}
+            />
+            <Input
+              label="Last Name"
+              value={formData.lastName}
+              onChange={(e) => handleInputChange('lastName', e.target.value)}
+              placeholder="Last name"
+              disabled={loading}
+            />
+          </TwoCol>
 
-            {/* Email - not shown for teacher/student updates */}
-            {!((userRole === 'TEACHER' || userRole === 'STUDENT') && editMode) && (
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="email@example.com"
-                  disabled={loading}
-                />
-              </div>
-            )}
-
-            {/* Username - not shown for teacher/student updates */}
-            {!((userRole === 'TEACHER' || userRole === 'STUDENT') && editMode) && (
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Username (optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Leave blank to use email"
-                  disabled={loading}
-                />
-              </div>
-            )}
-
-            {/* Phone */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '6px'
-              }}>
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="Phone number"
+          {!hideAccountFields && (
+            <TwoCol>
+              <Input
+                type="email"
+                label="Email Address"
+                required
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="email@example.com"
                 disabled={loading}
               />
-            </div>
+              <Input
+                label="Username"
+                description="Leave blank to use email"
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                placeholder="Optional"
+                disabled={loading}
+              />
+            </TwoCol>
+          )}
 
-            {/* Institute Selection */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '6px'
-              }}>
-                Institute *
-              </label>
+          <TwoCol>
+            <Input
+              type="tel"
+              label="Phone Number"
+              value={formData.phone}
+              onChange={(e) => handleInputChange('phone', e.target.value)}
+              placeholder="Phone number"
+              disabled={loading}
+            />
+
+            {/* Institute */}
+            <div className="space-y-2">
+              <FieldLabel required>Institute</FieldLabel>
               {defaultInstituteId ? (
-                // Show institute name as read-only when defaultInstituteId is provided (for institute admins)
-                <div style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  backgroundColor: '#f9fafb',
-                  color: '#374151',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span>
+                <div className="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 text-sm text-foreground">
+                  <span className="truncate">
                     {(() => {
-                      // First try to use the defaultInstitute prop if provided
                       if (defaultInstitute && defaultInstitute.name) {
                         return `${defaultInstitute.name} (${defaultInstitute.code || defaultInstitute.instituteCode || 'N/A'})`;
                       }
-                      
-                      // Fallback to finding in institutes array
-                      const selectedInstitute = institutes.find(inst => inst.id === formData.instituteId);
-                      return selectedInstitute ? 
-                        `${selectedInstitute.name} (${selectedInstitute.code})` : 
-                        loadingInstitutes ? 'Loading institute...' : 'Institute Auto-Selected';
+                      const selectedInstitute = institutes.find((inst) => inst.id === formData.instituteId);
+                      return selectedInstitute
+                        ? `${selectedInstitute.name} (${selectedInstitute.code})`
+                        : loadingInstitutes ? 'Loading institute...' : 'Institute Auto-Selected';
                     })()}
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    Auto-assigned
-                  </span>
+                  <span className="flex-shrink-0 text-xs text-muted-foreground">Auto-assigned</span>
                 </div>
               ) : (
-                // Show dropdown for super admins
                 <select
                   value={formData.instituteId}
                   onChange={(e) => handleInputChange('instituteId', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
+                  className={FIELD_CLASS}
                   disabled={loading || loadingInstitutes}
                 >
                   <option value="">
@@ -562,666 +535,236 @@ const CreateUserModal = ({
                 </select>
               )}
             </div>
+          </TwoCol>
 
-            {/* Password - not shown for teacher/student updates */}
-            {!((userRole === 'TEACHER' || userRole === 'STUDENT') && editMode) && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151'
-                  }}>
-                    Password *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    disabled={loading}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#3b82f6',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Generate
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Password"
+          {!hideAccountFields && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <FieldLabel htmlFor="cu-password" required>Password</FieldLabel>
+                <button
+                  type="button"
+                  onClick={generatePassword}
+                  disabled={loading}
+                  className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                >
+                  Generate
+                </button>
+              </div>
+              <input
+                id="cu-password"
+                type="text"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className={FIELD_CLASS}
+                placeholder="Password"
+                disabled={loading}
+              />
+            </div>
+          )}
+        </Section>
+
+        {/* ---- Teacher-specific ---- */}
+        {userRole === 'TEACHER' && (
+          <Section icon="Briefcase" title="Professional Details">
+            <TwoCol>
+              <Input
+                label="Department"
+                value={formData.department}
+                onChange={(e) => handleInputChange('department', e.target.value)}
+                placeholder="Department"
+                disabled={loading}
+              />
+              <Input
+                label="Subject"
+                value={formData.subject}
+                onChange={(e) => handleInputChange('subject', e.target.value)}
+                placeholder="Subject"
+                disabled={loading}
+              />
+            </TwoCol>
+
+            <TwoCol>
+              <Input
+                label="Qualification"
+                value={formData.qualification}
+                onChange={(e) => handleInputChange('qualification', e.target.value)}
+                placeholder="e.g., M.Sc., B.Tech."
+                disabled={loading}
+              />
+              <Input
+                type="number"
+                label="Experience (years)"
+                min="0"
+                value={formData.experienceYears}
+                onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value) || 0)}
+                placeholder="0"
+                disabled={loading}
+              />
+            </TwoCol>
+
+            <Input
+              label="Specialization"
+              value={formData.specialization}
+              onChange={(e) => handleInputChange('specialization', e.target.value)}
+              placeholder="Area of specialization"
+              disabled={loading}
+            />
+
+            <TextareaField
+              label="Bio"
+              value={formData.bio}
+              onChange={(e) => handleInputChange('bio', e.target.value)}
+              placeholder="Brief bio or introduction"
+              disabled={loading}
+            />
+          </Section>
+        )}
+
+        {/* ---- Student-specific ---- */}
+        {userRole === 'STUDENT' && (
+          <>
+            <Section icon="GraduationCap" title="Academic Information">
+              <TwoCol>
+                <SelectField
+                  label="Current Class"
+                  value={formData.currentClass}
+                  onChange={(e) =>
+                    handleInputChange('currentClass', e.target.value === '' ? '' : parseInt(e.target.value, 10))
+                  }
+                  disabled={loading}
+                >
+                  <option value="">Select class</option>
+                  {CLASS_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </SelectField>
+                <Input
+                  label="Roll Number"
+                  value={formData.rollNumber}
+                  onChange={(e) => handleInputChange('rollNumber', e.target.value)}
+                  placeholder="Student roll number"
                   disabled={loading}
                 />
-              </div>
-            )}
+              </TwoCol>
+            </Section>
 
-            {/* Teacher-specific fields */}
-            {userRole === 'TEACHER' && (
-              <>
-                {/* Department */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Department"
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Subject */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.subject}
-                    onChange={(e) => handleInputChange('subject', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Subject"
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Qualification and Experience */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Qualification
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.qualification}
-                      onChange={(e) => handleInputChange('qualification', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="e.g., M.Sc., B.Tech."
-                      disabled={loading}
-                    />
-                  </div>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Experience (years)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.experienceYears}
-                      onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value) || 0)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="0"
-                      min="0"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                {/* Specialization */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Specialization
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.specialization}
-                    onChange={(e) => handleInputChange('specialization', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Area of specialization"
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Bio */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Bio
-                  </label>
-                  <textarea
-                    value={formData.bio}
-                    onChange={(e) => handleInputChange('bio', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box',
-                      minHeight: '80px',
-                      resize: 'vertical'
-                    }}
-                    placeholder="Brief bio or introduction"
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Enabled/Active Status - only show in edit mode */}
-                {editMode && (
-                  <div>
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      cursor: 'pointer'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.enabled}
-                        onChange={(e) => handleInputChange('enabled', e.target.checked)}
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          cursor: 'pointer'
-                        }}
-                        disabled={loading}
-                      />
-                      Active Teacher Account
-                    </label>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Student-specific fields */}
-            {userRole === 'STUDENT' && (
-              <>
-                {/* Current Class */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Current Class
-                    </label>
-                    <select
-                      value={formData.currentClass}
-                      onChange={(e) => handleInputChange('currentClass', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      disabled={loading}
-                    >
-                      <option value="">Select class</option>
-                      {CLASS_OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Courses & Batches enrollment editor (a student may be enrolled in many) */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Courses & Batches
-                  </label>
-                  <StudentEnrollmentFields
-                    courses={courses}
-                    batches={batches}
-                    loadingCourses={loadingCourses}
-                    loadingBatches={loadingBatches}
-                    value={{ courseIds: formData.courseIds, batchIds: formData.batchIds }}
-                    onChange={({ courseIds, batchIds }) => {
-                      handleInputChange('courseIds', courseIds);
-                      handleInputChange('batchIds', batchIds);
-                    }}
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Roll Number */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Roll Number
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.rollNumber}
-                      onChange={(e) => handleInputChange('rollNumber', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="Student roll number"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                {/* Parent Information */}
-                <div>
-                  <h4 style={{ 
-                    fontSize: '0.95rem', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    margin: '0 0 12px 0',
-                    paddingTop: '8px' 
-                  }}>
-                    Parent/Guardian Information
-                  </h4>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        color: '#374151',
-                        marginBottom: '6px'
-                      }}>
-                        Parent Name
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.parentName}
-                        onChange={(e) => handleInputChange('parentName', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Parent/Guardian name"
-                        disabled={loading}
-                      />
-                    </div>
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        color: '#374151',
-                        marginBottom: '6px'
-                      }}>
-                        Parent Phone
-                      </label>
-                      <input
-                        type="tel"
-                        value={formData.parentPhone}
-                        onChange={(e) => handleInputChange('parentPhone', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Parent phone number"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Parent Email
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.parentEmail}
-                      onChange={(e) => handleInputChange('parentEmail', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="parent@email.com"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                {/* Personal Information */}
-                <div>
-                  <h4 style={{ 
-                    fontSize: '0.95rem', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    margin: '0 0 12px 0',
-                    paddingTop: '8px' 
-                  }}>
-                    Personal Information
-                  </h4>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        color: '#374151',
-                        marginBottom: '6px'
-                      }}>
-                        Date of Birth
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        disabled={loading}
-                      />
-                    </div>
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        color: '#374151',
-                        marginBottom: '6px'
-                      }}>
-                        Blood Group
-                      </label>
-                      <select
-                        value={formData.bloodGroup}
-                        onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        disabled={loading}
-                      >
-                        <option value="">Select blood group</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Address
-                    </label>
-                    <textarea
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box',
-                        minHeight: '60px',
-                        resize: 'vertical'
-                      }}
-                      placeholder="Full address"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '6px'
-                    }}>
-                      Emergency Contact
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.emergencyContact}
-                      onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="Emergency contact number"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                {/* Enabled/Active Status - only show in edit mode */}
-                {editMode && (
-                  <div>
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: '#374151',
-                      cursor: 'pointer'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.enabled}
-                        onChange={(e) => handleInputChange('enabled', e.target.checked)}
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          cursor: 'pointer'
-                        }}
-                        disabled={loading}
-                      />
-                      Active Student Account
-                    </label>
-                  </div>
-                )}
-              </>
-            )}
-
-            {error && (
-              <div style={{
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#dc2626',
-                padding: '12px',
-                borderRadius: '6px',
-                fontSize: '0.875rem'
-              }}>
-                {error}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
-            marginTop: '24px'
-          }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
+            <Section
+              icon="BookOpen"
+              title="Courses & Batches"
+              description="A student may be enrolled in multiple courses and batches."
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
+              <StudentEnrollmentFields
+                courses={courses}
+                batches={batches}
+                loadingCourses={loadingCourses}
+                loadingBatches={loadingBatches}
+                value={{ courseIds: formData.courseIds, batchIds: formData.batchIds }}
+                onChange={({ courseIds, batchIds }) => {
+                  handleInputChange('courseIds', courseIds);
+                  handleInputChange('batchIds', batchIds);
+                }}
+                disabled={loading}
+              />
+            </Section>
+
+            <Section icon="Users" title="Parent / Guardian">
+              <TwoCol>
+                <Input
+                  label="Parent Name"
+                  value={formData.parentName}
+                  onChange={(e) => handleInputChange('parentName', e.target.value)}
+                  placeholder="Parent/Guardian name"
+                  disabled={loading}
+                />
+                <Input
+                  type="tel"
+                  label="Parent Phone"
+                  value={formData.parentPhone}
+                  onChange={(e) => handleInputChange('parentPhone', e.target.value)}
+                  placeholder="Parent phone number"
+                  disabled={loading}
+                />
+              </TwoCol>
+              <Input
+                type="email"
+                label="Parent Email"
+                value={formData.parentEmail}
+                onChange={(e) => handleInputChange('parentEmail', e.target.value)}
+                placeholder="parent@email.com"
+                disabled={loading}
+              />
+            </Section>
+
+            <Section icon="IdCard" title="Personal Information">
+              <TwoCol>
+                <Input
+                  type="date"
+                  label="Date of Birth"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                  disabled={loading}
+                />
+                <SelectField
+                  label="Blood Group"
+                  value={formData.bloodGroup}
+                  onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">Select blood group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </SelectField>
+              </TwoCol>
+
+              <TextareaField
+                label="Address"
+                rows={2}
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Full address"
+                disabled={loading}
+              />
+
+              <Input
+                type="tel"
+                label="Emergency Contact"
+                value={formData.emergencyContact}
+                onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
+                placeholder="Emergency contact number"
+                disabled={loading}
+              />
+            </Section>
+          </>
+        )}
+
+        {/* ---- Status (edit only, teacher + student) ---- */}
+        {editMode && (userRole === 'TEACHER' || userRole === 'STUDENT') && (
+          <Section icon="ToggleRight" title="Account Status">
+            <Checkbox
+              label={`Active ${roleWord} Account`}
+              description="Inactive accounts cannot sign in."
+              checked={formData.enabled}
+              onChange={(e) => handleInputChange('enabled', e.target.checked)}
               disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: loading ? '#9ca3af' : userRole === 'TEACHER' ? '#059669' : userRole === 'INST_ADMIN' ? '#f59e0b' : '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {loading
-                ? (editMode ? 'Updating...' : 'Creating...')
-                : (editMode
-                    ? `Update ${userRole === 'TEACHER' ? 'Teacher' : userRole === 'INST_ADMIN' ? 'Institute Admin' : 'Student'}`
-                    : `Create ${userRole === 'TEACHER' ? 'Teacher' : userRole === 'INST_ADMIN' ? 'Institute Admin' : 'Student'}`
-                  )
-              }
-            </button>
+            />
+          </Section>
+        )}
+
+        {error && (
+          <div className="mt-6 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-        </form>
+        )}
+      </form>
     </Modal>
   );
 };
 
 export default CreateUserModal;
-

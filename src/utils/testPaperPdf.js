@@ -160,33 +160,44 @@ const PRINT_CSS = `
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
   body > *:not(#${PRINT_CONTAINER_ID}) { display: none !important; }
   #${PRINT_CONTAINER_ID} { display: block !important; }
-  @page { size: A4; margin: 18mm 16mm; }
+  @page { size: A4; margin: 12mm 11mm; }
 }
 #${PRINT_CONTAINER_ID} {
   color: #000; background: #fff;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 12pt; line-height: 1.5;
+  font-size: 10.5pt; line-height: 1.35;
 }
-#${PRINT_CONTAINER_ID} .tp-header { text-align: center; margin-bottom: 10pt; }
-#${PRINT_CONTAINER_ID} .tp-title { font-size: 18pt; font-weight: 700; margin: 0 0 4pt; }
-#${PRINT_CONTAINER_ID} .tp-desc { font-size: 11pt; font-style: italic; margin: 0 0 6pt; }
-#${PRINT_CONTAINER_ID} .tp-meta { display: flex; justify-content: center; gap: 18pt; flex-wrap: wrap; font-size: 11pt; }
-#${PRINT_CONTAINER_ID} .tp-rule { border: 0; border-top: 1.5pt solid #000; margin: 8pt 0 0; }
-#${PRINT_CONTAINER_ID} .tp-questions { list-style: none; counter-reset: none; margin: 0; padding: 0; }
-#${PRINT_CONTAINER_ID} .tp-question { margin: 0 0 14pt; padding: 0; page-break-inside: avoid; break-inside: avoid; }
+/* Header spans the full page width (it sits ABOVE the multi-column list). */
+#${PRINT_CONTAINER_ID} .tp-header { text-align: center; margin-bottom: 8pt; }
+#${PRINT_CONTAINER_ID} .tp-title { font-size: 16pt; font-weight: 700; margin: 0 0 3pt; }
+#${PRINT_CONTAINER_ID} .tp-desc { font-size: 10.5pt; font-style: italic; margin: 0 0 5pt; }
+#${PRINT_CONTAINER_ID} .tp-meta { display: flex; justify-content: center; gap: 16pt; flex-wrap: wrap; font-size: 10pt; }
+#${PRINT_CONTAINER_ID} .tp-rule { border: 0; border-top: 1.5pt solid #000; margin: 6pt 0 0; }
+
+/* Two-column newspaper flow: questions pack down the left column then the right,
+   continuing across pages. column-fill:auto keeps each page filled top-to-bottom
+   (so the last page isn't two short half-columns). The vertical rule visually
+   separates the columns. Each .tp-question avoids breaking across a column/page. */
+#${PRINT_CONTAINER_ID} .tp-questions {
+  list-style: none; counter-reset: none; margin: 0; padding: 0;
+  column-count: 2; column-gap: 9mm; column-fill: auto;
+  column-rule: 0.5pt solid #bbb;
+}
+#${PRINT_CONTAINER_ID} .tp-question { margin: 0 0 10pt; padding: 0; page-break-inside: avoid; break-inside: avoid; }
 #${PRINT_CONTAINER_ID} .tp-q-head { display: block; }
-#${PRINT_CONTAINER_ID} .tp-q-num { font-weight: 700; margin-right: 6pt; }
+#${PRINT_CONTAINER_ID} .tp-q-num { font-weight: 700; margin-right: 5pt; }
 #${PRINT_CONTAINER_ID} .tp-q-text { }
-#${PRINT_CONTAINER_ID} .tp-marks { float: right; font-weight: 700; white-space: nowrap; margin-left: 8pt; }
-#${PRINT_CONTAINER_ID} .tp-block-math { display: block; text-align: center; margin: 6pt 0; }
-#${PRINT_CONTAINER_ID} .tp-options { list-style: none; margin: 6pt 0 0; padding: 0 0 0 18pt; }
-#${PRINT_CONTAINER_ID} .tp-option { display: flex; align-items: baseline; gap: 6pt; margin: 0 0 3pt; page-break-inside: avoid; }
+#${PRINT_CONTAINER_ID} .tp-marks { float: right; font-weight: 700; white-space: nowrap; margin-left: 6pt; font-size: 9.5pt; }
+/* Display math can't wrap; cap it to the column width so it never overflows. */
+#${PRINT_CONTAINER_ID} .tp-block-math { display: block; text-align: center; margin: 5pt 0; max-width: 100%; overflow-x: hidden; }
+#${PRINT_CONTAINER_ID} .tp-options { list-style: none; margin: 4pt 0 0; padding: 0 0 0 14pt; }
+#${PRINT_CONTAINER_ID} .tp-option { display: flex; align-items: baseline; gap: 5pt; margin: 0 0 2pt; page-break-inside: avoid; break-inside: avoid; }
 #${PRINT_CONTAINER_ID} .tp-opt-label { font-weight: 700; }
 #${PRINT_CONTAINER_ID} .tp-opt-text { flex: 1; }
-#${PRINT_CONTAINER_ID} .tp-answer-space { height: 60pt; border-bottom: 1pt dotted #999; margin: 6pt 18pt 0; }
-#${PRINT_CONTAINER_ID} .tp-img-wrap { margin: 6pt 0; }
-#${PRINT_CONTAINER_ID} .tp-img { max-width: 100%; max-height: 70mm; }
-#${PRINT_CONTAINER_ID} .tp-opt-img { max-width: 100%; max-height: 40mm; }
+#${PRINT_CONTAINER_ID} .tp-answer-space { height: 42pt; border-bottom: 1pt dotted #999; margin: 5pt 12pt 0; }
+#${PRINT_CONTAINER_ID} .tp-img-wrap { margin: 5pt 0; }
+#${PRINT_CONTAINER_ID} .tp-img { max-width: 100%; max-height: 55mm; }
+#${PRINT_CONTAINER_ID} .tp-opt-img { max-width: 100%; max-height: 35mm; }
 `;
 
 // Wait for the paper's images to load (so they aren't blank in the PDF), with a

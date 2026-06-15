@@ -26,6 +26,15 @@ const getCourseSubjectCodes = (course) => {
   return [];
 };
 
+// Subject display names for a course (from the ?include=subjects nested payload).
+// Falls back to the subject code when a name is missing.
+const getCourseSubjectNames = (course) => {
+  if (!course || !Array.isArray(course.subjects)) return [];
+  return course.subjects
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.code))
+    .filter(Boolean);
+};
+
 // Create / edit a single batch under a course. Launched from a course node in the
 // Courses & Batches tree. Submission is delegated to the parent via onSubmit(form, batchId).
 // A batch carries its own weekly timetable (the course owns the fee, not the batch).
@@ -940,7 +949,7 @@ const CourseManagement = () => {
   // the JWT / X-Institute-Id header, not a function argument.
   const loadCourses = useCallback(async () => {
     try {
-      const { data } = await fetchAllPages((pg) => courseService.getCourses(pg));
+      const { data } = await fetchAllPages((pg) => courseService.getCourses(pg, { include: 'subjects' }));
       setCourses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading courses:', err);
@@ -1447,43 +1456,52 @@ const CourseManagement = () => {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {filteredCourses.map((course) => (
-                      <div key={course.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted">
-                        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                          <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
-                          <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
-                          {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
-                          {fmtFee(course.fee) && (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
-                              <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
-                            </span>
-                          )}
-                          {course.duration && (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-sky-50 text-sky-700" title="Duration">
-                              <Icon name="Clock" size={11} />{course.duration}
-                            </span>
-                          )}
-                          {getCourseSubjectCodes(course).length > 0 && (
-                            <span className="text-xs text-muted-foreground" title={getCourseSubjectCodes(course).join(', ')}>
-                              {getCourseSubjectCodes(course).length} subject{getCourseSubjectCodes(course).length === 1 ? '' : 's'}
-                            </span>
-                          )}
-                          {course.prerequisites && (
-                            <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
-                              <Icon name="Info" size={11} />Prereqs
-                            </span>
-                          )}
+                    {filteredCourses.map((course) => {
+                      const subjectNames = getCourseSubjectNames(course);
+                      return (
+                      <div key={course.id} className="px-4 py-3 hover:bg-muted">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                            <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
+                            <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
+                            {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
+                            {fmtFee(course.fee) && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
+                                <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
+                              </span>
+                            )}
+                            {subjectNames.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {subjectNames.length} subject{subjectNames.length === 1 ? '' : 's'}
+                              </span>
+                            )}
+                            {course.prerequisites && (
+                              <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
+                                <Icon name="Info" size={11} />Prereqs
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                              <Icon name="Edit" size={16} />
+                            </button>
+                            <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                              <Icon name="Trash2" size={16} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
-                            <Icon name="Edit" size={16} />
-                          </button>
-                          <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
-                            <Icon name="Trash2" size={16} />
-                          </button>
-                        </div>
+                        {subjectNames.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2 pl-6">
+                            {subjectNames.map((name, i) => (
+                              <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
+                                <Icon name="Folder" size={11} className="text-emerald-600" />{name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )
               ) : activeTab === 'batches' ? (
