@@ -9,7 +9,9 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
+import TimetableEditor from '../../components/course/TimetableEditor';
 import { fetchAllPages } from '../../utils/pagination';
+import { cleanTimetable, formatTimetable } from '../../utils/timetable';
 
 // Derive the list of subject codes already attached to a course, tolerating
 // either a `subjectCodes: string[]` field or a populated `subjects: [...]` array.
@@ -26,14 +28,12 @@ const getCourseSubjectCodes = (course) => {
 
 // Create / edit a single batch under a course. Launched from a course node in the
 // Courses & Batches tree. Submission is delegated to the parent via onSubmit(form, batchId).
-const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', fee: '', active: true };
+// A batch carries its own weekly timetable (the course owns the fee, not the batch).
+const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', timetable: [], active: true };
 
-const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit }) => {
+const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
   const [form, setForm] = useState(EMPTY_BATCH);
   const [loading, setLoading] = useState(false);
-
-  // Course fee is the recommended default for a batch; a batch may override it.
-  const recommendedFee = courseFee == null || courseFee === '' ? null : Number(courseFee);
 
   useEffect(() => {
     if (batch && batch.id) {
@@ -44,21 +44,15 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
         startDate: (batch.startDate || '').slice(0, 10),
         endDate: (batch.endDate || '').slice(0, 10),
         capacity: batch.capacity ?? '',
-        fee: batch.fee ?? '',
+        timetable: Array.isArray(batch.timetable) ? batch.timetable : [],
         active: batch.active !== undefined ? batch.active : true
       });
     } else {
-      // New batch defaults to the course fee (the recommended value).
-      setForm({ ...EMPTY_BATCH, fee: recommendedFee != null ? recommendedFee : '' });
+      setForm({ ...EMPTY_BATCH, timetable: [] });
     }
   }, [batch, isOpen]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
-
-  // Compare the entered fee against the course fee to drive the recommendation hint.
-  const feeNum = form.fee === '' || form.fee == null ? null : Number(form.fee);
-  const feeMatchesCourse = recommendedFee != null && feeNum != null && feeNum === recommendedFee;
-  const feeOverridden = recommendedFee != null && feeNum != null && feeNum !== recommendedFee;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -141,48 +135,14 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, courseFee, onSubmit })
             </div>
           </div>
 
-          {/* Batch fee — defaults to the course fee but can be overridden per batch */}
+          {/* Weekly timetable — the batch's schedule (days + time slots) */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Fee (₹)</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.fee}
-                onChange={(e) => setField('fee', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder={recommendedFee != null ? `Course fee: ₹${recommendedFee.toLocaleString('en-IN')}` : 'e.g., 25000'}
-              />
-              {recommendedFee != null && !feeMatchesCourse && (
-                <button
-                  type="button"
-                  onClick={() => setField('fee', recommendedFee)}
-                  className="whitespace-nowrap px-2 py-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0"
-                  title="Reset to the course fee"
-                >
-                  Use course fee
-                </button>
-              )}
-            </div>
-            {recommendedFee != null && (
-              feeMatchesCourse ? (
-                <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
-                  <Icon name="CheckCircle" size={13} />
-                  Matches course fee (recommended)
-                </p>
-              ) : feeOverridden ? (
-                <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-                  <Icon name="AlertTriangle" size={13} />
-                  Overridden — course fee is ₹{recommendedFee.toLocaleString('en-IN')}
-                </p>
-              ) : (
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Icon name="Info" size={13} />
-                  Leave blank to use the course fee (₹{recommendedFee.toLocaleString('en-IN')})
-                </p>
-              )
-            )}
+            <label className="block text-sm font-medium text-foreground mb-1">Timetable</label>
+            <TimetableEditor
+              value={form.timetable}
+              onChange={(slots) => setField('timetable', slots)}
+              disabled={loading}
+            />
           </div>
 
           <div>
@@ -1300,8 +1260,8 @@ const CourseManagement = () => {
     if (formData.startDate) payload.startDate = formData.startDate;
     if (formData.endDate) payload.endDate = formData.endDate;
     if (formData.capacity !== '' && formData.capacity != null) payload.capacity = Number(formData.capacity);
-    // Empty fee means "inherit the course fee" — send null so the backend can fall back.
-    payload.fee = formData.fee === '' || formData.fee == null ? null : Number(formData.fee);
+    // Timetable is the batch's weekly schedule; drop empty rows before sending.
+    payload.timetable = cleanTimetable(formData.timetable);
 
     let result;
     if (batchId) {
@@ -1473,17 +1433,37 @@ const CourseManagement = () => {
                           <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
                             <button
                               onClick={() => toggleCourse(course.id)}
-                              className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left flex-wrap"
                             >
                               <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
                               <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
                               <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
                               {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
                               {fmtFee(course.fee) && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(course.fee)}</span>
+                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
+                                  <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
+                                </span>
+                              )}
+                              {course.level && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
+                              )}
+                              {course.duration && (
+                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-sky-50 text-sky-700" title="Duration">
+                                  <Icon name="Clock" size={11} />{course.duration}
+                                </span>
+                              )}
+                              {getCourseSubjectCodes(course).length > 0 && (
+                                <span className="text-xs text-muted-foreground" title={getCourseSubjectCodes(course).join(', ')}>
+                                  {getCourseSubjectCodes(course).length} subject{getCourseSubjectCodes(course).length === 1 ? '' : 's'}
+                                </span>
+                              )}
+                              {course.prerequisites && (
+                                <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
+                                  <Icon name="Info" size={11} />Prereqs
+                                </span>
                               )}
                               {Array.isArray(batches) && (
-                                <span className="text-xs text-muted-foreground">{batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
+                                <span className="text-xs text-muted-foreground">· {batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
                               )}
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">
@@ -1528,15 +1508,14 @@ const CourseManagement = () => {
                                         {b.capacity != null && b.capacity !== '' && (
                                           <span className="text-xs text-muted-foreground">· Cap {b.capacity}</span>
                                         )}
-                                        {fmtFee(b.fee) && (
-                                          b.fee != null && course.fee != null && Number(b.fee) !== Number(course.fee) ? (
-                                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700" title={`Overrides course fee (${fmtFee(course.fee)})`}>
-                                              <Icon name="AlertTriangle" size={11} />{fmtFee(b.fee)}
-                                            </span>
-                                          ) : (
-                                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{fmtFee(b.fee)}</span>
-                                          )
-                                        )}
+                                        {formatTimetable(b.timetable).map((slot, si) => (
+                                          <span
+                                            key={si}
+                                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-700"
+                                          >
+                                            <Icon name="Clock" size={11} />{slot}
+                                          </span>
+                                        ))}
                                       </div>
                                       <div className="flex items-center gap-1 flex-shrink-0">
                                         <button onClick={() => openEditBatch(course, b)} title="Edit batch" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
@@ -1770,7 +1749,6 @@ const CourseManagement = () => {
             onSubmit={handleBatchSuccess}
             batch={editingBatch}
             courseName={batchCourse ? `${batchCourse.name}${batchCourse.code ? ` (${batchCourse.code})` : ''}` : ''}
-            courseFee={batchCourse?.fee}
           />
         )}
       </PageLayout>

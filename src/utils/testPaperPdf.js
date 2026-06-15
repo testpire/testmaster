@@ -46,6 +46,16 @@ const renderRichText = (text, textFormat) => {
   const fmt = textFormat == null ? '' : String(textFormat).toUpperCase();
   if (fmt === 'PLAIN' || !hasLatex(value)) return escapeHtml(value);
 
+  // Bare LaTeX with no $...$ delimiters (e.g. an option stored as "\frac{i}{psq}"):
+  // hasLatex() is true via the backslash-command branch, but MATH_PATTERN below
+  // only extracts $-delimited spans. Mirrors MathText: render the whole string as
+  // one inline expression, falling back to the escaped source if katex can't parse it.
+  MATH_PATTERN.lastIndex = 0;
+  if (!MATH_PATTERN.test(value)) {
+    const html = renderMath(value, false);
+    return html || escapeHtml(value);
+  }
+
   let out = '';
   let lastIndex = 0;
   let match;

@@ -130,10 +130,14 @@ export const newUserService = {
         enabled: studentData.enabled !== undefined ? studentData.enabled : true,
       };
 
-      // Multi-enrollment: course+batch pairs. Only send when the caller supplied them
-      // so partial updates don't wipe existing enrollments.
-      if (Array.isArray(studentData.enrollments)) {
-        updateData.enrollments = studentData.enrollments;
+      // Course enrollments + batch memberships are independent id sets (UpdateStudentRequestDto:
+      // courseIds[], batchIds[]). Only send each when the caller supplied it, so a partial
+      // update doesn't wipe the student's existing courses or batches.
+      if (Array.isArray(studentData.courseIds)) {
+        updateData.courseIds = studentData.courseIds.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      if (Array.isArray(studentData.batchIds)) {
+        updateData.batchIds = studentData.batchIds.map(Number).filter((n) => !Number.isNaN(n));
       }
 
       console.log('Calling PUT /students/{id} with:', { studentId, updateData });
@@ -254,14 +258,14 @@ export const newUserService = {
         payload.bloodGroup = userData.bloodGroup || '';
         payload.emergencyContact = userData.emergencyContact || '';
 
-        // Multi-enrollment: course+batch pairs ({ courseId, batchId }).
-        if (Array.isArray(userData.enrollments)) {
-          payload.enrollments = userData.enrollments;
-          // Keep the legacy single `course` string populated from the first enrollment
-          // so screens that still read student.course keep working.
-          if (!payload.course && userData.enrollments[0]?.courseName) {
-            payload.course = userData.enrollments[0].courseName;
-          }
+        // Course enrollments and batch memberships are independent now (a student has a
+        // set of courses — each with its own fee — and a separate set of batches — each
+        // with its own timetable). Send them as plain id arrays per CreateStudentRequestDto.
+        if (Array.isArray(userData.courseIds)) {
+          payload.courseIds = userData.courseIds.map(Number).filter((n) => !Number.isNaN(n));
+        }
+        if (Array.isArray(userData.batchIds)) {
+          payload.batchIds = userData.batchIds.map(Number).filter((n) => !Number.isNaN(n));
         }
       }
 

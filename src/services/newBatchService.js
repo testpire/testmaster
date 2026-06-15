@@ -2,14 +2,27 @@ import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
 import { unwrapOne, unwrapList } from '../utils/responseHelpers';
 
 // Batch service — backs the Course → Batch relationship (one course has many batches)
-// and the student multi-enrollment flow. Talks to the TestPire REST API (`/api/batches`).
+// and the student batch-membership flow. Talks to the TestPire REST API (`/api/batches`).
 // Every method returns the standard `{ data, error }` envelope and never throws.
 //
-// Note: the backend exposes batches per-course (GET /batches/course/{courseId}); there is
-// no list-all endpoint. Response bodies may be wrapped as { data: ... } or { batches: [...] },
-// so we unwrap defensively (shared helpers in utils/responseHelpers).
+// A batch carries a weekly `timetable` (TimetableSlot[]); the *course* owns the fee, not
+// the batch. The backend exposes a list-all (GET /batches) plus per-course
+// (GET /batches/course/{courseId}). Response bodies may be wrapped as { data: ... } or
+// { batches: [...] }, so we unwrap defensively (shared helpers in utils/responseHelpers).
 
 export const newBatchService = {
+  // List every batch in scope (institute from JWT / X-Institute-Id). Used by the student
+  // form's batch picker, where batch selection is independent of course selection.
+  async getAllBatches() {
+    try {
+      const { data, error, success } = await get('/batches');
+      if (!success) return { data: [], error };
+      return { data: unwrapList(data, 'batches'), error: null };
+    } catch (error) {
+      return { data: [], error: { message: error?.message || 'Failed to load batches' } };
+    }
+  },
+
   // List all batches belonging to a course.
   async getBatchesByCourse(courseId) {
     if (!courseId) return { data: [], error: null };
@@ -49,7 +62,7 @@ export const newBatchService = {
   },
 
   // Update a batch (UpdateBatchRequestDto: name, code, description, startDate, endDate,
-  // capacity, active). courseId is fixed at creation and not updatable here.
+  // capacity, timetable, active). courseId is fixed at creation and not updatable here.
   async updateBatch(batchId, updates) {
     try {
       const { data, error, success } = await put(`/batches/${batchId}`, updates);

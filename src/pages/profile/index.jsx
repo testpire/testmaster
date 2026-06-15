@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
 import { CLASS_OPTIONS } from '../../utils/classOptions';
-import EnrollmentEditor, { toEnrollmentPayload } from '../../components/enrollment/EnrollmentEditor';
+import { formatTimetable } from '../../utils/timetable';
 import { courseService } from '../../services/courseService';
 
 const STUDENT_FIELDS = [
@@ -68,15 +68,14 @@ const Profile = () => {
       if (res?.data) resolved = { ...resolved, ...res.data };
 
       if (isStudent) {
-        const rows = Array.isArray(resolved?.enrollments)
-          ? resolved.enrollments.map((en) => ({
-              courseId: en.courseId ?? '',
-              batchId: en.batchId ?? '',
-              courseName: en.courseName,
-              batchName: en.batchName,
-            }))
-          : [];
-        if (mounted) setEnrollments(rows);
+        // Courses and batches are independent now: courseEnrollments[] (with fee) and
+        // batchMemberships[] (with timetable). Merge into one display list for the
+        // read-only "My Courses & Batches" panel.
+        const courseRows = (Array.isArray(resolved?.courseEnrollments) ? resolved.courseEnrollments : [])
+          .map((en) => ({ kind: 'course', name: en.courseName || `Course #${en.courseId}`, fee: en.fee }));
+        const batchRows = (Array.isArray(resolved?.batchMemberships) ? resolved.batchMemberships : [])
+          .map((m) => ({ kind: 'batch', name: m.batchName || `Batch #${m.batchId}`, timetable: m.timetable }));
+        if (mounted) setEnrollments([...courseRows, ...batchRows]);
 
         // Teacher-only: also load courses for the enrollment editor
       } else if (isTeacher) {
@@ -188,18 +187,25 @@ const Profile = () => {
                 <div className="pt-4 border-t border-border">
                   <p className="text-sm font-semibold text-foreground mb-3">My Courses &amp; Batches</p>
                   <div className="space-y-2">
-                    {enrollments.map((en, i) => (
-                      <div key={i} className="flex items-center space-x-3 text-sm text-foreground">
-                        <Icon name="BookOpen" size={14} className="text-muted-foreground shrink-0" />
-                        <span>{en.courseName || en.courseId}</span>
-                        {(en.batchName || en.batchId) && (
-                          <>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-muted-foreground">{en.batchName || en.batchId}</span>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                    {enrollments.map((en, i) => {
+                      const slots = en.kind === 'batch' ? formatTimetable(en.timetable) : [];
+                      return (
+                        <div key={i} className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm text-foreground">
+                          <span className="flex items-center gap-2">
+                            <Icon name={en.kind === 'batch' ? 'Users' : 'BookOpen'} size={14} className="text-muted-foreground shrink-0" />
+                            <span>{en.name}</span>
+                          </span>
+                          {en.kind === 'course' && en.fee != null && (
+                            <span className="text-muted-foreground">· ₹{Number(en.fee).toLocaleString('en-IN')}</span>
+                          )}
+                          {slots.map((slot, si) => (
+                            <span key={si} className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Icon name="Clock" size={12} />{slot}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

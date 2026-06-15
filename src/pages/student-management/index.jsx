@@ -448,24 +448,38 @@ const StudentManagement = () => {
                         <td className="p-4 text-foreground">{student.email}</td>
                         <td className="p-4 text-foreground">{student.username}</td>
                         <td className="p-4">
-                          {Array.isArray(student.enrollments) && student.enrollments.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {student.enrollments.map((en, i) => (
-                                <span
-                                  key={en.enrollmentId || i}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700"
-                                  title={`${en.courseName || ''}${en.batchName ? ' · ' + en.batchName : ''}`}
-                                >
-                                  {en.courseName || `Course #${en.courseId}`}
-                                  {en.batchName ? ` · ${en.batchName}` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          ) : student.course ? (
-                            <span className="text-sm text-muted-foreground">{student.course}</span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
-                          )}
+                          {(() => {
+                            const courseEnrollments = Array.isArray(student.courseEnrollments) ? student.courseEnrollments : [];
+                            const batchMemberships = Array.isArray(student.batchMemberships) ? student.batchMemberships : [];
+                            if (courseEnrollments.length === 0 && batchMemberships.length === 0) {
+                              return student.course
+                                ? <span className="text-sm text-muted-foreground">{student.course}</span>
+                                : <span className="text-sm text-muted-foreground">—</span>;
+                            }
+                            return (
+                              <div className="flex flex-wrap gap-1">
+                                {courseEnrollments.map((en, i) => (
+                                  <span
+                                    key={en.enrollmentId || `c${i}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700"
+                                    title={en.fee != null ? `Fee: ₹${Number(en.fee).toLocaleString('en-IN')}` : undefined}
+                                  >
+                                    <Icon name="BookOpen" size={11} />
+                                    {en.courseName || `Course #${en.courseId}`}
+                                  </span>
+                                ))}
+                                {batchMemberships.map((m, i) => (
+                                  <span
+                                    key={m.membershipId || `b${i}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-violet-50 text-violet-700"
+                                  >
+                                    <Icon name="Users" size={11} />
+                                    {m.batchName || `Batch #${m.batchId}`}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="p-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

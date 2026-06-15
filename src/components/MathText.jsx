@@ -54,6 +54,21 @@ const MathText = ({ text, textFormat, as: Tag = 'span', className }) => {
     return <Tag className={className}>{value}</Tag>;
   }
 
+  // Bare LaTeX with no $...$ delimiters (e.g. an option stored as "\frac{i}{psq}"):
+  // hasLatex() is true via the backslash-command branch, but MATH_PATTERN below
+  // only extracts $-delimited spans and would find nothing, leaving the source to
+  // render verbatim. Treat the whole string as a single inline expression so it
+  // still renders (falling back to raw text if katex can't parse it).
+  MATH_PATTERN.lastIndex = 0;
+  if (!MATH_PATTERN.test(value)) {
+    const html = renderMath(value, false);
+    return (
+      <Tag className={className}>
+        {html ? <span dangerouslySetInnerHTML={{ __html: html }} /> : value}
+      </Tag>
+    );
+  }
+
   const nodes = [];
   let lastIndex = 0;
   let match;

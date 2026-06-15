@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { newUserService } from '../../../services/newUserService';
 import { newInstituteService } from '../../../services/newInstituteService';
 import { courseService } from '../../../services/courseService';
+import { newBatchService } from '../../../services/newBatchService';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
-import EnrollmentEditor, { toEnrollmentPayload } from '../../../components/enrollment/EnrollmentEditor';
+import StudentEnrollmentFields from '../../../components/enrollment/StudentEnrollmentFields';
 import Modal from '../../../components/ui/Modal';
 
 const CreateUserModal = ({ 
@@ -44,14 +45,17 @@ const CreateUserModal = ({
     dateOfBirth: '',
     bloodGroup: '',
     emergencyContact: '',
-    // Multi-enrollment: rows of { courseId, batchId, courseName?, batchName? }
-    enrollments: []
+    // Decoupled assignment: independent sets of course ids and batch ids.
+    courseIds: [],
+    batchIds: []
   });
   const [institutes, setInstitutes] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [error, setError] = useState('');
 
   // Load institutes when modal opens
@@ -61,10 +65,11 @@ const CreateUserModal = ({
     }
   }, [isOpen]);
 
-  // Load courses for the student course dropdown (only needed for students)
+  // Load courses + batches for the student assignment dropdowns (only needed for students)
   useEffect(() => {
     if (isOpen && userRole === 'STUDENT') {
       loadCourses();
+      loadBatches();
     }
   }, [isOpen, userRole]);
 
@@ -100,14 +105,13 @@ const CreateUserModal = ({
         dateOfBirth: existingUser.dateOfBirth ? existingUser.dateOfBirth.split('T')[0] : '', // Format for date input
         bloodGroup: existingUser.bloodGroup || '',
         emergencyContact: existingUser.emergencyContact || '',
-        // Hydrate enrollments from the student's EnrollmentResponseDto[] (carries names too).
-        enrollments: Array.isArray(existingUser.enrollments)
-          ? existingUser.enrollments.map((en) => ({
-              courseId: en.courseId ?? '',
-              batchId: en.batchId ?? '',
-              courseName: en.courseName,
-              batchName: en.batchName
-            }))
+        // Hydrate the independent course / batch sets from the student's response DTOs
+        // (courseEnrollments[] / batchMemberships[]).
+        courseIds: Array.isArray(existingUser.courseEnrollments)
+          ? existingUser.courseEnrollments.map((en) => en.courseId).filter((id) => id != null)
+          : [],
+        batchIds: Array.isArray(existingUser.batchMemberships)
+          ? existingUser.batchMemberships.map((m) => m.batchId).filter((id) => id != null)
           : []
       });
     } else {
@@ -135,7 +139,8 @@ const CreateUserModal = ({
         dateOfBirth: '',
         bloodGroup: '',
         emergencyContact: '',
-        enrollments: []
+        courseIds: [],
+        batchIds: []
       }));
     }
   }, [defaultInstituteId, userRole, defaultInstitute, isOpen, editMode, existingUser]);
@@ -169,6 +174,20 @@ const CreateUserModal = ({
       setCourses([]);
     } finally {
       setLoadingCourses(false);
+    }
+  };
+
+  const loadBatches = async () => {
+    setLoadingBatches(true);
+    try {
+      // Batches are scoped to the active institute via the apiClient interceptor.
+      const { data, error } = await newBatchService.getAllBatches();
+      setBatches(!error && Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load batches:', err);
+      setBatches([]);
+    } finally {
+      setLoadingBatches(false);
     }
   };
 
@@ -218,11 +237,13 @@ const CreateUserModal = ({
       // course/roll/parent details (and teacher details) were silently dropped on
       // both create and edit.
       if (formData.role === 'STUDENT') {
-        const enrollments = toEnrollmentPayload(formData.enrollments);
+        const courseIds = (formData.courseIds || []).map(Number).filter((n) => !Number.isNaN(n));
+        const batchIds = (formData.batchIds || []).map(Number).filter((n) => !Number.isNaN(n));
+        // Keep the legacy single `course` string in sync with the first selected course
+        // so screens that still read student.course keep working.
+        const firstCourseName = courses.find((c) => Number(c.id) === courseIds[0])?.name;
         Object.assign(userData, {
-          // Keep the legacy single `course` string in sync with the first enrollment
-          // so screens that still read student.course keep working.
-          course: formData.enrollments?.[0]?.courseName || formData.course || '',
+          course: firstCourseName || formData.course || '',
           currentClass: formData.currentClass,
           rollNumber: formData.rollNumber,
           parentName: formData.parentName,
@@ -233,7 +254,8 @@ const CreateUserModal = ({
           bloodGroup: formData.bloodGroup,
           emergencyContact: formData.emergencyContact,
           enabled: formData.enabled,
-          enrollments
+          courseIds,
+          batchIds
         });
       } else if (formData.role === 'TEACHER') {
         Object.assign(userData, {
@@ -291,7 +313,8 @@ const CreateUserModal = ({
           dateOfBirth: '',
           bloodGroup: '',
           emergencyContact: '',
-          enrollments: []
+          courseIds: [],
+          batchIds: []
         });
       }
     } catch (err) {
@@ -835,16 +858,18 @@ const CreateUserModal = ({
                   }}>
                     Courses & Batches
                   </label>
-                  {loadingCourses ? (
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Loading courses...</p>
-                  ) : (
-                    <EnrollmentEditor
-                      courses={courses}
-                      value={formData.enrollments}
-                      onChange={(rows) => handleInputChange('enrollments', rows)}
-                      disabled={loading}
-                    />
-                  )}
+                  <StudentEnrollmentFields
+                    courses={courses}
+                    batches={batches}
+                    loadingCourses={loadingCourses}
+                    loadingBatches={loadingBatches}
+                    value={{ courseIds: formData.courseIds, batchIds: formData.batchIds }}
+                    onChange={({ courseIds, batchIds }) => {
+                      handleInputChange('courseIds', courseIds);
+                      handleInputChange('batchIds', batchIds);
+                    }}
+                    disabled={loading}
+                  />
                 </div>
 
                 {/* Roll Number */}

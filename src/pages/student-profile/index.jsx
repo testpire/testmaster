@@ -8,6 +8,7 @@ import AttemptReview from '../../components/test/AttemptReview';
 import { newUserService } from '../../services/newUserService';
 import { newTestService } from '../../services/newTestService';
 import { cn } from '../../utils/cn';
+import { formatTimetable } from '../../utils/timetable';
 
 // Format an ISO date (or date-only) string for display; blanks fall back to "—".
 const fmtDate = (v) => {
@@ -107,7 +108,8 @@ const StudentProfile = () => {
     ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.username || 'Student'
     : '';
   const initial = (student?.firstName || student?.username || 'S')[0]?.toUpperCase();
-  const enrollments = Array.isArray(student?.enrollments) ? student.enrollments : [];
+  const courseEnrollments = Array.isArray(student?.courseEnrollments) ? student.courseEnrollments : [];
+  const batchMemberships = Array.isArray(student?.batchMemberships) ? student.batchMemberships : [];
 
   // Summary stats across the student's graded tests.
   const scored = tests.map((t) => t.percentage).filter((p) => p != null).map(Number);
@@ -203,11 +205,11 @@ const StudentProfile = () => {
               </dl>
             </Card>
 
-            {/* Enrollments */}
-            <Card title="Enrolled Courses & Batches" icon="BookOpen">
-              {enrollments.length > 0 ? (
+            {/* Courses */}
+            <Card title="Enrolled Courses" icon="BookOpen">
+              {courseEnrollments.length > 0 ? (
                 <ul className="divide-y divide-border">
-                  {enrollments.map((en, i) => (
+                  {courseEnrollments.map((en, i) => (
                     <li key={en.enrollmentId || i} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <Icon name="GraduationCap" size={16} className="text-muted-foreground flex-shrink-0" />
@@ -215,12 +217,10 @@ const StudentProfile = () => {
                           {en.courseName || `Course #${en.courseId}`}
                         </span>
                       </div>
-                      {en.batchName || en.batchId ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 flex-shrink-0 ml-3">
-                          {en.batchName || `Batch #${en.batchId}`}
+                      {en.fee != null && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 flex-shrink-0 ml-3">
+                          <Icon name="IndianRupee" size={11} />₹{Number(en.fee).toLocaleString('en-IN')}
                         </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground ml-3">No batch</span>
                       )}
                     </li>
                   ))}
@@ -229,6 +229,40 @@ const StudentProfile = () => {
                 <p className="text-sm text-foreground">{student.course}</p>
               ) : (
                 <p className="text-sm text-muted-foreground">Not enrolled in any course yet.</p>
+              )}
+            </Card>
+
+            {/* Batches */}
+            <Card title="Batches" icon="Users">
+              {batchMemberships.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {batchMemberships.map((m, i) => {
+                    const slots = formatTimetable(m.timetable);
+                    return (
+                      <li key={m.membershipId || i} className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon name="Users" size={16} className="text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {m.batchName || `Batch #${m.batchId}`}
+                          </span>
+                        </div>
+                        {slots.length > 0 ? (
+                          <div className="flex flex-wrap justify-end gap-1 flex-shrink-0">
+                            {slots.map((slot, si) => (
+                              <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-violet-50 text-violet-700">
+                                <Icon name="Clock" size={11} />{slot}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No timetable</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Not assigned to any batch yet.</p>
               )}
             </Card>
 

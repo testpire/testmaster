@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
 import Icon from '../../components/AppIcon';
+import { formatTimetable } from '../../utils/timetable';
 import { newAuthService } from '../../services/newAuthService';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
@@ -19,7 +20,8 @@ const StudentDashboard = () => {
   const [profile, setProfile] = useState(userProfile || user || null);
   const [institute, setInstitute] = useState(null);
   const [peers, setPeers] = useState([]);
-  const [enrollments, setEnrollments] = useState([]);
+  const [courseEnrollments, setCourseEnrollments] = useState([]);
+  const [batchMemberships, setBatchMemberships] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const currentUser = {
@@ -57,7 +59,8 @@ const StudentDashboard = () => {
           setPeers(peersResp?.data || []);
           const inst = instituteResp?.data?.data || instituteResp?.data?.institute || instituteResp?.data || null;
           setInstitute(inst);
-          setEnrollments(Array.isArray(studentResp?.data?.enrollments) ? studentResp.data.enrollments : []);
+          setCourseEnrollments(Array.isArray(studentResp?.data?.courseEnrollments) ? studentResp.data.courseEnrollments : []);
+          setBatchMemberships(Array.isArray(studentResp?.data?.batchMemberships) ? studentResp.data.batchMemberships : []);
         }
       } catch (e) {
         console.error('Failed to load student dashboard:', e);
@@ -231,22 +234,55 @@ const StudentDashboard = () => {
             </div>
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : enrollments.length === 0 ? (
+            ) : courseEnrollments.length === 0 && batchMemberships.length === 0 ? (
               <p className="text-sm text-muted-foreground">No enrollments yet.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {enrollments.map((en, i) => (
-                  <span
-                    key={en.enrollmentId || i}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-sm text-foreground"
-                  >
-                    <Icon name="BookOpen" size={14} className="text-primary" />
-                    <span className="font-medium">{en.courseName || `Course #${en.courseId}`}</span>
-                    {en.batchName && (
-                      <span className="text-muted-foreground">· {en.batchName}</span>
-                    )}
-                  </span>
-                ))}
+              <div className="space-y-4">
+                {courseEnrollments.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Courses</p>
+                    <div className="flex flex-wrap gap-2">
+                      {courseEnrollments.map((en, i) => (
+                        <span
+                          key={en.enrollmentId || `c${i}`}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-sm text-foreground"
+                        >
+                          <Icon name="BookOpen" size={14} className="text-primary" />
+                          <span className="font-medium">{en.courseName || `Course #${en.courseId}`}</span>
+                          {en.fee != null && (
+                            <span className="text-muted-foreground">· ₹{Number(en.fee).toLocaleString('en-IN')}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {batchMemberships.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Batches</p>
+                    <div className="flex flex-col gap-2">
+                      {batchMemberships.map((m, i) => {
+                        const slots = formatTimetable(m.timetable);
+                        return (
+                          <div
+                            key={m.membershipId || `b${i}`}
+                            className="flex flex-wrap items-center gap-2 text-sm text-foreground"
+                          >
+                            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-50 text-violet-700">
+                              <Icon name="Users" size={14} />
+                              <span className="font-medium">{m.batchName || `Batch #${m.batchId}`}</span>
+                            </span>
+                            {slots.map((slot, si) => (
+                              <span key={si} className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Icon name="Clock" size={12} />{slot}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
