@@ -1628,6 +1628,9 @@ const CourseManagement = () => {
                                           )}
                                         </button>
                                         <div className="flex items-center gap-1 flex-shrink-0">
+                                          <button onClick={() => navigate(`/chapter-materials/${chapter.id}`, { state: { chapter } })} title="Open chapter materials" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
+                                            <Icon name="Library" size={14} />
+                                          </button>
                                           <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
                                             <Icon name="Plus" size={14} />
                                           </button>

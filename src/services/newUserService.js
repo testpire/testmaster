@@ -402,9 +402,18 @@ export const newUserService = {
         // Handle double-nested response: data.data.students or data.students
         const nestedData = data.data || data;
         const students = nestedData.students || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
-        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || students.length;
-        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        // This endpoint MISLABELS its pagination fields (verified against the live API):
+        // `totalCount` is the row count of THIS page (20, then 11) — NOT the grand total —
+        // and the real total comes back in `size` (e.g. 31). So we can't compute hasMore
+        // from totalCount/totalPages the way the questions endpoint allows. Drive infinite
+        // scroll off the robust rule "a full page came back ⇒ there may be more"; the
+        // endpoint paginates correctly (the last page is short), so this terminates.
+        const requestedSize = payload.pagination.size;
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
+        const hasMore = students.length >= requestedSize;
+        // Best-effort grand total for display: `size` holds it on this endpoint.
+        const totalElements = nestedData.size ?? nestedData.totalElements ?? nestedData.total ?? students.length;
+        const totalPages = Math.ceil(totalElements / requestedSize) || 1;
 
         return {
           data: students,
@@ -412,8 +421,8 @@ export const newUserService = {
             currentPage,
             totalPages,
             totalElements,
-            hasMore: currentPage < totalPages - 1,
-            size: payload.pagination.size,
+            hasMore,
+            size: requestedSize,
           },
           error: null,
         };
@@ -446,21 +455,27 @@ export const newUserService = {
         // Handle double-nested response: data.data.teachers or data.teachers
         const nestedData = data.data || data;
         const teachers = nestedData.teachers || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
-        const totalElements = nestedData.totalCount || nestedData.totalElements || nestedData.total || teachers.length;
-        const totalPages = nestedData.totalPages || Math.ceil(totalElements / payload.pagination.size);
+        // Same mislabeled pagination as the students endpoint: `totalCount` is the
+        // count of THIS page (not the grand total), and the real total is in `size`.
+        // Drive hasMore off "a full page came back ⇒ there may be more"; the endpoint
+        // paginates correctly (short last page), so this terminates.
+        const requestedSize = payload.pagination.size;
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
-        const hasMore = currentPage < totalPages - 1;
-        
-        return { 
-          data: teachers, 
+        const hasMore = teachers.length >= requestedSize;
+        // Best-effort grand total for display: `size` holds it on this endpoint.
+        const totalElements = nestedData.size ?? nestedData.totalElements ?? nestedData.total ?? teachers.length;
+        const totalPages = Math.ceil(totalElements / requestedSize) || 1;
+
+        return {
+          data: teachers,
           pagination: {
             currentPage,
             totalPages,
             totalElements,
             hasMore,
-            size: payload.pagination.size
+            size: requestedSize
           },
-          error: null 
+          error: null
         };
       }
       

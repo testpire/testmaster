@@ -7,49 +7,47 @@ import MaterialsManager from '../../components/course/MaterialsManager';
 import { courseService } from '../../services/courseService';
 import { fetchAllPages } from '../../utils/pagination';
 
-// Standalone teaching page: a topic's materials with a list sidebar and a large viewer
-// pane that renders the selected material inline (PDF/video embedded, notes rendered,
-// slides/links opened). Designed for live use while teaching. The material list/viewer/
-// composer is the shared <MaterialsManager>; this page adds the topic header and the
-// prev/next/jump navigation across the chapter's topics. Reached from the
-// course-management curriculum tree.
-const TopicMaterialsPage = () => {
-  const { topicId } = useParams();
+// Standalone teaching page: a chapter's materials (files, notes, links) with a list
+// sidebar and inline viewer — the chapter-level counterpart of the topic materials page.
+// The material list/viewer/composer is the shared <MaterialsManager> (scope="chapters");
+// this page adds the chapter header and prev/next/jump navigation across the subject's
+// chapters. Reached from the course-management curriculum tree.
+const ChapterMaterialsPage = () => {
+  const { chapterId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Topic context: prefer the object passed via navigation state; fall back to a fetch
+  // Chapter context: prefer the object passed via navigation state; fall back to a fetch
   // on direct load / refresh.
-  const [topic, setTopic] = useState(location.state?.topic || null);
-  const [siblings, setSiblings] = useState([]); // other topics in the same chapter
+  const [chapter, setChapter] = useState(location.state?.chapter || null);
+  const [siblings, setSiblings] = useState([]); // other chapters in the same subject
 
-  // On topic change (mount or sibling navigation, which doesn't remount): adopt the
-  // topic from nav state when it matches, else fetch it.
+  // On chapter change (mount or sibling navigation, which doesn't remount): adopt the
+  // chapter from nav state when it matches, else fetch it.
   useEffect(() => {
-    const navTopic = location.state?.topic;
-    if (navTopic && String(navTopic.id) === String(topicId)) {
-      setTopic(navTopic);
+    const navChapter = location.state?.chapter;
+    if (navChapter && String(navChapter.id) === String(chapterId)) {
+      setChapter(navChapter);
       return undefined;
     }
-    setTopic(null);
+    setChapter(null);
     let cancelled = false;
-    courseService.getTopic(topicId).then(({ data }) => {
-      if (!cancelled && data) setTopic(data);
+    courseService.getChapterById(chapterId).then(({ data }) => {
+      if (!cancelled && data) setChapter(data);
     });
     return () => {
       cancelled = true;
     };
-  }, [topicId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chapterId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load this chapter's topic list once the chapter is known, to power prev/next + the
-  // jump dropdown. Only refetches when the chapter actually changes (sibling nav within
-  // the same chapter reuses it).
+  // Load this subject's chapter list once the subject is known, to power prev/next + the
+  // jump dropdown. Only refetches when the subject actually changes.
   useEffect(() => {
-    const chapterId = topic?.chapterId;
-    if (!chapterId) return undefined;
-    if (siblings.some((t) => String(t.chapterId) === String(chapterId))) return undefined;
+    const subjectId = chapter?.subjectId;
+    if (!subjectId) return undefined;
+    if (siblings.some((c) => String(c.subjectId) === String(subjectId))) return undefined;
     let cancelled = false;
-    fetchAllPages((pg) => courseService.getTopics(chapterId, pg)).then(({ data }) => {
+    fetchAllPages((pg) => courseService.getChapters(subjectId, pg)).then(({ data }) => {
       if (cancelled) return;
       const list = Array.isArray(data) ? [...data] : [];
       list.sort((a, b) => (a.orderIndex ?? a.order ?? 0) - (b.orderIndex ?? b.order ?? 0));
@@ -58,17 +56,17 @@ const TopicMaterialsPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [topic?.chapterId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chapter?.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Topic navigation (prev / next / jump) — stays on this page so teachers flip through
-  // a chapter's topics like slides.
-  const currentIndex = siblings.findIndex((t) => String(t.id) === String(topicId));
-  const goToTopic = (t) => {
-    if (t && String(t.id) !== String(topicId)) navigate(`/topic-materials/${t.id}`, { state: { topic: t } });
+  // Chapter navigation (prev / next / jump) — stays on this page so teachers flip through
+  // a subject's chapters.
+  const currentIndex = siblings.findIndex((c) => String(c.id) === String(chapterId));
+  const goToChapter = (c) => {
+    if (c && String(c.id) !== String(chapterId)) navigate(`/chapter-materials/${c.id}`, { state: { chapter: c } });
   };
 
   return (
-    <PageLayout title="Topic Materials">
+    <PageLayout title="Chapter Materials">
       <div className="p-4 sm:p-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -83,36 +81,36 @@ const TopicMaterialsPage = () => {
             <div className="min-w-0">
               <h1 className="text-lg font-semibold text-foreground truncate flex items-center gap-2">
                 <Icon name="Library" size={18} className="text-primary flex-shrink-0" />
-                {topic?.name || 'Topic'} Materials
+                {chapter?.name || 'Chapter'} Materials
               </h1>
-              {topic?.code && <p className="text-xs text-muted-foreground">{topic.code}</p>}
+              {chapter?.code && <p className="text-xs text-muted-foreground">{chapter.code}</p>}
             </div>
           </div>
         </div>
 
-        {/* Topic navigation — flip through the chapter's topics without leaving the page */}
+        {/* Chapter navigation — flip through the subject's chapters without leaving the page */}
         {siblings.length > 1 && (
           <div className="flex items-center gap-2 mb-4 bg-card border border-border rounded-lg px-2 py-2">
             <Button
               variant="outline"
               size="sm"
               disabled={currentIndex <= 0}
-              onClick={() => goToTopic(siblings[currentIndex - 1])}
-              title="Previous topic"
+              onClick={() => goToChapter(siblings[currentIndex - 1])}
+              title="Previous chapter"
             >
               <Icon name="ChevronLeft" size={16} className="mr-1" /> Prev
             </Button>
 
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <select
-                value={String(topicId)}
-                onChange={(e) => goToTopic(siblings.find((t) => String(t.id) === e.target.value))}
+                value={String(chapterId)}
+                onChange={(e) => goToChapter(siblings.find((c) => String(c.id) === e.target.value))}
                 className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-ring"
-                title="Jump to topic"
+                title="Jump to chapter"
               >
-                {siblings.map((t, i) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {i + 1}. {t.name}
+                {siblings.map((c, i) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {i + 1}. {c.name}
                   </option>
                 ))}
               </select>
@@ -125,18 +123,18 @@ const TopicMaterialsPage = () => {
               variant="outline"
               size="sm"
               disabled={currentIndex < 0 || currentIndex >= siblings.length - 1}
-              onClick={() => goToTopic(siblings[currentIndex + 1])}
-              title="Next topic"
+              onClick={() => goToChapter(siblings[currentIndex + 1])}
+              title="Next chapter"
             >
               Next <Icon name="ChevronRight" size={16} className="ml-1" />
             </Button>
           </div>
         )}
 
-        <MaterialsManager scope="topics" ownerId={topicId} />
+        <MaterialsManager scope="chapters" ownerId={chapterId} />
       </div>
     </PageLayout>
   );
 };
 
-export default TopicMaterialsPage;
+export default ChapterMaterialsPage;

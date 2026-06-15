@@ -14,16 +14,18 @@ import { formatBytes as fmtBytes } from '../../utils/formatters';
 const COMPOSER_ICON = { FILE: 'Upload', NOTE: 'StickyNote', LINK: 'Link' };
 
 /**
- * MaterialComposer — add or edit a single topic material (FILE / NOTE / LINK).
+ * MaterialComposer — add or edit a single material (FILE / NOTE / LINK) on a
+ * curriculum node (topic or chapter).
  *
  * Props:
- *  - topicId
+ *  - scope            : 'topics' | 'chapters' (owner collection)
+ *  - ownerId          : id of the owning topic / chapter
  *  - mode             : 'FILE' | 'NOTE' | 'LINK'
  *  - editing          : material object when editing, else null
  *  - defaultSortOrder : sortOrder to assign new materials
  *  - onCancel, onDone : callbacks
  */
-const MaterialComposer = ({ topicId, mode, editing, defaultSortOrder = 0, onCancel, onDone }) => {
+const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0, onCancel, onDone }) => {
   const isEdit = !!editing;
   const fileInputRef = useRef(null);
 
@@ -57,7 +59,7 @@ const MaterialComposer = ({ topicId, mode, editing, defaultSortOrder = 0, onCanc
       } else if (mode === 'LINK') {
         body.externalUrl = externalUrl.trim();
       }
-      res = await newMaterialService.update(topicId, editing.id, body);
+      res = await newMaterialService.update(scope, ownerId, editing.id, body);
     } else if (mode === 'FILE') {
       if (!file) {
         setSaving(false);
@@ -73,7 +75,8 @@ const MaterialComposer = ({ topicId, mode, editing, defaultSortOrder = 0, onCanc
       }
       setProgress(0);
       res = await newMaterialService.uploadFile(
-        topicId,
+        scope,
+        ownerId,
         file,
         { title: title.trim(), description, sortOrder: defaultSortOrder },
         setProgress
@@ -84,7 +87,7 @@ const MaterialComposer = ({ topicId, mode, editing, defaultSortOrder = 0, onCanc
         setSaving(false);
         return setErr('Note content is required.');
       }
-      res = await newMaterialService.createNote(topicId, {
+      res = await newMaterialService.createNote(scope, ownerId, {
         title: title.trim(),
         content,
         contentFormat,
@@ -96,7 +99,7 @@ const MaterialComposer = ({ topicId, mode, editing, defaultSortOrder = 0, onCanc
         setSaving(false);
         return setErr('A URL is required.');
       }
-      res = await newMaterialService.createLink(topicId, {
+      res = await newMaterialService.createLink(scope, ownerId, {
         title: title.trim(),
         externalUrl: externalUrl.trim(),
         description,

@@ -26,6 +26,7 @@ import StudentManagement from './pages/student-management';
 import StudentProfile from './pages/student-profile';
 import CourseManagement from './pages/course-management';
 import TopicMaterials from './pages/topic-materials';
+import ChapterMaterials from './pages/chapter-materials';
 import CourseContent from './pages/course-content';
 import InstituteManagement from './pages/institute-management';
 import LeadManagement from './pages/lead-management';
@@ -62,6 +63,8 @@ const Routes = () => {
           <Route path="/course-management" element={<ProtectedManagementRoutes><CourseManagement /></ProtectedManagementRoutes>} />
           {/* Topic materials — usable by admins and teachers (e.g. while teaching) */}
           <Route path="/topic-materials/:topicId" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><TopicMaterials /></ProtectedRoute>} />
+          {/* Chapter materials — chapter-level counterpart of topic materials */}
+          <Route path="/chapter-materials/:chapterId" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><ChapterMaterials /></ProtectedRoute>} />
           {/* Teacher-facing read-only curriculum browser → topic materials */}
           <Route path="/course-content" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><CourseContent /></ProtectedRoute>} />
           {/* Question bank — usable by admins and teachers */}
