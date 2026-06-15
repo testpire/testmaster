@@ -161,7 +161,8 @@ const TestSecurityWrapper = ({
   };
 
   const formatTime = (seconds) => {
-    if (!seconds) return '';
+    if (seconds == null) return '';
+    seconds = Math.max(0, seconds);
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -199,10 +200,19 @@ const TestSecurityWrapper = ({
           </div>
 
           <div className="flex items-center space-x-4">
-            {timeRemaining && (
-              <div className="flex items-center space-x-2 text-foreground">
+            {timeRemaining != null && (
+              <div
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-md border font-mono font-semibold tabular-nums transition-colors ${
+                  timeRemaining <= 60
+                    ? 'bg-error/10 border-error/30 text-error animate-pulse'
+                    : timeRemaining <= 300
+                    ? 'bg-warning/10 border-warning/30 text-warning'
+                    : 'bg-muted/50 border-border text-foreground'
+                }`}
+                title="Time remaining"
+              >
                 <Icon name="Clock" size={16} />
-                <span className="font-mono font-medium">{formatTime(timeRemaining)}</span>
+                <span>{formatTime(timeRemaining)}</span>
               </div>
             )}
 

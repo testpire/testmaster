@@ -7,12 +7,16 @@ import { newTestService } from '../../services/newTestService';
 import { resolveImagePath } from '../test-management/testConstants';
 import MathText from '../../components/MathText';
 
-// Student exam runner — one question at a time with a navigator palette,
-// flag-for-review, a countdown that auto-submits on expiry, and per-answer
-// autosave so a closed tab doesn't lose progress.
+// Student exam runner — a standard online-test experience: a live countdown that
+// warns as time runs low and auto-submits on expiry, subject/section switching,
+// an NTA-style question palette (Not Visited / Not Answered / Answered / Marked /
+// Answered & Marked), Save & Next / Mark for Review / Clear Response controls, a
+// status summary, and per-answer autosave so a closed tab doesn't lose progress.
 //
 // The attempt payload isn't strongly typed in the API spec, so its shape is read
-// defensively (questions[], answers[], timing fields all have a few aliases).
+// defensively (questions[], answers[], timing and subject fields all have aliases).
+// Subject grouping degrades gracefully: if questions carry no subject data the whole
+// test renders as one section, exactly as before.
 const TestTaking = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();
@@ -23,7 +27,8 @@ const TestTaking = () => {
 
   // answers: Map<questionId, number[]> (selected option ids)
   const [answers, setAnswers] = useState(new Map());
-  const [flagged, setFlagged] = useState(new Set());
+  const [flagged, setFlagged] = useState(new Set()); // "marked for review"
+  const [visited, setVisited] = useState(new Set()); // questions the student has opened
   const [current, setCurrent] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // seconds
 
@@ -103,7 +108,69 @@ const TestTaking = () => {
     !!q.multipleCorrect ||
     !!q.multiSelect;
 
-  // ---- countdown --------------------------------------------------------------
+  // Best-effort subject label for a question. Falls back through the denormalized
+  // names the API may attach; null means "uncategorised".
+  const subjectOf = (q) =>
+    q.subjectName || q.subject || q.sectionName || q.section ||
+    (q.subjectId != null ? `Subject ${q.subjectId}` : null);
+
+  // ---- subject/section grouping ----------------------------------------------
+  // Ordered, de-duplicated subjects with the global question indices they contain.
+  const subjects = useMemo(() => {
+    const map = new Map();
+    questions.forEach((q, idx) => {
+      const label = subjectOf(q) || 'All Questions';
+      if (!map.has(label)) map.set(label, { label, indices: [] });
+      map.get(label).indices.push(idx);
+    });
+    return Array.from(map.values());
+  }, [questions]);
+  const hasSubjects = subjects.length > 1;
+
+  const activeSubject = useMemo(
+    () => subjects.find((s) => s.indices.includes(current)) || subjects[0] || { label: '', indices: [] },
+    [subjects, current]
+  );
+
+  // ---- question status model (NTA-style) -------------------------------------
+  const statusOf = useCallback(
+    (idx) => {
+      const q = questions[idx];
+      if (!q) return 'notVisited';
+      const id = getQId(q);
+      const answered = (answers.get(id) || []).length > 0;
+      const marked = flagged.has(id);
+      if (answered && marked) return 'answeredMarked';
+      if (marked) return 'marked';
+      if (answered) return 'answered';
+      if (visited.has(id)) return 'notAnswered';
+      return 'notVisited';
+    },
+    [questions, answers, flagged, visited]
+  );
+
+  const summary = useMemo(() => {
+    const counts = { answered: 0, marked: 0, answeredMarked: 0, notAnswered: 0, notVisited: 0 };
+    questions.forEach((_, idx) => {
+      counts[statusOf(idx)] += 1;
+    });
+    return counts;
+  }, [questions, statusOf]);
+
+  // Mark the current question as visited whenever it is shown.
+  useEffect(() => {
+    const q = questions[current];
+    if (!q) return;
+    const id = getQId(q);
+    setVisited((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, [current, questions]);
+
+  // ---- submit + countdown -----------------------------------------------------
   const doSubmit = useCallback(
     async (auto = false) => {
       if (submittedRef.current) return;
@@ -148,11 +215,27 @@ const TestTaking = () => {
       if (isMulti(q)) {
         updated = cur.includes(optionId) ? cur.filter((o) => o !== optionId) : [...cur, optionId];
       } else {
-        updated = [optionId];
+        // Single-choice: clicking the already-selected option deselects it, so a
+        // student can leave a question unattempted (avoiding negative marking).
+        updated = cur.includes(optionId) ? [] : [optionId];
       }
-      next.set(qid, updated);
+      // Drop empty entries so the answered tally and status palette stay accurate
+      // (a deselected single-choice question is "not answered", not answered-blank).
+      if (updated.length === 0) next.delete(qid);
+      else next.set(qid, updated);
       // Fire-and-forget autosave so a dropped connection at submit doesn't lose work.
       newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: updated });
+      return next;
+    });
+  };
+
+  const clearResponse = (q) => {
+    const qid = getQId(q);
+    setAnswers((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Map(prev);
+      next.delete(qid);
+      newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: [] });
       return next;
     });
   };
@@ -163,6 +246,25 @@ const TestTaking = () => {
       next.has(qid) ? next.delete(qid) : next.add(qid);
       return next;
     });
+  };
+
+  const goTo = (idx) => setCurrent(Math.min(questions.length - 1, Math.max(0, idx)));
+  const goNext = () => setCurrent((c) => Math.min(questions.length - 1, c + 1));
+  const isLast = current === questions.length - 1;
+
+  const saveAndNext = () => {
+    if (isLast) setShowConfirm(true);
+    else goNext();
+  };
+
+  const markAndNext = (q) => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      next.add(getQId(q));
+      return next;
+    });
+    if (isLast) setShowConfirm(true);
+    else goNext();
   };
 
   // ---- render -----------------------------------------------------------------
@@ -285,19 +387,16 @@ const TestTaking = () => {
   const chosen = qid != null ? answers.get(qid) || [] : [];
   const title = attempt?.testTitle || attempt?.title || attempt?.test?.title || 'Test';
   const answeredCount = answers.size;
+  // 1-based position of the current question within its subject (for display).
+  const posInSubject = activeSubject.indices.indexOf(current) + 1;
 
-  const paletteState = (question, idx) => {
-    const id = getQId(question);
-    if (idx === current) return 'current';
-    if (flagged.has(id)) return 'flagged';
-    if ((answers.get(id) || []).length > 0) return 'answered';
-    return 'unseen';
-  };
   const paletteCls = {
-    current: 'bg-primary text-primary-foreground',
-    answered: 'bg-green-100 text-green-700 border border-green-300',
-    flagged: 'bg-amber-100 text-amber-700 border border-amber-300',
-    unseen: 'bg-muted text-muted-foreground border border-border'
+    current: 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-card',
+    answered: 'bg-green-600 text-white',
+    answeredMarked: 'bg-green-600 text-white relative',
+    marked: 'bg-purple-600 text-white relative',
+    notAnswered: 'bg-red-100 text-red-700 border border-red-300',
+    notVisited: 'bg-muted text-muted-foreground border border-border'
   };
 
   return (
@@ -307,151 +406,213 @@ const TestTaking = () => {
       timeRemaining={timeRemaining}
       onTestSubmit={() => setShowConfirm(true)}
     >
-      <div className="max-w-5xl mx-auto px-4 lg:px-6 flex flex-col lg:flex-row gap-6">
-        {/* Question area */}
-        <div className="flex-1 min-w-0">
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
-              <p className="text-destructive text-sm">{error}</p>
-            </div>
-          )}
-
-          {!q ? (
-            <div className="text-center py-16 text-muted-foreground">This test has no questions.</div>
-          ) : (
-            <div className="bg-card border border-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Question {current + 1} of {questions.length}
-                  {q.marks != null && <span className="ml-2 text-foreground">· {q.marks} marks</span>}
-                </span>
+      <div className="max-w-6xl mx-auto px-4 lg:px-6">
+        {/* Subject / section tabs */}
+        {hasSubjects && (
+          <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
+            {subjects.map((s) => {
+              const isActive = s.label === activeSubject.label;
+              const ansInSub = s.indices.filter((i) => statusOf(i) === 'answered' || statusOf(i) === 'answeredMarked').length;
+              return (
                 <button
-                  onClick={() => toggleFlag(qid)}
-                  className={`inline-flex items-center gap-1 text-sm ${
-                    flagged.has(qid) ? 'text-amber-600' : 'text-muted-foreground hover:text-foreground'
+                  key={s.label}
+                  onClick={() => goTo(s.indices[0])}
+                  className={`px-4 py-2 rounded-t-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/70'
                   }`}
                 >
-                  <Icon name="Flag" size={15} />
-                  {flagged.has(qid) ? 'Flagged' : 'Flag'}
+                  {s.label}
+                  <span className={`ml-2 text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                    {ansInSub}/{s.indices.length}
+                  </span>
                 </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Question area */}
+          <div className="flex-1 min-w-0">
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
+                <p className="text-destructive text-sm">{error}</p>
+              </div>
+            )}
+
+            {!q ? (
+              <div className="text-center py-16 text-muted-foreground">This test has no questions.</div>
+            ) : (
+              <div className="bg-card border border-border rounded-lg p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {hasSubjects && <span className="text-foreground">{activeSubject.label} · </span>}
+                    Question {hasSubjects ? posInSubject : current + 1} of{' '}
+                    {hasSubjects ? activeSubject.indices.length : questions.length}
+                    {q.marks != null && <span className="ml-2 text-foreground">· {q.marks} marks</span>}
+                    {isMulti(q) && (
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                        Multiple correct
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => toggleFlag(qid)}
+                    className={`inline-flex items-center gap-1 text-sm ${
+                      flagged.has(qid) ? 'text-purple-600' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon name="Bookmark" size={15} />
+                    {flagged.has(qid) ? 'Marked for review' : 'Mark for review'}
+                  </button>
+                </div>
+
+                <MathText as="p" className="text-foreground mb-3" text={q.text} textFormat={q.textFormat} />
+                {q.questionImagePath && (
+                  <img
+                    src={resolveImagePath(q.questionImagePath)}
+                    alt=""
+                    className="mb-4 max-h-72 rounded border border-border"
+                    onError={(e) => (e.target.style.display = 'none')}
+                  />
+                )}
+
+                <div className="space-y-2">
+                  {(q.options || []).map((o) => {
+                    const selected = chosen.includes(o.id);
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => selectOption(q, o.id)}
+                        className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${
+                          selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30'
+                        }`}
+                      >
+                        <Icon
+                          name={
+                            isMulti(q)
+                              ? selected
+                                ? 'CheckSquare'
+                                : 'Square'
+                              : selected
+                              ? 'CheckCircle2'
+                              : 'Circle'
+                          }
+                          size={18}
+                          className={selected ? 'text-primary mt-0.5' : 'text-muted-foreground mt-0.5'}
+                        />
+                        <span className="text-sm text-foreground">
+                          <MathText text={o.text} textFormat={q.textFormat} />
+                          {o.optionImagePath && (
+                            <img
+                              src={resolveImagePath(o.optionImagePath)}
+                              alt=""
+                              className="mt-2 max-h-40 rounded border border-border"
+                              onError={(e) => (e.target.style.display = 'none')}
+                            />
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Action controls */}
+                <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-border">
+                  <Button
+                    variant="outline"
+                    disabled={current === 0}
+                    onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+                    iconName="ChevronLeft"
+                    iconPosition="left"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => clearResponse(q)}
+                    disabled={chosen.length === 0}
+                    iconName="Eraser"
+                    iconPosition="left"
+                  >
+                    Clear response
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    onClick={() => markAndNext(q)}
+                    iconName="Bookmark"
+                    iconPosition="left"
+                  >
+                    Mark &amp; next
+                  </Button>
+                  <Button
+                    variant={isLast ? 'success' : 'default'}
+                    onClick={saveAndNext}
+                    iconName={isLast ? 'Send' : 'ChevronRight'}
+                    iconPosition="right"
+                  >
+                    {isLast ? 'Submit' : 'Save & next'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Palette */}
+          <div className="w-full lg:w-72 flex-shrink-0">
+            <div className="bg-card border border-border rounded-lg p-4 lg:sticky lg:top-24">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-foreground">
+                  {hasSubjects ? activeSubject.label : 'Questions'}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {answeredCount}/{questions.length} answered
+                </span>
               </div>
 
-              <MathText as="p" className="text-foreground mb-3" text={q.text} textFormat={q.textFormat} />
-              {q.questionImagePath && (
-                <img
-                  src={resolveImagePath(q.questionImagePath)}
-                  alt=""
-                  className="mb-4 max-h-72 rounded border border-border"
-                  onError={(e) => (e.target.style.display = 'none')}
-                />
-              )}
+              {/* Status summary */}
+              <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+                <SummaryStat color="bg-green-600" label="Answered" count={summary.answered + summary.answeredMarked} />
+                <SummaryStat color="bg-red-100 border border-red-300" label="Not answered" count={summary.notAnswered} dark />
+                <SummaryStat color="bg-purple-600" label="Marked" count={summary.marked + summary.answeredMarked} />
+                <SummaryStat color="bg-muted border border-border" label="Not visited" count={summary.notVisited} dark />
+              </div>
 
-              <div className="space-y-2">
-                {(q.options || []).map((o) => {
-                  const selected = chosen.includes(o.id);
+              <div className="grid grid-cols-6 lg:grid-cols-5 gap-2">
+                {activeSubject.indices.map((idx) => {
+                  const st = idx === current ? 'current' : statusOf(idx);
+                  const label = hasSubjects ? activeSubject.indices.indexOf(idx) + 1 : idx + 1;
                   return (
                     <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => selectOption(q, o.id)}
-                      className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${
-                        selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30'
-                      }`}
+                      key={getQId(questions[idx])}
+                      onClick={() => goTo(idx)}
+                      className={`h-9 rounded-md text-sm font-medium ${paletteCls[st]}`}
+                      title={statusLabel(statusOf(idx))}
                     >
-                      <Icon
-                        name={
-                          isMulti(q)
-                            ? selected
-                              ? 'CheckSquare'
-                              : 'Square'
-                            : selected
-                            ? 'CheckCircle2'
-                            : 'Circle'
-                        }
-                        size={18}
-                        className={selected ? 'text-primary mt-0.5' : 'text-muted-foreground mt-0.5'}
-                      />
-                      <span className="text-sm text-foreground">
-                        <MathText text={o.text} textFormat={q.textFormat} />
-                        {o.optionImagePath && (
-                          <img
-                            src={resolveImagePath(o.optionImagePath)}
-                            alt=""
-                            className="mt-2 max-h-40 rounded border border-border"
-                            onError={(e) => (e.target.style.display = 'none')}
-                          />
-                        )}
-                      </span>
+                      {label}
+                      {(st === 'marked' || st === 'answeredMarked') && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-card" />
+                      )}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Prev / Next */}
-              <div className="flex items-center justify-between mt-6">
-                <Button
-                  variant="outline"
-                  disabled={current === 0}
-                  onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-                  iconName="ChevronLeft"
-                  iconPosition="left"
-                >
-                  Previous
-                </Button>
-                {current < questions.length - 1 ? (
-                  <Button
-                    variant="default"
-                    onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}
-                    iconName="ChevronRight"
-                    iconPosition="right"
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button variant="success" onClick={() => setShowConfirm(true)} iconName="Send" iconPosition="left">
-                    Submit
-                  </Button>
-                )}
-              </div>
+              <Button
+                variant="success"
+                fullWidth
+                className="mt-4"
+                onClick={() => setShowConfirm(true)}
+                iconName="Send"
+                iconPosition="left"
+              >
+                Submit Test
+              </Button>
             </div>
-          )}
-        </div>
-
-        {/* Palette */}
-        <div className="w-full lg:w-64 flex-shrink-0">
-          <div className="bg-card border border-border rounded-lg p-4 lg:sticky lg:top-24">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-foreground">Questions</span>
-              <span className="text-xs text-muted-foreground">
-                {answeredCount}/{questions.length} answered
-              </span>
-            </div>
-            <div className="grid grid-cols-6 lg:grid-cols-5 gap-2">
-              {questions.map((question, idx) => (
-                <button
-                  key={getQId(question)}
-                  onClick={() => setCurrent(idx)}
-                  className={`h-9 rounded-md text-sm font-medium ${paletteCls[paletteState(question, idx)]}`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-              <Legend cls="bg-green-100 border border-green-300" label="Answered" />
-              <Legend cls="bg-amber-100 border border-amber-300" label="Flagged" />
-              <Legend cls="bg-muted border border-border" label="Not answered" />
-            </div>
-            <Button
-              variant="success"
-              fullWidth
-              className="mt-4"
-              onClick={() => setShowConfirm(true)}
-              iconName="Send"
-              iconPosition="left"
-            >
-              Submit Test
-            </Button>
           </div>
         </div>
       </div>
@@ -461,11 +622,16 @@ const TestTaking = () => {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1050] p-4">
           <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-foreground mb-2">Submit test?</h3>
+            <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+              <SubmitRow label="Answered" value={summary.answered + summary.answeredMarked} />
+              <SubmitRow label="Not answered" value={summary.notAnswered} />
+              <SubmitRow label="Marked for review" value={summary.marked + summary.answeredMarked} />
+              <SubmitRow label="Not visited" value={summary.notVisited} />
+            </div>
             <p className="text-sm text-muted-foreground mb-4">
-              You have answered <strong>{answeredCount}</strong> of{' '}
-              <strong>{questions.length}</strong> questions
+              You have answered <strong>{answeredCount}</strong> of <strong>{questions.length}</strong> questions
               {answeredCount < questions.length && ' — unanswered questions will be marked as skipped'}. You
-              can't change your answers after submitting.
+              can&apos;t change your answers after submitting.
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>
@@ -489,10 +655,28 @@ const TestTaking = () => {
   );
 };
 
-const Legend = ({ cls, label }) => (
+const statusLabel = (st) =>
+  ({
+    answered: 'Answered',
+    answeredMarked: 'Answered & marked for review',
+    marked: 'Marked for review',
+    notAnswered: 'Not answered',
+    notVisited: 'Not visited'
+  }[st] || '');
+
+const SummaryStat = ({ color, label, count, dark }) => (
   <div className="flex items-center gap-2">
-    <span className={`inline-block w-4 h-4 rounded ${cls}`} />
-    {label}
+    <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1 rounded text-[11px] font-semibold ${color} ${dark ? 'text-foreground' : 'text-white'}`}>
+      {count}
+    </span>
+    <span className="text-muted-foreground">{label}</span>
+  </div>
+);
+
+const SubmitRow = ({ label, value }) => (
+  <div className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
+    <span className="text-muted-foreground">{label}</span>
+    <span className="font-semibold text-foreground">{value}</span>
   </div>
 );
 
