@@ -31,7 +31,7 @@ const getCourseSubjectCodes = (course) => {
 // A batch carries its own weekly timetable (the course owns the fee, not the batch).
 const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', timetable: [], active: true };
 
-const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
+const BatchModal = ({ isOpen, onClose, batch, onSubmit }) => {
   const [form, setForm] = useState(EMPTY_BATCH);
   const [loading, setLoading] = useState(false);
 
@@ -76,7 +76,7 @@ const BatchModal = ({ isOpen, onClose, batch, courseName, onSubmit }) => {
             <Icon name="X" size={20} />
           </button>
         </div>
-        {courseName && <p className="text-sm text-muted-foreground mb-4">Course: {courseName}</p>}
+        <p className="text-sm text-muted-foreground mb-4">Batches are institute-level and independent of courses.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -903,16 +903,18 @@ const CourseManagement = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  // Two trees: 'coursesBatches' (course → batches) and 'curriculum' (subject → chapter → topic)
-  const [activeTab, setActiveTab] = useState('coursesBatches');
+  // Three flat views: 'courses', 'batches', and 'curriculum' (subject → chapter → topic).
+  // Courses and batches are independent institute-level entities (a batch is NOT nested
+  // under a course), so each is its own flat list.
+  const [activeTab, setActiveTab] = useState('courses');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Tree expand/collapse state (sets of ids) + lazily-loaded batches per course.
-  const [expandedCourses, setExpandedCourses] = useState(() => new Set());
+  // Curriculum tree expand/collapse state (sets of ids).
   const [expandedSubjects, setExpandedSubjects] = useState(() => new Set());
   const [expandedChapters, setExpandedChapters] = useState(() => new Set());
-  const [batchesByCourse, setBatchesByCourse] = useState({}); // courseId -> batch[]
-  const [loadingBatchCourses, setLoadingBatchCourses] = useState(() => new Set());
+  // Flat institute-wide batch list.
+  const [batches, setBatches] = useState([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
   
   // Institute data
   // Modal states
@@ -928,7 +930,6 @@ const CourseManagement = () => {
   const [editingChapter, setEditingChapter] = useState(null);
   const [editingTopic, setEditingTopic] = useState(null);
   const [editingBatch, setEditingBatch] = useState(null);
-  const [batchCourse, setBatchCourse] = useState(null); // parent course for the batch modal
 
   // Safe user check
   const safeCurrentUser = currentUser || {};
@@ -982,7 +983,8 @@ const CourseManagement = () => {
       setTopicsByChapter({});
       await Promise.all([
         loadCourses(),
-        loadSubjects()
+        loadSubjects(),
+        loadBatches()
       ]);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -990,7 +992,7 @@ const CourseManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadCourses, loadSubjects]);
+  }, [loadCourses, loadSubjects, loadBatches]);
 
   // Initial data load + reload when a super-admin switches institute.
   // Keyed on a stable user identifier — the profile from /auth/profile has no `id`,
@@ -1184,30 +1186,13 @@ const CourseManagement = () => {
     }
   };
 
-  // ---- Batch tree: lazy loading + CRUD ----
-  const loadBatches = useCallback(async (courseId) => {
-    setLoadingBatchCourses((prev) => new Set(prev).add(courseId));
-    const { data } = await newBatchService.getBatchesByCourse(courseId);
-    setBatchesByCourse((prev) => ({ ...prev, [courseId]: Array.isArray(data) ? data : [] }));
-    setLoadingBatchCourses((prev) => {
-      const next = new Set(prev);
-      next.delete(courseId);
-      return next;
-    });
+  // ---- Batches: flat institute-wide list + CRUD ----
+  const loadBatches = useCallback(async () => {
+    setBatchesLoading(true);
+    const { data } = await newBatchService.getAllBatches();
+    setBatches(Array.isArray(data) ? data : []);
+    setBatchesLoading(false);
   }, []);
-
-  const toggleCourse = (courseId) => {
-    setExpandedCourses((prev) => {
-      const next = new Set(prev);
-      if (next.has(courseId)) {
-        next.delete(courseId);
-      } else {
-        next.add(courseId);
-        if (batchesByCourse[courseId] === undefined) loadBatches(courseId);
-      }
-      return next;
-    });
-  };
 
   // Expand/collapse a subject; lazy-load its chapters on first expand.
   const toggleSubject = (subjectId) => {
@@ -1236,8 +1221,8 @@ const CourseManagement = () => {
     });
   };
 
-  const openAddBatch = (course) => { setBatchCourse(course); setEditingBatch(null); setShowBatchModal(true); };
-  const openEditBatch = (course, batch) => { setBatchCourse(course); setEditingBatch(batch); setShowBatchModal(true); };
+  const openAddBatch = () => { setEditingBatch(null); setShowBatchModal(true); };
+  const openEditBatch = (batch) => { setEditingBatch(batch); setShowBatchModal(true); };
   // Pre-seed the parent id so the create form opens scoped to the right subject/chapter,
   // and expand that parent so the newly-created child is visible after the list reloads.
   const openAddChapter = (subject) => {
@@ -1268,7 +1253,8 @@ const CourseManagement = () => {
       payload.active = formData.active;
       result = await newBatchService.updateBatch(batchId, payload);
     } else {
-      payload.courseId = batchCourse?.id;
+      // Batches are institute-level entities (independent of courses). instituteId is
+      // scoped from the switcher (super-admin) or JWT (other roles).
       if (safeCurrentUser?.instituteId) payload.instituteId = safeCurrentUser.instituteId;
       result = await newBatchService.createBatch(payload);
     }
@@ -1279,20 +1265,17 @@ const CourseManagement = () => {
     }
     setShowBatchModal(false);
     setEditingBatch(null);
-    if (batchCourse?.id) {
-      await loadBatches(batchCourse.id);
-      setExpandedCourses((prev) => new Set(prev).add(batchCourse.id));
-    }
+    await loadBatches();
   };
 
-  const handleDeleteBatch = async (courseId, batchId) => {
+  const handleDeleteBatch = async (batchId) => {
     if (!confirm('Are you sure you want to delete this batch?')) return;
     const { error: delError } = await newBatchService.deleteBatch(batchId);
     if (delError) {
       alert('Failed to delete batch: ' + (delError.message || delError));
       return;
     }
-    await loadBatches(courseId);
+    await loadBatches();
   };
 
   // Filter data for search
@@ -1309,14 +1292,16 @@ const CourseManagement = () => {
     });
   };
 
-  // Two-tab config for the tree views.
+  // Courses, batches, and curriculum are independent — each gets its own tab.
   const tabs = [
-    { id: 'coursesBatches', label: 'Courses & Batches', icon: 'BookOpen' },
+    { id: 'courses', label: 'Courses', icon: 'BookOpen' },
+    { id: 'batches', label: 'Batches', icon: 'Users' },
     { id: 'curriculum', label: 'Curriculum', icon: 'Book' }
   ];
 
-  // Root nodes filtered by the search box (courses for one tab, subjects for the other).
+  // Root nodes filtered by the search box.
   const filteredCourses = getFilteredData(courses, searchTerm);
+  const filteredBatches = getFilteredData(batches, searchTerm);
   const filteredSubjects = getFilteredData(subjects, searchTerm);
   // Child lookups for the curriculum tree — read from the lazy per-parent caches
   // (undefined until that node is first expanded).
@@ -1368,7 +1353,7 @@ const CourseManagement = () => {
           <div className="flex justify-between items-center mb-6 gap-3">
             <input
               type="text"
-              placeholder={activeTab === 'coursesBatches' ? 'Search courses...' : 'Search subjects...'}
+              placeholder={activeTab === 'courses' ? 'Search courses...' : activeTab === 'batches' ? 'Search batches...' : 'Search subjects...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-64"
@@ -1389,9 +1374,11 @@ const CourseManagement = () => {
 
               <Button
                 onClick={() => {
-                  if (activeTab === 'coursesBatches') {
+                  if (activeTab === 'courses') {
                     setEditingCourse(null);
                     setShowCourseModal(true);
+                  } else if (activeTab === 'batches') {
+                    openAddBatch();
                   } else {
                     setEditingSubject(null);
                     setShowSubjectModal(true);
@@ -1400,7 +1387,7 @@ const CourseManagement = () => {
                 className="flex items-center gap-2"
               >
                 <Icon name="Plus" size={16} />
-                {activeTab === 'coursesBatches' ? 'Add Course' : 'Add Subject'}
+                {activeTab === 'courses' ? 'Add Course' : activeTab === 'batches' ? 'Add Batch' : 'Add Subject'}
               </Button>
             </div>
           </div>
@@ -1413,8 +1400,8 @@ const CourseManagement = () => {
             </div>
           ) : (
             <div className="bg-card rounded-lg shadow overflow-hidden">
-              {activeTab === 'coursesBatches' ? (
-                /* ---- Courses → Batches tree ---- */
+              {activeTab === 'courses' ? (
+                /* ---- Courses (flat list; fee + details) ---- */
                 filteredCourses.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-gray-300" />
@@ -1423,117 +1410,92 @@ const CourseManagement = () => {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {filteredCourses.map((course) => {
-                      const open = expandedCourses.has(course.id);
-                      const batches = batchesByCourse[course.id];
-                      const loadingB = loadingBatchCourses.has(course.id);
-                      return (
-                        <div key={course.id}>
-                          {/* Course row */}
-                          <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
-                            <button
-                              onClick={() => toggleCourse(course.id)}
-                              className="flex items-center gap-2 min-w-0 flex-1 text-left flex-wrap"
-                            >
-                              <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
-                              <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
-                              <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
-                              {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
-                              {fmtFee(course.fee) && (
-                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
-                                  <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
-                                </span>
-                              )}
-                              {course.level && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
-                              )}
-                              {course.duration && (
-                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-sky-50 text-sky-700" title="Duration">
-                                  <Icon name="Clock" size={11} />{course.duration}
-                                </span>
-                              )}
-                              {getCourseSubjectCodes(course).length > 0 && (
-                                <span className="text-xs text-muted-foreground" title={getCourseSubjectCodes(course).join(', ')}>
-                                  {getCourseSubjectCodes(course).length} subject{getCourseSubjectCodes(course).length === 1 ? '' : 's'}
-                                </span>
-                              )}
-                              {course.prerequisites && (
-                                <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
-                                  <Icon name="Info" size={11} />Prereqs
-                                </span>
-                              )}
-                              {Array.isArray(batches) && (
-                                <span className="text-xs text-muted-foreground">· {batches.length} batch{batches.length === 1 ? '' : 'es'}</span>
-                              )}
-                            </button>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <button onClick={() => openAddBatch(course)} title="Add batch" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
-                                <Icon name="Plus" size={16} />
-                              </button>
-                              <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
-                                <Icon name="Edit" size={16} />
-                              </button>
-                              <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
-                                <Icon name="Trash2" size={16} />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Batches under the course */}
-                          {open && (
-                            <div className="bg-muted/60 pl-10 pr-4 pb-2">
-                              {loadingB ? (
-                                <div className="py-2 text-sm text-muted-foreground flex items-center gap-2">
-                                  <Icon name="Loader" size={14} className="animate-spin" /> Loading batches...
-                                </div>
-                              ) : !batches || batches.length === 0 ? (
-                                <div className="py-2 text-sm text-muted-foreground">
-                                  No batches yet.{' '}
-                                  <button onClick={() => openAddBatch(course)} className="text-blue-600 hover:underline">Add one</button>
-                                </div>
-                              ) : (
-                                <div className="divide-y divide-gray-100">
-                                  {batches.map((b) => (
-                                    <div key={b.id} className="flex items-center justify-between py-2">
-                                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                        <Icon name="Users" size={14} className="text-muted-foreground flex-shrink-0" />
-                                        <span className="text-sm text-foreground truncate">{b.name}</span>
-                                        {b.code && <span className="text-xs text-muted-foreground">({b.code})</span>}
-                                        {b.active === false && (
-                                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-muted-foreground">Inactive</span>
-                                        )}
-                                        {(b.startDate || b.endDate) && (
-                                          <span className="text-xs text-muted-foreground">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
-                                        )}
-                                        {b.capacity != null && b.capacity !== '' && (
-                                          <span className="text-xs text-muted-foreground">· Cap {b.capacity}</span>
-                                        )}
-                                        {formatTimetable(b.timetable).map((slot, si) => (
-                                          <span
-                                            key={si}
-                                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-700"
-                                          >
-                                            <Icon name="Clock" size={11} />{slot}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      <div className="flex items-center gap-1 flex-shrink-0">
-                                        <button onClick={() => openEditBatch(course, b)} title="Edit batch" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
-                                          <Icon name="Edit" size={14} />
-                                        </button>
-                                        <button onClick={() => handleDeleteBatch(course.id, b.id)} title="Delete batch" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
-                                          <Icon name="Trash2" size={14} />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                    {filteredCourses.map((course) => (
+                      <div key={course.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted">
+                        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                          <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
+                          {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
+                          {fmtFee(course.fee) && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
+                              <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
+                            </span>
+                          )}
+                          {course.level && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
+                          )}
+                          {course.duration && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-sky-50 text-sky-700" title="Duration">
+                              <Icon name="Clock" size={11} />{course.duration}
+                            </span>
+                          )}
+                          {getCourseSubjectCodes(course).length > 0 && (
+                            <span className="text-xs text-muted-foreground" title={getCourseSubjectCodes(course).join(', ')}>
+                              {getCourseSubjectCodes(course).length} subject{getCourseSubjectCodes(course).length === 1 ? '' : 's'}
+                            </span>
+                          )}
+                          {course.prerequisites && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
+                              <Icon name="Info" size={11} />Prereqs
+                            </span>
                           )}
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                            <Icon name="Edit" size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                            <Icon name="Trash2" size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : activeTab === 'batches' ? (
+                /* ---- Batches (flat institute-level list; timetable) ---- */
+                filteredBatches.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Icon name="Users" size={48} className="mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">No Batches Found</h3>
+                    <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first batch.'}</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredBatches.map((b) => (
+                      <div key={b.id} className="flex items-start justify-between px-4 py-3 hover:bg-muted">
+                        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                          <Icon name="Users" size={16} className="text-violet-600 flex-shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate">{b.name}</span>
+                          {b.code && <span className="text-xs text-muted-foreground">({b.code})</span>}
+                          {b.active === false && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-muted-foreground">Inactive</span>
+                          )}
+                          {(b.startDate || b.endDate) && (
+                            <span className="text-xs text-muted-foreground">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
+                          )}
+                          {b.capacity != null && b.capacity !== '' && (
+                            <span className="text-xs text-muted-foreground">· Cap {b.capacity}</span>
+                          )}
+                          {formatTimetable(b.timetable).map((slot, si) => (
+                            <span
+                              key={si}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-700"
+                            >
+                              <Icon name="Clock" size={11} />{slot}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => openEditBatch(b)} title="Edit batch" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                            <Icon name="Edit" size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteBatch(b.id)} title="Delete batch" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                            <Icon name="Trash2" size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )
               ) : (
@@ -1748,7 +1710,6 @@ const CourseManagement = () => {
             }}
             onSubmit={handleBatchSuccess}
             batch={editingBatch}
-            courseName={batchCourse ? `${batchCourse.name}${batchCourse.code ? ` (${batchCourse.code})` : ''}` : ''}
           />
         )}
       </PageLayout>

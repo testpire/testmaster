@@ -42,18 +42,18 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
     setError('');
     loadAssignments();
     loadCourses();
+    // Batches are institute-level and independent of courses — load them all up front.
+    loadBatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, test?.id]);
 
-  // When a course is chosen, fetch its batches (for BATCH target) and students.
+  // For the STUDENT target, narrow the student list to the chosen course.
   useEffect(() => {
-    if (!form.courseId) {
-      setBatches([]);
+    if (form.targetType !== 'STUDENT' || !form.courseId) {
       setStudents([]);
       return;
     }
-    loadBatches(form.courseId);
-    if (form.targetType === 'STUDENT') loadStudents(form.courseId);
+    loadStudents(form.courseId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.courseId, form.targetType]);
 
@@ -69,8 +69,8 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
     setCourses(Array.isArray(data) ? data : []);
   };
 
-  const loadBatches = async (courseId) => {
-    const { data } = await newBatchService.getBatchesByCourse(courseId);
+  const loadBatches = async () => {
+    const { data } = await newBatchService.getAllBatches();
     setBatches(Array.isArray(data) ? data : []);
   };
 
@@ -197,26 +197,30 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
               )}
             </div>
 
-            {/* Course selector — required for all target types to scope the dropdowns */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Course {form.targetType !== 'COURSE' && <span className="text-muted-foreground">(to find the {form.targetType.toLowerCase()})</span>}
-              </label>
-              <select
-                value={form.courseId}
-                onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value, targetId: '' }))}
-                className={inputCls}
-              >
-                <option value="">— Select course —</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Course selector — for COURSE target (the target itself) and STUDENT
+                target (to scope the student list). Batches are independent, so the
+                BATCH target skips this. */}
+            {form.targetType !== 'BATCH' && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Course {form.targetType === 'STUDENT' && <span className="text-muted-foreground">(to find the student)</span>}
+                </label>
+                <select
+                  value={form.courseId}
+                  onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value, targetId: '' }))}
+                  className={inputCls}
+                >
+                  <option value="">— Select course —</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {form.targetType === 'BATCH' && form.courseId && (
+            {form.targetType === 'BATCH' && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Batch</label>
                 <select

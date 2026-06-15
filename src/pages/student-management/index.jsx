@@ -79,22 +79,13 @@ const StudentManagement = () => {
     }
     setSelectedCourseId('');
     setSelectedBatchId('');
-    setBatches([]);
     loadInstituteData();
     loadCourses();
+    // Courses and batches are independent filters now, so load the full batch list
+    // up front rather than scoping it to the selected course.
+    loadBatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId, selectedInstituteId]);
-
-  // Load the batches for the selected course (course → many batches). Clearing the
-  // course resets the batch filter too.
-  useEffect(() => {
-    if (!selectedCourseId) {
-      setBatches([]);
-      setSelectedBatchId('');
-      return;
-    }
-    loadBatches(selectedCourseId);
-  }, [selectedCourseId]);
 
   // (Re)load students whenever auth, the active institute, or the filters change.
   useEffect(() => {
@@ -141,10 +132,10 @@ const StudentManagement = () => {
     }
   };
 
-  const loadBatches = async (courseId) => {
+  const loadBatches = async () => {
     setBatchesLoading(true);
     try {
-      const { data } = await newBatchService.getBatchesByCourse(courseId);
+      const { data } = await newBatchService.getAllBatches();
       setBatches(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading batches:', err);
@@ -336,10 +327,7 @@ const StudentManagement = () => {
                 clearable
                 loading={coursesLoading}
                 value={selectedCourseId}
-                onChange={(value) => {
-                  setSelectedCourseId(value || '');
-                  setSelectedBatchId('');
-                }}
+                onChange={(value) => setSelectedCourseId(value || '')}
                 options={courseOptions}
               />
             </div>
@@ -347,9 +335,8 @@ const StudentManagement = () => {
             <div className="w-full sm:w-56">
               <Select
                 label="Batch"
-                placeholder={selectedCourseId ? 'All Batches' : 'Select a course first'}
+                placeholder="All Batches"
                 clearable
-                disabled={!selectedCourseId}
                 loading={batchesLoading}
                 value={selectedBatchId}
                 onChange={(value) => setSelectedBatchId(value || '')}

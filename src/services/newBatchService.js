@@ -23,18 +23,6 @@ export const newBatchService = {
     }
   },
 
-  // List all batches belonging to a course.
-  async getBatchesByCourse(courseId) {
-    if (!courseId) return { data: [], error: null };
-    try {
-      const { data, error, success } = await get(`/batches/course/${courseId}`);
-      if (!success) return { data: [], error };
-      return { data: unwrapList(data, 'batches'), error: null };
-    } catch (error) {
-      return { data: [], error: { message: error?.message || 'Failed to load batches' } };
-    }
-  },
-
   async getBatch(batchId) {
     try {
       const { data, error, success } = await get(`/batches/${batchId}`);

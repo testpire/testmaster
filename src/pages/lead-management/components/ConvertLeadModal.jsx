@@ -38,21 +38,22 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
     setError('');
   }, [isOpen, lead]);
 
-  // Load the chosen course's batches so the student can be placed into one on conversion.
+  // Batches are institute-level and independent of the course, so load the full list
+  // (the student can be placed into any batch on conversion).
   useEffect(() => {
-    if (!isOpen || !form.enrolledCourseId) {
+    if (!isOpen) {
       setBatches([]);
       return;
     }
     let active = true;
     setLoadingBatches(true);
-    newBatchService.getBatchesByCourse(form.enrolledCourseId).then(({ data }) => {
+    newBatchService.getAllBatches().then(({ data }) => {
       if (!active) return;
       setBatches(Array.isArray(data) ? data : []);
       setLoadingBatches(false);
     });
     return () => { active = false; };
-  }, [isOpen, form.enrolledCourseId]);
+  }, [isOpen]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -154,13 +155,11 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
                 <select
                   value={form.enrolledBatchId}
                   onChange={(e) => setField('enrolledBatchId', e.target.value)}
-                  disabled={loading || !form.enrolledCourseId || loadingBatches}
+                  disabled={loading || loadingBatches}
                   className={inputCls}
                 >
                   <option value="">
-                    {!form.enrolledCourseId
-                      ? '— Select a course first —'
-                      : loadingBatches
+                    {loadingBatches
                       ? 'Loading batches...'
                       : batches.length === 0
                       ? 'No batches yet'
