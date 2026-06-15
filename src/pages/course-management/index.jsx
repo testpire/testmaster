@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { courseService } from '../../services/courseService';
@@ -880,6 +880,7 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
 
 const CourseManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userProfile } = useAuth();
   const currentUser = userProfile || user;
 
@@ -1012,6 +1013,42 @@ const CourseManagement = () => {
     if (!currentUserKey) return;
     loadAllData();
   }, [currentUserKey, selectedInstituteId, loadAllData]);
+
+  // Return-from-materials reveal: the topic/chapter materials pages send the user
+  // "Back" here with the subject (and chapter) they came from. Open the curriculum
+  // tab, expand that subject so the chapter/topic is visible, and scroll it into
+  // view — far more useful than landing on the (default) Courses tab. Runs once,
+  // after the tree's subjects have loaded; then clears the nav state so a refresh
+  // or later visit doesn't re-trigger it.
+  const revealHandledRef = React.useRef(false);
+  useEffect(() => {
+    const reveal = location.state?.revealCurriculum;
+    if (!reveal || revealHandledRef.current || loading || subjects.length === 0) return;
+    revealHandledRef.current = true;
+    setActiveTab('curriculum');
+    (async () => {
+      let { subjectId, chapterId } = reveal;
+      // A topic-level back may only know its chapter — resolve the owning subject.
+      if (subjectId == null && chapterId != null) {
+        const { data } = await courseService.getChapterById(chapterId);
+        subjectId = data?.subjectId;
+      }
+      if (subjectId != null) {
+        setExpandedSubjects((prev) => new Set(prev).add(subjectId));
+        if (chaptersBySubject[subjectId] === undefined) loadChaptersForSubject(subjectId);
+      }
+      if (chapterId != null) {
+        setExpandedChapters((prev) => new Set(prev).add(chapterId));
+        if (topicsByChapter[chapterId] === undefined) loadTopicsForChapter(chapterId);
+      }
+      if (subjectId != null && typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          document.getElementById(`curriculum-subject-${subjectId}`)?.scrollIntoView({ block: 'center' });
+        });
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    })();
+  }, [location.state, loading, subjects.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Course CRUD operations
   const handleCourseSuccess = async (courseData, courseId = null) => {
@@ -1421,9 +1458,6 @@ const CourseManagement = () => {
                               <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
                             </span>
                           )}
-                          {course.level && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{course.level}</span>
-                          )}
                           {course.duration && (
                             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-sky-50 text-sky-700" title="Duration">
                               <Icon name="Clock" size={11} />{course.duration}
@@ -1514,7 +1548,7 @@ const CourseManagement = () => {
                       const chaptersLoaded = chaptersBySubject[subject.id] !== undefined;
                       const chaptersLoading = loadingChapterSubjects.has(subject.id);
                       return (
-                        <div key={subject.id}>
+                        <div key={subject.id} id={`curriculum-subject-${subject.id}`}>
                           {/* Subject row */}
                           <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
                             <button onClick={() => toggleSubject(subject.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">

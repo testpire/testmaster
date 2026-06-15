@@ -286,7 +286,7 @@ const TeacherDashboard = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">{course.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {course.code}{course.level ? ` • ${course.level}` : ''}
+                          {course.code}
                         </p>
                       </div>
                     </div>

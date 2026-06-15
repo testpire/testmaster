@@ -72,9 +72,13 @@ const ChapterMaterialsPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() =>
+                navigate('/course-management', {
+                  state: { revealCurriculum: { subjectId: chapter?.subjectId } },
+                })
+              }
               className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-              title="Back"
+              title="Back to curriculum"
             >
               <Icon name="ArrowLeft" size={18} />
             </button>

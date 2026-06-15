@@ -1,17 +1,21 @@
 // Helpers for batch timetables (TimetableSlot[] in the API: { days, startTime, endTime }).
 // A batch's schedule is a list of slots, each covering one or more weekdays and a
-// start/end time. Days use Java DayOfWeek enum values (MONDAY..SUNDAY); we display
-// short labels. Times are "HH:mm" strings.
+// start/end time.
+//
+// The backend stores/returns days as 3-letter UPPERCASE abbreviations (MON..SUN) and
+// requires startTime/endTime in 24-hour "HH:mm" (NOT "HH:mm:ss" — that 400s, and a full
+// day name like "MONDAY" 500s). So we send exactly those values. (Verified against the
+// live API 2026-06-16.)
 
-// Canonical day values (match the backend DayOfWeek enum) in week order.
+// Canonical day values (the API's 3-letter codes) in week order.
 export const WEEKDAYS = [
-  { value: 'MONDAY', short: 'Mon' },
-  { value: 'TUESDAY', short: 'Tue' },
-  { value: 'WEDNESDAY', short: 'Wed' },
-  { value: 'THURSDAY', short: 'Thu' },
-  { value: 'FRIDAY', short: 'Fri' },
-  { value: 'SATURDAY', short: 'Sat' },
-  { value: 'SUNDAY', short: 'Sun' },
+  { value: 'MON', short: 'Mon' },
+  { value: 'TUE', short: 'Tue' },
+  { value: 'WED', short: 'Wed' },
+  { value: 'THU', short: 'Thu' },
+  { value: 'FRI', short: 'Fri' },
+  { value: 'SAT', short: 'Sat' },
+  { value: 'SUN', short: 'Sun' },
 ];
 
 const DAY_ORDER = WEEKDAYS.reduce((acc, d, i) => ({ ...acc, [d.value]: i }), {});
@@ -59,12 +63,13 @@ export const formatTimetable = (timetable = []) =>
     .map(formatSlot)
     .filter(Boolean);
 
-// Drop empty rows and coerce to the API shape before sending.
+// Coerce to the exact API shape before sending: at least one day is required per slot
+// (the backend rejects day-less slots), and times must be "HH:mm" (seconds stripped).
 export const cleanTimetable = (timetable = []) =>
   (Array.isArray(timetable) ? timetable : [])
     .map((s) => ({
       days: Array.isArray(s?.days) ? s.days.filter(Boolean) : [],
-      startTime: s?.startTime || '',
-      endTime: s?.endTime || '',
+      startTime: fmtTime(s?.startTime),
+      endTime: fmtTime(s?.endTime),
     }))
-    .filter((s) => s.days.length > 0 || s.startTime || s.endTime);
+    .filter((s) => s.days.length > 0);
