@@ -957,6 +957,14 @@ const CourseManagement = () => {
     }
   }, []);
 
+  // Flat institute-wide batch list (batches are independent of courses).
+  const loadBatches = useCallback(async () => {
+    setBatchesLoading(true);
+    const { data } = await newBatchService.getAllBatches();
+    setBatches(Array.isArray(data) ? data : []);
+    setBatchesLoading(false);
+  }, []);
+
   // Lazy per-node loaders for the curriculum tree, via the ?include= endpoints.
   const loadChaptersForSubject = useCallback(async (subjectId) => {
     setLoadingChapterSubjects((prev) => new Set(prev).add(subjectId));
@@ -1185,14 +1193,6 @@ const CourseManagement = () => {
       }
     }
   };
-
-  // ---- Batches: flat institute-wide list + CRUD ----
-  const loadBatches = useCallback(async () => {
-    setBatchesLoading(true);
-    const { data } = await newBatchService.getAllBatches();
-    setBatches(Array.isArray(data) ? data : []);
-    setBatchesLoading(false);
-  }, []);
 
   // Expand/collapse a subject; lazy-load its chapters on first expand.
   const toggleSubject = (subjectId) => {
