@@ -1,6 +1,47 @@
 import { get, post, put, del, getActiveInstituteId } from '../lib/apiClient';
 import { courseService } from './courseService';
 
+// Map a full question (as returned by GET /questions/{id}) to the PUT request
+// body, applying field overrides. Mirrors useQuestionForm.buildPayload so the
+// update contract stays identical to the manual-edit modal, while additionally
+// preserving fields the modal omits (e.g. correctIntegerAnswer). We re-send the
+// whole resource so the update is safe whether the backend PUT is a partial
+// update or a full replace.
+function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
+  const type = q?.questionType || q?.question_type || 'mcq';
+
+  const hasTopicOverride = changes.topicId !== undefined && changes.topicId !== null && changes.topicId !== '';
+  const resolvedTopicId = hasTopicOverride
+    ? parseInt(changes.topicId)
+    : (q?.topicId != null ? parseInt(q.topicId) : null);
+
+  const difficultyLevel = String(
+    changes.difficultyLevel || q?.difficultyLevel || q?.difficulty_level || 'EASY'
+  ).toUpperCase();
+
+  return {
+    text: q?.text ?? q?.question_text ?? '',
+    questionImagePath: q?.questionImagePath || '',
+    difficultyLevel,
+    topicId: resolvedTopicId,
+    questionType: type,
+    marks: parseInt(q?.marks) || 4,
+    negativeMarks: parseFloat(q?.negativeMarks) || 0,
+    textFormat: q?.textFormat || 'PLAIN',
+    explanation: q?.explanation || '',
+    ...(q?.instituteId != null && { instituteId: q.instituteId }),
+    ...(q?.correctIntegerAnswer != null && { correctIntegerAnswer: q.correctIntegerAnswer }),
+    ...(String(type).toLowerCase() === 'mcq' && {
+      options: (Array.isArray(q?.options) ? q.options : []).map((opt, i) => ({
+        text: opt?.text ?? opt?.option_text ?? '',
+        optionImagePath: opt?.optionImagePath || '',
+        isCorrect: opt?.isCorrect ?? opt?.is_correct ?? false,
+        optionOrder: opt?.optionOrder ?? opt?.option_order ?? i + 1
+      }))
+    })
+  };
+}
+
 export const questionService = {
   async searchQuestions(searchParams = {}) {
     try {
@@ -106,6 +147,24 @@ export const questionService = {
     }
   },
 
+  // Update only a question's difficulty and/or topic without opening the full
+  // editor. Re-fetches the complete question first and merges the change in, so
+  // no other field (text, options, explanation) is lost — this holds whether the
+  // backend PUT is a partial update or a full replace.
+  // `changes` = { difficultyLevel?, topicId? }.
+  async updateQuestionFields(questionId, changes = {}) {
+    try {
+      const { data: full, error: loadError } = await this.getQuestionById(questionId);
+      if (loadError || !full) {
+        return { data: null, error: loadError || { message: 'Failed to load question for update' } };
+      }
+      const payload = buildUpdatePayloadFromQuestion(full, changes);
+      return await this.updateQuestion(questionId, payload);
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to update question' } };
+    }
+  },
+
   async getQuestionById(questionId) {
     try {
       const { data, error, success } = await get(`/questions/${questionId}`);
@@ -141,6 +200,17 @@ export const questionService = {
 
   async getTopicsByChapter(chapterId, pagination = { page: 0, size: 100 }) {
     return await courseService.getTopics(chapterId, pagination);
+  },
+
+  // A question only carries topicId/topicName (no subject/chapter), so resolving
+  // its full Subject→Chapter→Topic path means walking up: topic -> chapterId,
+  // chapter -> subjectId. Used to prefill the inline topic editor.
+  async getTopicById(topicId) {
+    return await courseService.getTopic(topicId);
+  },
+
+  async getChapterById(chapterId) {
+    return await courseService.getChapterById(chapterId);
   },
 
   // Kept for backward compatibility.

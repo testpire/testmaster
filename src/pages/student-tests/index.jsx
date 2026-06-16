@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
+import Modal from '../../components/ui/Modal';
 import { newTestService } from '../../services/newTestService';
 import { formatDateTime, isWithinWindow } from '../test-management/testConstants';
 
@@ -15,6 +16,8 @@ const StudentTests = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [startingId, setStartingId] = useState(null);
+  // Test the student has clicked "Start" on but not yet confirmed.
+  const [confirmTest, setConfirmTest] = useState(null);
 
   useEffect(() => {
     document.title = 'My Tests - TestMaster';
@@ -51,11 +54,13 @@ const StudentTests = () => {
     const { data, error: err } = await newTestService.startAttempt(testId);
     setStartingId(null);
     if (err) {
+      setConfirmTest(null); // close the dialog so the page-level error is visible
       setError(err.message || 'Could not start the test');
       return;
     }
     const attemptId = data?.attemptId ?? data?.id ?? data?.attempt?.id;
     if (!attemptId) {
+      setConfirmTest(null);
       setError('Attempt started but no attempt id was returned.');
       return;
     }
@@ -120,7 +125,7 @@ const StudentTests = () => {
         variant="default"
         size="sm"
         disabled={!open || startingId === getTestId(t)}
-        onClick={() => handleStart(t)}
+        onClick={() => setConfirmTest(t)}
         iconName={startingId === getTestId(t) ? 'Loader2' : 'Play'}
         iconPosition="left"
         className={startingId === getTestId(t) ? 'animate-pulse' : ''}
@@ -204,6 +209,76 @@ const StudentTests = () => {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={confirmTest != null}
+        onClose={() => {
+          // Don't let a backdrop/esc dismiss interrupt an in-flight start.
+          if (startingId == null) setConfirmTest(null);
+        }}
+        size="md"
+        title="Start test?"
+        description={confirmTest ? (confirmTest.title || `Test #${getTestId(confirmTest)}`) : ''}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={startingId != null}
+              onClick={() => setConfirmTest(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={startingId != null}
+              onClick={() => confirmTest && handleStart(confirmTest)}
+              iconName={startingId != null ? 'Loader2' : 'Play'}
+              iconPosition="left"
+              className={startingId != null ? 'animate-pulse' : ''}
+            >
+              {startingId != null ? 'Starting…' : 'Start Test'}
+            </Button>
+          </>
+        }
+      >
+        {confirmTest && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <Icon name="WifiOff" size={20} className="mt-0.5 flex-shrink-0 text-amber-600" />
+              <p className="text-sm text-amber-800">
+                Make sure you have a <strong>stable internet connection</strong> before
+                you begin. A drop in connectivity during the test may cost you time or answers.
+              </p>
+            </div>
+
+            <p className="text-sm text-foreground">
+              Once you start, please keep the following in mind:
+            </p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <Icon name="Clock" size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
+                <span>
+                  The timer starts immediately
+                  {confirmTest.durationMinutes != null
+                    ? ` — you'll have ${confirmTest.durationMinutes} minutes`
+                    : ''}{' '}
+                  and will not pause.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="RefreshCw" size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
+                <span>Do not refresh or close the tab while the test is in progress.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="Monitor" size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
+                <span>Stay on a single device and avoid switching apps or windows.</span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </Modal>
     </PageLayout>
   );
 };

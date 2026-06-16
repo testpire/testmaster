@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
@@ -306,6 +306,185 @@ const QuestionBank = () => {
     setIsManualQuestionModalOpen(true);
   };
 
+  // --- Inline difficulty / topic editing ---------------------------------
+  // Difficulty and topic are editable in place on each card. The page (not the
+  // card) owns the map of unsaved changes, keyed by question id, so a single
+  // "Save all" in bulk mode can replay every staged change. `pendingEdits[id]`
+  // holds only fields that actually differ from the question's current value.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState({});
+  const [savingRowId, setSavingRowId] = useState(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [rowErrors, setRowErrors] = useState({});
+
+  const pendingCount = Object.keys(pendingEdits).length;
+
+  // Merge a field change into the pending map, pruning any field that has been
+  // dragged back to the question's original value so the "changed" count and the
+  // dirty highlight stay honest.
+  const handleFieldChange = (questionId, changes) => {
+    setRowErrors((prev) => {
+      if (!prev[questionId]) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+    setPendingEdits((prev) => {
+      const q = selectedQuestions.find((x) => String(x.id) === String(questionId));
+      const merged = { ...(prev[questionId] || {}), ...changes };
+      const pruned = {};
+
+      const origDifficulty = String(q?.difficultyLevel || '').toUpperCase();
+      if (merged.difficultyLevel && String(merged.difficultyLevel).toUpperCase() !== origDifficulty) {
+        pruned.difficultyLevel = String(merged.difficultyLevel).toUpperCase();
+      }
+
+      // topicId === null is the explicit "revert to original topic" signal.
+      const origTopicId = q?.topicId ?? q?.topic ?? '';
+      if (
+        merged.topicId != null &&
+        merged.topicId !== '' &&
+        String(merged.topicId) !== String(origTopicId)
+      ) {
+        pruned.topicId = merged.topicId;
+        pruned.topicName = merged.topicName;
+      }
+
+      const next = { ...prev };
+      if (Object.keys(pruned).length === 0) {
+        delete next[questionId];
+      } else {
+        next[questionId] = pruned;
+      }
+      return next;
+    });
+  };
+
+  const clearPending = (questionId) =>
+    setPendingEdits((prev) => {
+      if (!prev[questionId]) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+
+  // Persist one question's staged change. The service re-fetches the full
+  // question and merges, so untouched fields (text, options, explanation) are
+  // preserved. On success, patch the list item in place and drop it from the
+  // pending map.
+  const persistEdit = async (questionId, changes) => {
+    const result = await questionService.updateQuestionFields(questionId, changes);
+    if (!result?.error) {
+      setSelectedQuestions((prev) =>
+        prev.map((q) =>
+          String(q.id) === String(questionId)
+            ? {
+                ...q,
+                ...(changes.difficultyLevel ? { difficultyLevel: changes.difficultyLevel } : {}),
+                ...(changes.topicId != null
+                  ? { topicId: changes.topicId, topicName: changes.topicName ?? q.topicName }
+                  : {})
+              }
+            : q
+        )
+      );
+    }
+    return result;
+  };
+
+  const handleSaveRow = async (questionId) => {
+    const changes = pendingEdits[questionId];
+    if (!changes) return;
+    setSavingRowId(questionId);
+    const result = await persistEdit(questionId, changes);
+    setSavingRowId(null);
+    if (result?.error) {
+      setRowErrors((prev) => ({ ...prev, [questionId]: result.error.message || 'Failed to save' }));
+    } else {
+      clearPending(questionId);
+    }
+  };
+
+  // Save every staged change. Run sequentially so each PUT's load+merge is clean
+  // and failures are isolated — successful rows clear, failed rows keep their
+  // change + show an inline error so the user can retry just those.
+  const handleSaveAll = async () => {
+    const ids = Object.keys(pendingEdits);
+    if (ids.length === 0 || savingAll) return;
+    setSavingAll(true);
+    setRowErrors({});
+    const errors = {};
+    for (const id of ids) {
+      const result = await persistEdit(id, pendingEdits[id]);
+      if (result?.error) {
+        errors[id] = result.error.message || 'Failed to save';
+      } else {
+        clearPending(id);
+      }
+    }
+    setRowErrors(errors);
+    setSavingAll(false);
+  };
+
+  const toggleBulkMode = () => {
+    // Leaving bulk mode keeps any staged edits — they fall back to per-row Save.
+    setBulkMode((prev) => !prev);
+  };
+
+  // Cache the cascade option lists. Each card's topic editor prefills its current
+  // Subject→Chapter→Topic path, and bulk mode expands every card at once — without
+  // a cache that's one chapters+topics fetch per card, mostly for the same parents.
+  const chaptersCacheRef = useRef({});
+  const topicsCacheRef = useRef({});
+
+  const fetchChaptersFor = useCallback(async (subjectId) => {
+    if (!subjectId) return [];
+    const key = String(subjectId);
+    if (chaptersCacheRef.current[key]) return chaptersCacheRef.current[key];
+    const { data } = await questionService.getChaptersBySubject(subjectId);
+    const list = Array.isArray(data) ? data : [];
+    chaptersCacheRef.current[key] = list;
+    return list;
+  }, []);
+
+  const fetchTopicsFor = useCallback(async (chapterId) => {
+    if (!chapterId) return [];
+    const key = String(chapterId);
+    if (topicsCacheRef.current[key]) return topicsCacheRef.current[key];
+    const { data } = await questionService.getTopicsByChapter(chapterId);
+    const list = Array.isArray(data) ? data : [];
+    topicsCacheRef.current[key] = list;
+    return list;
+  }, []);
+
+  // A question response only carries topicId/topicName — not its subject/chapter.
+  // To prefill the topic editor's cascade we resolve the path upward once per
+  // topic (topic -> chapterId, chapter -> subjectId) and cache the result.
+  const topicPathCacheRef = useRef({});
+  const resolveTopicPath = useCallback(async (topicId) => {
+    if (topicId == null || topicId === '') return null;
+    const key = String(topicId);
+    if (topicPathCacheRef.current[key]) return topicPathCacheRef.current[key];
+    const { data: topic } = await questionService.getTopicById(topicId);
+    const chapterId = topic?.chapterId ?? null;
+    let subjectId = null;
+    if (chapterId != null) {
+      const { data: chapter } = await questionService.getChapterById(chapterId);
+      subjectId = chapter?.subjectId ?? null;
+    }
+    const path = { subjectId, chapterId, topicId };
+    topicPathCacheRef.current[key] = path;
+    return path;
+  }, []);
+
+  // Curriculum is institute-scoped — drop the cached lists when a super-admin
+  // switches institute so a card never shows another institute's chapters/topics.
+  useEffect(() => {
+    chaptersCacheRef.current = {};
+    topicsCacheRef.current = {};
+    topicPathCacheRef.current = {};
+  }, [superAdminContext?.selectedInstitute?.id]);
+
   const handleQuestionRemove = (index) => {
     setSelectedQuestions(prev => prev?.filter((_, i) => i !== index));
   };
@@ -508,6 +687,35 @@ const QuestionBank = () => {
               </div>
 
               <Button
+                variant={bulkMode ? 'default' : 'outline'}
+                onClick={toggleBulkMode}
+                iconName={bulkMode ? 'Check' : 'PencilLine'}
+                iconPosition="left"
+                className="text-sm"
+                title="Edit difficulty & topic across questions"
+              >
+                <span className="hidden sm:inline">{bulkMode ? 'Done editing' : 'Bulk edit'}</span>
+                <span className="sm:hidden">{bulkMode ? 'Done' : 'Edit'}</span>
+              </Button>
+
+              {bulkMode && (
+                <Button
+                  variant="success"
+                  onClick={handleSaveAll}
+                  disabled={pendingCount === 0 || savingAll}
+                  iconName={savingAll ? 'Loader2' : 'Save'}
+                  iconPosition="left"
+                  className={`text-sm ${savingAll ? 'animate-pulse' : ''}`}
+                >
+                  {savingAll
+                    ? 'Saving…'
+                    : pendingCount > 0
+                      ? `Save all (${pendingCount})`
+                      : 'Save all'}
+                </Button>
+              )}
+
+              <Button
                 variant="outline"
                 onClick={() => setIsBulkImportModalOpen(true)}
                 iconName="Upload"
@@ -582,6 +790,18 @@ const QuestionBank = () => {
                     onMoveUp={handleQuestionMoveUp}
                     onMoveDown={handleQuestionMoveDown}
                     onDelete={() => handleDeleteQuestion(question?.id)}
+                    editable
+                    bulkMode={bulkMode}
+                    subjects={subjects}
+                    fetchChapters={fetchChaptersFor}
+                    fetchTopics={fetchTopicsFor}
+                    resolveTopicPath={resolveTopicPath}
+                    pendingEdit={pendingEdits[question?.id] || null}
+                    onFieldChange={handleFieldChange}
+                    onSaveRow={handleSaveRow}
+                    onResetRow={clearPending}
+                    savingRow={savingAll || String(savingRowId) === String(question?.id)}
+                    rowError={rowErrors[question?.id] || null}
                   />
                 ))}
               </div>

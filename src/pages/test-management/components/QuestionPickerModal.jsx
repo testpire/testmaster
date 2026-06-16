@@ -25,32 +25,55 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState('');
   const listRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
-  // Seed the selection from the test's existing questions when opening.
+  // Seed the selection from the test's existing questions when opening. The test
+  // row coming from the list only carries a questionCount (not the full question
+  // set), so fetch the test detail to recover previously-added questions and show
+  // them in the "Selected" panel.
   useEffect(() => {
     if (!isOpen) return;
-    const seed = new Map();
-    (test?.questions || []).forEach((q, i) => {
-      seed.set(q.questionId, {
-        questionId: q.questionId,
-        marks: q.marks ?? 1,
-        negativeMarks: q.negativeMarks ?? 0,
-        sortOrder: q.sortOrder ?? i + 1,
-        text: q.text,
-        textFormat: q.textFormat,
-        questionImagePath: q.questionImagePath,
-        questionType: q.questionType
-      });
-    });
-    setSelected(seed);
     setFilters({ subjectId: '', difficulty: '' });
     setError('');
     loadSubjects();
+    seedSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, test?.id]);
+
+  const seedSelection = async () => {
+    setSeeding(true);
+    try {
+      let existing =
+        Array.isArray(test?.questions) && test.questions.length > 0
+          ? test.questions
+          : null;
+      if (!existing && test?.id != null) {
+        const { data } = await newTestService.getTest(test.id);
+        existing = Array.isArray(data?.questions) ? data.questions : [];
+      }
+      const seed = new Map();
+      (existing || []).forEach((q, i) => {
+        const qid = q.questionId ?? q.id;
+        if (qid == null) return;
+        seed.set(qid, {
+          questionId: qid,
+          marks: q.marks ?? 1,
+          negativeMarks: q.negativeMarks ?? 0,
+          sortOrder: q.sortOrder ?? i + 1,
+          text: q.text,
+          textFormat: q.textFormat,
+          questionImagePath: q.questionImagePath,
+          questionType: q.questionType
+        });
+      });
+      setSelected(seed);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   // Reload the question list whenever filters change (while open).
   useEffect(() => {
@@ -148,6 +171,13 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   const selectedList = useMemo(
     () => Array.from(selected.values()).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
     [selected]
+  );
+
+  // Hide questions already on this test from the bank browser — the left panel
+  // shows only what can still be added; the right panel is the test's set.
+  const availableQuestions = useMemo(
+    () => questions.filter((q) => !selected.has(q.id)),
+    [questions, selected]
   );
 
   const totalMarks = useMemo(
@@ -255,52 +285,43 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                 </div>
               )}
-              {!loading && questions.length === 0 && (
+              {!loading && availableQuestions.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground text-sm">
-                  No questions found. Add questions in the Question Bank first.
+                  {questions.length === 0
+                    ? 'No questions found. Add questions in the Question Bank first.'
+                    : 'All matching questions are already added to this test.'}
                 </div>
               )}
-              {questions.map((q) => {
-                const isSel = selected.has(q.id);
-                return (
-                  <button
-                    key={q.id}
-                    type="button"
-                    onClick={() => toggle(q)}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                      isSel
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-muted/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Icon
-                        name={isSel ? 'CheckSquare' : 'Square'}
-                        size={18}
-                        className={isSel ? 'text-primary mt-0.5' : 'text-muted-foreground mt-0.5'}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-foreground line-clamp-2">
-                          <MathText text={q.text || `Question #${q.id}`} textFormat={q.textFormat} />
-                        </p>
-                        <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
-                          {q.topicName && <span>📚 {q.topicName}</span>}
-                          {q.difficultyLevel && <span>⚡ {q.difficultyLevel}</span>}
-                          <span>★ {q.marks ?? 1} marks</span>
-                        </div>
-                        {q.questionImagePath && (
-                          <img
-                            src={resolveImagePath(q.questionImagePath)}
-                            alt=""
-                            className="mt-2 max-h-24 rounded border border-border"
-                            onError={(e) => (e.target.style.display = 'none')}
-                          />
-                        )}
+              {availableQuestions.map((q) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => toggle(q)}
+                  className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-start gap-2">
+                    <Icon name="Plus" size={18} className="text-primary mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground line-clamp-2">
+                        <MathText text={q.text || `Question #${q.id}`} textFormat={q.textFormat} />
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                        {q.topicName && <span>📚 {q.topicName}</span>}
+                        {q.difficultyLevel && <span>⚡ {q.difficultyLevel}</span>}
+                        <span>★ {q.marks ?? 1} marks</span>
                       </div>
+                      {q.questionImagePath && (
+                        <img
+                          src={resolveImagePath(q.questionImagePath)}
+                          alt=""
+                          className="mt-2 max-h-24 rounded border border-border"
+                          onError={(e) => (e.target.style.display = 'none')}
+                        />
+                      )}
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+              ))}
               {loadingMore && (
                 <div className="flex items-center justify-center py-3">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
@@ -320,7 +341,12 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
               </span>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {selectedList.length === 0 && (
+              {seeding && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                </div>
+              )}
+              {!seeding && selectedList.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground text-sm">
                   Pick questions from the left to build this test.
                 </div>

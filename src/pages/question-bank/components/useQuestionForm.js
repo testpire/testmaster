@@ -24,6 +24,11 @@ const makeBlankOptions = () => [
   { label: 'D', text: '', optionImagePath: '', optionImagePreview: '', isCorrect: false }
 ];
 
+// The cascade <Select>s use string option values (id.toString()) and compare
+// with strict ===, while the API returns numeric ids. Normalize every id we put
+// into the form to a string so the dropdowns actually show the saved selection.
+const asId = (v) => (v === null || v === undefined || v === '' ? '' : String(v));
+
 const makeBlankQuestion = () => ({
   questionText: '',
   questionImagePath: '',
@@ -132,9 +137,9 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
         // Backend already returns a full public URL, so it doubles as the preview.
         questionImagePreview: editingQuestion?.questionImagePath || '',
         questionType: editingQuestion?.question_type || 'mcq',
-        subject: editingQuestion?.subjectId || editingQuestion?.subject || '',
-        chapter: editingQuestion?.chapterId || editingQuestion?.chapter || '',
-        topic: editingQuestion?.topicId || editingQuestion?.topic || '',
+        subject: asId(editingQuestion?.subjectId ?? editingQuestion?.subject),
+        chapter: asId(editingQuestion?.chapterId ?? editingQuestion?.chapter),
+        topic: asId(editingQuestion?.topicId ?? editingQuestion?.topic),
         difficultyLevel: editingQuestion?.difficultyLevel || editingQuestion?.difficulty_level || 'EASY',
         marks: editingQuestion?.marks || 4,
         negativeMarks: editingQuestion?.negativeMarks || editingQuestion?.negative_marks || 1,
@@ -150,6 +155,39 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
           : makeBlankOptions(),
         correctIntegerAnswer: editingQuestion?.correct_integer_answer || ''
       });
+
+      // A question response only carries topicId — not subjectId/chapterId — so
+      // the prefill above leaves Subject/Chapter blank, which in turn leaves
+      // Topic's options unloaded (it looks blank too). Resolve the path upward
+      // from the topic (topic -> chapterId, chapter -> subjectId) and patch it
+      // in; the cascade effects below then load the dropdown options.
+      const editSubjectId = editingQuestion?.subjectId ?? editingQuestion?.subject;
+      const editChapterId = editingQuestion?.chapterId ?? editingQuestion?.chapter;
+      const editTopicId = editingQuestion?.topicId ?? editingQuestion?.topic;
+      if (editTopicId && (!editSubjectId || !editChapterId)) {
+        let cancelled = false;
+        (async () => {
+          let chapterId = editChapterId;
+          let subjectId = editSubjectId;
+          if (!chapterId) {
+            const { data: topic } = await questionService.getTopicById(editTopicId);
+            chapterId = topic?.chapterId ?? '';
+          }
+          if (!subjectId && chapterId) {
+            const { data: chapter } = await questionService.getChapterById(chapterId);
+            subjectId = chapter?.subjectId ?? '';
+          }
+          if (cancelled) return;
+          setQuestionData((prev) => ({
+            ...prev,
+            subject: asId(subjectId) || prev.subject,
+            chapter: asId(chapterId) || prev.chapter
+          }));
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }
     } else if (active && !editingQuestion) {
       // Reset form for new question
       setFormatManual(false);
