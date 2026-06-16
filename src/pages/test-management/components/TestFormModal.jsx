@@ -3,6 +3,7 @@ import { newTestService } from '../../../services/newTestService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
+import DateTimePicker from '../../../components/ui/DateTimePicker';
 import { toDatetimeLocal, toUtcIso } from '../testConstants';
 
 // Create / edit a test's metadata. Per-question marks and the question set itself
@@ -205,24 +206,22 @@ const TestFormModal = ({
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Available From
                 </label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
+                  mode="datetime"
                   value={form.availableFrom}
-                  onChange={(e) => setField('availableFrom', e.target.value)}
+                  onChange={(v) => setField('availableFrom', v)}
                   disabled={loading}
-                  className={inputCls}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Available Until <span className="text-muted-foreground">(expiry)</span>
                 </label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
+                  mode="datetime"
                   value={form.availableUntil}
-                  onChange={(e) => setField('availableUntil', e.target.value)}
+                  onChange={(v) => setField('availableUntil', v)}
                   disabled={loading}
-                  className={inputCls}
                 />
               </div>
             </div>

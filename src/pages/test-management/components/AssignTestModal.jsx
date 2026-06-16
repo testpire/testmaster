@@ -6,6 +6,7 @@ import { newUserService } from '../../../services/newUserService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
+import DateTimePicker from '../../../components/ui/DateTimePicker';
 import {
   TARGET_TYPES,
   TARGET_TYPE_LABEL,
@@ -261,22 +262,20 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Available From <span className="text-muted-foreground">(optional)</span>
                 </label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
+                  mode="datetime"
                   value={form.availableFrom}
-                  onChange={(e) => setField('availableFrom', e.target.value)}
-                  className={inputCls}
+                  onChange={(v) => setField('availableFrom', v)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Available Until <span className="text-muted-foreground">(optional)</span>
                 </label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
+                  mode="datetime"
                   value={form.availableUntil}
-                  onChange={(e) => setField('availableUntil', e.target.value)}
-                  className={inputCls}
+                  onChange={(v) => setField('availableUntil', v)}
                 />
               </div>
             </div>

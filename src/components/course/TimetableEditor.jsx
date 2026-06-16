@@ -1,13 +1,11 @@
 import React from 'react';
 import Icon from '../AppIcon';
+import DateTimePicker from '../ui/DateTimePicker';
 import { WEEKDAYS } from '../../utils/timetable';
 
 // Editor for a batch timetable: a list of slots, each a set of weekdays plus a
 // start/end time. `value` is a controlled TimetableSlot[] ({ days, startTime, endTime });
 // `onChange` receives the updated array. Use cleanTimetable() before sending to the API.
-
-const inputCls =
-  'px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50';
 
 const TimetableEditor = ({ value = [], onChange, disabled = false }) => {
   const slots = Array.isArray(value) ? value : [];
@@ -77,23 +75,21 @@ const TimetableEditor = ({ value = [], onChange, disabled = false }) => {
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Start</label>
-                <input
-                  type="time"
+                <DateTimePicker
+                  mode="time"
                   value={slot.startTime || ''}
-                  onChange={(e) => updateSlot(index, { startTime: e.target.value })}
+                  onChange={(v) => updateSlot(index, { startTime: v })}
                   disabled={disabled}
-                  className={`${inputCls} w-full`}
                 />
               </div>
               <span className="text-muted-foreground pt-5">–</span>
               <div className="flex-1">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">End</label>
-                <input
-                  type="time"
+                <DateTimePicker
+                  mode="time"
                   value={slot.endTime || ''}
-                  onChange={(e) => updateSlot(index, { endTime: e.target.value })}
+                  onChange={(v) => updateSlot(index, { endTime: v })}
                   disabled={disabled}
-                  className={`${inputCls} w-full`}
                 />
               </div>
             </div>

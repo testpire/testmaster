@@ -7,6 +7,7 @@ import { CLASS_OPTIONS } from '../../../utils/classOptions';
 import StudentEnrollmentFields from '../../../components/enrollment/StudentEnrollmentFields';
 import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
+import DateTimePicker from '../../../components/ui/DateTimePicker';
 import Button from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import Icon from '../../../components/AppIcon';
@@ -697,13 +698,15 @@ const CreateUserModal = ({
 
             <Section icon="IdCard" title="Personal Information">
               <TwoCol>
-                <Input
-                  type="date"
-                  label="Date of Birth"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                  disabled={loading}
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none text-foreground">Date of Birth</label>
+                  <DateTimePicker
+                    mode="date"
+                    value={formData.dateOfBirth}
+                    onChange={(v) => handleInputChange('dateOfBirth', v)}
+                    disabled={loading}
+                  />
+                </div>
                 <SelectField
                   label="Blood Group"
                   value={formData.bloodGroup}

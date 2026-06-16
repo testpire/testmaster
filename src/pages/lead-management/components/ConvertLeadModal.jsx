@@ -4,6 +4,7 @@ import { newBatchService } from '../../../services/newBatchService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
+import DateTimePicker from '../../../components/ui/DateTimePicker';
 
 // Convert a nurtured lead into an actual student user (POST /leads/{id}/convert).
 // enrolledCourseId is the only required input here; yearOfStudy and rollNumber are
@@ -184,12 +185,11 @@ const ConvertLeadModal = ({ isOpen, onClose, onSuccess, lead = null, courses = [
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Date of Birth</label>
-                <input
-                  type="date"
+                <DateTimePicker
+                  mode="date"
                   value={form.dateOfBirth}
-                  onChange={(e) => setField('dateOfBirth', e.target.value)}
+                  onChange={(v) => setField('dateOfBirth', v)}
                   disabled={loading}
-                  className={inputCls}
                 />
               </div>
               <div>

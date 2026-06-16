@@ -3,6 +3,7 @@ import { newLeadService } from '../../../services/newLeadService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
+import DateTimePicker from '../../../components/ui/DateTimePicker';
 import { CLASS_OPTIONS } from '../../../utils/classOptions';
 import {
   LEAD_STATUSES,
@@ -361,12 +362,11 @@ const CreateLeadModal = ({
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Next Follow-up
                 </label>
-                <input
-                  type="date"
+                <DateTimePicker
+                  mode="date"
                   value={form.nextFollowUpDate}
-                  onChange={(e) => setField('nextFollowUpDate', e.target.value)}
+                  onChange={(v) => setField('nextFollowUpDate', v)}
                   disabled={loading}
-                  className={inputCls}
                 />
               </div>
 

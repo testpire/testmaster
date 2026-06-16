@@ -7,6 +7,7 @@ import { newBatchService } from '../../services/newBatchService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import DateTimePicker from '../../components/ui/DateTimePicker';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
 import TimetableEditor from '../../components/course/TimetableEditor';
@@ -115,20 +116,18 @@ const BatchModal = ({ isOpen, onClose, batch, onSubmit }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
-              <input
-                type="date"
+              <DateTimePicker
+                mode="date"
                 value={form.startDate}
-                onChange={(e) => setField('startDate', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                onChange={(v) => setField('startDate', v)}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
-              <input
-                type="date"
+              <DateTimePicker
+                mode="date"
                 value={form.endDate}
-                onChange={(e) => setField('endDate', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                onChange={(v) => setField('endDate', v)}
               />
             </div>
             <div>
