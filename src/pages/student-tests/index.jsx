@@ -59,7 +59,9 @@ const StudentTests = () => {
       setError('Attempt started but no attempt id was returned.');
       return;
     }
-    navigate(`/test-taking/${attemptId}`);
+    // Hand the known duration to the runner as a fallback for the countdown clock,
+    // in case the attempt payload doesn't echo it back.
+    navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
   };
 
   const renderState = (t) => {
@@ -102,7 +104,7 @@ const StudentTests = () => {
           size="sm"
           onClick={() => {
             const attemptId = getAttemptId(t);
-            if (attemptId) navigate(`/test-taking/${attemptId}`);
+            if (attemptId) navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
             else handleStart(t);
           }}
           iconName="Play"

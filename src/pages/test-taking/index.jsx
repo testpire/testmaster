@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import TestSecurityWrapper from '../../components/ui/TestSecurityWrapper';
@@ -20,6 +20,7 @@ import MathText from '../../components/MathText';
 const TestTaking = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,22 +72,48 @@ const TestTaking = () => {
         return;
       }
 
-      // Establish the countdown deadline.
-      const durationMin = data.durationMinutes ?? data.test?.durationMinutes ?? null;
-      let remaining = data.remainingSeconds ?? data.timeRemaining ?? null;
+      // Establish the countdown deadline. The attempt payload isn't strongly typed,
+      // so try every plausible field for an explicit remaining time, then an explicit
+      // end timestamp, then derive from start + duration. durationMinutes can also be
+      // handed in via router state from the test list as a last-resort fallback.
+      const durationMin =
+        data.durationMinutes ??
+        data.duration ??
+        data.test?.durationMinutes ??
+        data.test?.duration ??
+        data.testDurationMinutes ??
+        location.state?.durationMinutes ??
+        null;
+      let remaining =
+        data.remainingSeconds ??
+        data.timeRemaining ??
+        data.secondsRemaining ??
+        data.timeLeftSeconds ??
+        data.remainingTimeSeconds ??
+        null;
       if (remaining == null) {
-        const startedAt = data.startedAt || data.startTime || data.createdAt;
-        if (startedAt && durationMin != null) {
+        const endAt = data.expiresAt || data.endTime || data.endsAt || data.deadline || data.attemptEndTime;
+        const startedAt = data.startedAt || data.startTime || data.startedAtTime || data.createdAt;
+        if (endAt) {
+          remaining = Math.round((new Date(endAt).getTime() - Date.now()) / 1000);
+        } else if (startedAt && durationMin != null) {
           const endMs = new Date(startedAt).getTime() + durationMin * 60000;
           remaining = Math.round((endMs - Date.now()) / 1000);
         } else if (durationMin != null) {
           remaining = durationMin * 60;
         }
       }
-      if (remaining != null) {
+      if (remaining != null && !Number.isNaN(remaining)) {
         remaining = Math.max(0, remaining);
         deadlineRef.current = Date.now() + remaining * 1000;
         setTimeRemaining(remaining);
+      } else {
+        // No timing info anywhere — surface what the payload *did* contain so the
+        // real field name can be wired in. The exam still runs, just untimed.
+        console.warn(
+          '[TestTaking] No duration/remaining-time field found on attempt payload; clock hidden. Payload keys:',
+          Object.keys(data || {})
+        );
       }
       setLoading(false);
     })();
