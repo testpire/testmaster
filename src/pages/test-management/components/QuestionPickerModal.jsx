@@ -4,22 +4,49 @@ import { questionService } from '../../../services/questionService';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
+import Select from '../../../components/ui/Select';
 import MathText from '../../../components/MathText';
 import { resolveImagePath } from '../testConstants';
 
 const PAGE_SIZE = 20;
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
 
+// Difficulty → badge colors, shared by both panels.
+const DIFFICULTY_STYLES = {
+  EASY: 'bg-green-100 text-green-700',
+  MEDIUM: 'bg-amber-100 text-amber-700',
+  HARD: 'bg-red-100 text-red-700'
+};
+
+const titleCase = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : '');
+
 // Curate the questions on a test. Browse the institute's question bank (left),
-// pick questions and tune their per-question marks / negative marks (right), then
-// save the whole set via POST /tests/{id}/questions (replaces the question list).
+// narrow it with the Subject → Chapter → Topic + difficulty + text filters,
+// pick questions and tune their per-question marks / negative marks / order on
+// the right, then save the whole set via POST /tests/{id}/questions (replaces
+// the question list).
 const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   const [questions, setQuestions] = useState([]);
-  const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false });
-  const [subjects, setSubjects] = useState([]);
-  const [filters, setFilters] = useState({ subjectId: '', difficulty: '' });
+  const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false, totalElements: 0 });
 
-  // selected: Map keyed by questionId → { questionId, marks, negativeMarks, sortOrder, text, questionImagePath, questionType }
+  // Cascade filter option lists.
+  const [subjects, setSubjects] = useState([]);
+  const [chapters, setChapters] = useState([]);
+  const [topics, setTopics] = useState([]);
+  const [loadingChapters, setLoadingChapters] = useState(false);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+
+  // Active filters that drive the search. searchText is debounced from searchInput.
+  const [filters, setFilters] = useState({
+    subjectId: '',
+    chapterId: '',
+    topicId: '',
+    difficulty: '',
+    searchText: ''
+  });
+  const [searchInput, setSearchInput] = useState('');
+
+  // selected: Map keyed by questionId → { questionId, marks, negativeMarks, sortOrder, text, questionImagePath, questionType, difficultyLevel, topicName }
   const [selected, setSelected] = useState(new Map());
 
   const [loading, setLoading] = useState(false);
@@ -36,7 +63,10 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   // them in the "Selected" panel.
   useEffect(() => {
     if (!isOpen) return;
-    setFilters({ subjectId: '', difficulty: '' });
+    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', searchText: '' });
+    setSearchInput('');
+    setChapters([]);
+    setTopics([]);
     setError('');
     loadSubjects();
     seedSelection();
@@ -66,7 +96,9 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
           text: q.text,
           textFormat: q.textFormat,
           questionImagePath: q.questionImagePath,
-          questionType: q.questionType
+          questionType: q.questionType,
+          difficultyLevel: q.difficultyLevel,
+          topicName: q.topicName
         });
       });
       setSelected(seed);
@@ -74,6 +106,15 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
       setSeeding(false);
     }
   };
+
+  // Debounce the free-text box into the active filter (which triggers a reload).
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const t = setTimeout(() => {
+      setFilters((f) => (f.searchText === searchInput ? f : { ...f, searchText: searchInput }));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput, isOpen]);
 
   // Reload the question list whenever filters change (while open).
   useEffect(() => {
@@ -90,10 +131,67 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     }
   };
 
+  const loadChapters = async (subjectId) => {
+    setLoadingChapters(true);
+    try {
+      const { data } = await questionService.getChaptersBySubject(subjectId);
+      setChapters(Array.isArray(data) ? data : []);
+    } catch {
+      setChapters([]);
+    } finally {
+      setLoadingChapters(false);
+    }
+  };
+
+  const loadTopics = async (chapterId) => {
+    setLoadingTopics(true);
+    try {
+      const { data } = await questionService.getTopicsByChapter(chapterId);
+      setTopics(Array.isArray(data) ? data : []);
+    } catch {
+      setTopics([]);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  // Cascade handlers: changing a parent clears its descendants so the search
+  // never carries a stale chapter/topic from a different subject.
+  const handleSubjectChange = (val) => {
+    setFilters((f) => ({ ...f, subjectId: val || '', chapterId: '', topicId: '' }));
+    setChapters([]);
+    setTopics([]);
+    if (val) loadChapters(val);
+  };
+
+  const handleChapterChange = (val) => {
+    setFilters((f) => ({ ...f, chapterId: val || '', topicId: '' }));
+    setTopics([]);
+    if (val) loadTopics(val);
+  };
+
+  const handleTopicChange = (val) => setFilters((f) => ({ ...f, topicId: val || '' }));
+  const handleDifficultyChange = (val) => setFilters((f) => ({ ...f, difficulty: val || '' }));
+
+  const clearFilters = () => {
+    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', searchText: '' });
+    setSearchInput('');
+    setChapters([]);
+    setTopics([]);
+  };
+
+  const activeFilterCount = useMemo(
+    () => ['subjectId', 'chapterId', 'topicId', 'difficulty', 'searchText'].filter((k) => filters[k]).length,
+    [filters]
+  );
+
   const buildParams = (page) => {
     const p = { page, size: PAGE_SIZE };
     if (filters.subjectId) p.subjectId = filters.subjectId;
+    if (filters.chapterId) p.chapterId = filters.chapterId;
+    if (filters.topicId) p.topicId = filters.topicId;
     if (filters.difficulty) p.difficulty = filters.difficulty;
+    if (filters.searchText) p.searchText = filters.searchText;
     return p;
   };
 
@@ -103,7 +201,11 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
       const { data, pagination: pg } = await questionService.searchQuestions(buildParams(page));
       const list = Array.isArray(data) ? data : [];
       setQuestions((prev) => (page === 0 ? list : [...prev, ...list]));
-      setPagination({ currentPage: pg?.currentPage ?? page, hasMore: !!pg?.hasMore });
+      setPagination({
+        currentPage: pg?.currentPage ?? page,
+        hasMore: !!pg?.hasMore,
+        totalElements: pg?.totalElements ?? list.length
+      });
       if (page === 0 && listRef.current) listRef.current.scrollTop = 0;
     } catch {
       if (page === 0) setQuestions([]);
@@ -129,24 +231,42 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 150) loadMore();
   };
 
+  // Build the "selected" entry for a question from the bank, carrying the display
+  // metadata (difficulty/topic) so the right panel can render badges too.
+  const toSelectedEntry = (q, sortOrder) => ({
+    questionId: q.id,
+    // Default per-question marks from the question's own values.
+    marks: q.marks ?? 1,
+    negativeMarks: q.negativeMarks ?? 0,
+    sortOrder,
+    text: q.text,
+    textFormat: q.textFormat,
+    questionImagePath: q.questionImagePath,
+    questionType: q.questionType,
+    difficultyLevel: q.difficultyLevel,
+    topicName: q.topicName
+  });
+
   const toggle = (q) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (next.has(q.id)) {
-        next.delete(q.id);
-      } else {
-        next.set(q.id, {
-          questionId: q.id,
-          // Default per-question marks from the question's own values.
-          marks: q.marks ?? 1,
-          negativeMarks: q.negativeMarks ?? 0,
-          sortOrder: next.size + 1,
-          text: q.text,
-          textFormat: q.textFormat,
-          questionImagePath: q.questionImagePath,
-          questionType: q.questionType
-        });
-      }
+      if (next.has(q.id)) next.delete(q.id);
+      else next.set(q.id, toSelectedEntry(q, next.size + 1));
+      return next;
+    });
+  };
+
+  // Add every question currently visible in the bank (those not already added).
+  const addAllVisible = () => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      let order = next.size;
+      availableQuestions.forEach((q) => {
+        if (!next.has(q.id)) {
+          order += 1;
+          next.set(q.id, toSelectedEntry(q, order));
+        }
+      });
       return next;
     });
   };
@@ -167,6 +287,23 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
       return next;
     });
   };
+
+  // Reorder a selected question by swapping it with its neighbour, then
+  // renumbering sortOrder 1..n so the order persists exactly as displayed.
+  const moveSelected = (questionId, dir) => {
+    setSelected((prev) => {
+      const arr = Array.from(prev.values()).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const i = arr.findIndex((x) => x.questionId === questionId);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= arr.length) return prev;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      const next = new Map();
+      arr.forEach((item, idx) => next.set(item.questionId, { ...item, sortOrder: idx + 1 }));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelected(new Map());
 
   const selectedList = useMemo(
     () => Array.from(selected.values()).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
@@ -214,8 +351,23 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     }
   };
 
-  const inputCls =
-    'px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
+  // Filter option lists for the shared Select.
+  const subjectOptions = useMemo(() => subjects.map((s) => ({ value: s.id, label: s.name })), [subjects]);
+  const chapterOptions = useMemo(() => chapters.map((c) => ({ value: c.id, label: c.name })), [chapters]);
+  const topicOptions = useMemo(() => topics.map((t) => ({ value: t.id, label: t.name })), [topics]);
+  const difficultyOptions = DIFFICULTIES.map((d) => ({ value: d, label: titleCase(d) }));
+
+  const searchCls =
+    'w-full pl-9 pr-3 h-10 border border-input rounded-md bg-white text-black text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2';
+  const marksInputCls =
+    'w-full mt-1 px-2 py-1 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
+
+  const DifficultyBadge = ({ level }) =>
+    level ? (
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${DIFFICULTY_STYLES[level] || 'bg-muted text-muted-foreground'}`}>
+        {titleCase(level)}
+      </span>
+    ) : null;
 
   return (
     <Modal
@@ -224,8 +376,13 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
       title="Manage Questions"
       description={test?.title}
       size="full"
+      className="max-w-[1400px]"
       footer={
         <>
+          <span className="mr-auto text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{selected.size}</span> selected ·{' '}
+            <span className="font-semibold text-foreground">{totalMarks}</span> marks
+          </span>
           <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
@@ -249,34 +406,122 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
           <p className="text-destructive text-sm font-medium">{error}</p>
         </div>
       )}
-        <div className="flex flex-col lg:flex-row -mx-6 -my-4 h-[calc(90vh-8rem)] min-h-0">
+
+      <div className="-mx-6 -my-4 flex flex-col h-[calc(90vh-8rem)] min-h-0">
+        {/* FILTER BAR */}
+        <div className="px-4 py-3 border-b border-border bg-muted/20 flex-shrink-0">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium text-foreground mb-2 block">Search</label>
+              <div className="relative">
+                <Icon
+                  name="Search"
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search question text..."
+                  className={searchCls}
+                />
+              </div>
+            </div>
+
+            <div className="w-full sm:w-44">
+              <Select
+                label="Subject"
+                options={subjectOptions}
+                value={filters.subjectId}
+                onChange={handleSubjectChange}
+                placeholder="All subjects"
+                searchable
+                clearable
+              />
+            </div>
+
+            <div className="w-full sm:w-44">
+              <Select
+                label="Chapter"
+                options={chapterOptions}
+                value={filters.chapterId}
+                onChange={handleChapterChange}
+                placeholder={filters.subjectId ? 'All chapters' : 'Select subject first'}
+                disabled={!filters.subjectId || loadingChapters}
+                loading={loadingChapters}
+                searchable
+                clearable
+              />
+            </div>
+
+            <div className="w-full sm:w-44">
+              <Select
+                label="Topic"
+                options={topicOptions}
+                value={filters.topicId}
+                onChange={handleTopicChange}
+                placeholder={filters.chapterId ? 'All topics' : 'Select chapter first'}
+                disabled={!filters.chapterId || loadingTopics}
+                loading={loadingTopics}
+                searchable
+                clearable
+              />
+            </div>
+
+            <div className="w-full sm:w-40">
+              <Select
+                label="Difficulty"
+                options={difficultyOptions}
+                value={filters.difficulty}
+                onChange={handleDifficultyChange}
+                placeholder="All difficulty"
+                clearable
+              />
+            </div>
+
+            {activeFilterCount > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={clearFilters}
+                iconName="X"
+                iconPosition="left"
+                className="h-10"
+              >
+                Clear ({activeFilterCount})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* BODY: bank browser (left) + selected (right) */}
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* LEFT: question bank browser */}
           <div className="flex-1 flex flex-col border-r border-border min-h-0">
-            <div className="p-3 border-b border-border flex flex-wrap gap-2">
-              <select
-                value={filters.subjectId}
-                onChange={(e) => setFilters((f) => ({ ...f, subjectId: e.target.value }))}
-                className={inputCls}
-              >
-                <option value="">All subjects</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.difficulty}
-                onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))}
-                className={inputCls}
-              >
-                <option value="">All difficulty</option>
-                {DIFFICULTIES.map((d) => (
-                  <option key={d} value={d}>
-                    {d.charAt(0) + d.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
+            <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 text-sm">
+                <Icon name="Library" size={16} className="text-muted-foreground" />
+                <span className="font-medium text-foreground">Question Bank</span>
+                {!loading && (
+                  <span className="text-muted-foreground">
+                    · {availableQuestions.length} available
+                    {pagination.totalElements ? ` of ${pagination.totalElements}` : ''}
+                  </span>
+                )}
+              </div>
+              {availableQuestions.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAllVisible}
+                  iconName="ListPlus"
+                  iconPosition="left"
+                >
+                  Add all shown
+                </Button>
+              )}
             </div>
 
             <div ref={listRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -286,10 +531,24 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                 </div>
               )}
               {!loading && availableQuestions.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground text-sm">
-                  {questions.length === 0
-                    ? 'No questions found. Add questions in the Question Bank first.'
-                    : 'All matching questions are already added to this test.'}
+                <div className="flex flex-col items-center text-center py-12 text-muted-foreground">
+                  <Icon name="SearchX" size={28} className="mb-2 opacity-60" />
+                  <p className="text-sm">
+                    {questions.length === 0
+                      ? activeFilterCount > 0
+                        ? 'No questions match these filters.'
+                        : 'No questions found. Add questions in the Question Bank first.'
+                      : 'All matching questions are already added to this test.'}
+                  </p>
+                  {activeFilterCount > 0 && questions.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="mt-2 text-sm text-primary hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  )}
                 </div>
               )}
               {availableQuestions.map((q) => (
@@ -297,18 +556,31 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                   key={q.id}
                   type="button"
                   onClick={() => toggle(q)}
-                  className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                  className="group w-full text-left p-3 rounded-lg border border-border hover:border-primary/40 hover:bg-primary/5 transition-colors"
                 >
-                  <div className="flex items-start gap-2">
-                    <Icon name="Plus" size={18} className="text-primary mt-0.5" />
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <Icon name="Plus" size={15} />
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-foreground line-clamp-2">
                         <MathText text={q.text || `Question #${q.id}`} textFormat={q.textFormat} />
                       </p>
-                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
-                        {q.topicName && <span>📚 {q.topicName}</span>}
-                        {q.difficultyLevel && <span>⚡ {q.difficultyLevel}</span>}
-                        <span>★ {q.marks ?? 1} marks</span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                        <DifficultyBadge level={q.difficultyLevel} />
+                        {q.questionType && (
+                          <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium uppercase tracking-wide">
+                            {q.questionType}
+                          </span>
+                        )}
+                        {q.topicName && (
+                          <span className="inline-flex items-center gap-1">
+                            <Icon name="Tag" size={12} /> {q.topicName}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="Star" size={12} /> {q.marks ?? 1} marks
+                        </span>
                       </div>
                       {q.questionImagePath && (
                         <img
@@ -330,15 +602,27 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
             </div>
           </div>
 
-          {/* RIGHT: selected questions with per-question marks */}
-          <div className="w-full lg:w-96 flex flex-col min-h-0">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">
-                Selected ({selected.size})
-              </span>
-              <span className="text-sm text-muted-foreground">
-                Total: <span className="font-semibold text-foreground">{totalMarks}</span> marks
-              </span>
+          {/* RIGHT: selected questions with per-question marks + order */}
+          <div className="w-full lg:w-[26rem] flex flex-col min-h-0">
+            <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 text-sm">
+                <Icon name="ListChecks" size={16} className="text-muted-foreground" />
+                <span className="font-medium text-foreground">Selected ({selected.size})</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  Total: <span className="font-semibold text-foreground">{totalMarks}</span>
+                </span>
+                {selected.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-xs text-destructive hover:underline"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {seeding && (
@@ -347,26 +631,57 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                 </div>
               )}
               {!seeding && selectedList.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground text-sm">
-                  Pick questions from the left to build this test.
+                <div className="flex flex-col items-center text-center py-12 text-muted-foreground">
+                  <Icon name="MousePointerClick" size={28} className="mb-2 opacity-60" />
+                  <p className="text-sm">Pick questions from the left to build this test.</p>
                 </div>
               )}
               {selectedList.map((q, i) => (
                 <div key={q.questionId} className="p-3 rounded-lg border border-border bg-background">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded bg-muted px-1 text-xs font-semibold text-muted-foreground">
+                      {i + 1}
+                    </span>
                     <p className="text-xs text-foreground line-clamp-2 flex-1">
-                      <span className="text-muted-foreground mr-1">{i + 1}.</span>
                       <MathText text={q.text || `Question #${q.questionId}`} textFormat={q.textFormat} />
                     </p>
-                    <button
-                      onClick={() => removeSelected(q.questionId)}
-                      className="text-destructive hover:opacity-70"
-                      title="Remove"
-                    >
-                      <Icon name="Trash2" size={14} />
-                    </button>
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <button
+                        onClick={() => moveSelected(q.questionId, -1)}
+                        disabled={i === 0}
+                        className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move up"
+                      >
+                        <Icon name="ChevronUp" size={14} />
+                      </button>
+                      <button
+                        onClick={() => moveSelected(q.questionId, 1)}
+                        disabled={i === selectedList.length - 1}
+                        className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move down"
+                      >
+                        <Icon name="ChevronDown" size={14} />
+                      </button>
+                      <button
+                        onClick={() => removeSelected(q.questionId)}
+                        className="p-1 text-destructive hover:opacity-70"
+                        title="Remove"
+                      >
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
+                  {(q.difficultyLevel || q.topicName) && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5 ml-7 text-[11px] text-muted-foreground">
+                      <DifficultyBadge level={q.difficultyLevel} />
+                      {q.topicName && (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="Tag" size={11} /> {q.topicName}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mt-2 ml-7">
                     <label className="text-xs text-muted-foreground">
                       Marks
                       <input
@@ -375,7 +690,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                         step="0.5"
                         value={q.marks}
                         onChange={(e) => updateSelectedField(q.questionId, 'marks', e.target.value)}
-                        className={`${inputCls} w-full mt-1`}
+                        className={marksInputCls}
                       />
                     </label>
                     <label className="text-xs text-muted-foreground">
@@ -386,7 +701,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                         step="0.5"
                         value={q.negativeMarks}
                         onChange={(e) => updateSelectedField(q.questionId, 'negativeMarks', e.target.value)}
-                        className={`${inputCls} w-full mt-1`}
+                        className={marksInputCls}
                       />
                     </label>
                   </div>
@@ -395,6 +710,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
             </div>
           </div>
         </div>
+      </div>
     </Modal>
   );
 };

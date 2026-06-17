@@ -59,6 +59,9 @@ export const questionService = {
       };
 
       // instituteId is extracted from the JWT on the backend; no need to include it here.
+      if (searchParams.searchText && searchParams.searchText.trim() !== '') {
+        payload.criteria.searchText = searchParams.searchText.trim();
+      }
       if (searchParams.difficulty && searchParams.difficulty.trim() !== '') {
         payload.criteria.difficultyLevel = searchParams.difficulty.trim();
       }
