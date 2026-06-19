@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
@@ -38,7 +39,8 @@ const TEACHER_FIELDS = [
 const CLASS_LABEL = Object.fromEntries(CLASS_OPTIONS.map(({ value, label }) => [String(value), label]));
 
 const Profile = () => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
+  const navigate = useNavigate();
   const baseProfile = userProfile || user || {};
   const role = (baseProfile.role || '').toUpperCase();
   const isStudent = role === 'STUDENT';
@@ -51,6 +53,21 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Mirror NavigationHeader's logout: clear session, then route to login.
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    } finally {
+      // Redirect regardless — the session is cleared client-side either way.
+      navigate('/login', { replace: true });
+    }
+  };
 
   useEffect(() => {
     if (!isStudent && !isTeacher) return;
@@ -124,27 +141,38 @@ const Profile = () => {
     <PageLayout title="Profile">
       <div className="p-6 max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
-          <p className="text-muted-foreground">
+          <h1 className="font-display text-3xl font-semibold text-foreground tracking-tight">My profile</h1>
+          <p className="text-muted-foreground mt-1.5">
             {isStudent ? 'Your account details' : 'View and manage your account details'}
           </p>
         </div>
 
         {/* Account summary (always read-only) */}
-        <div className="bg-card rounded-lg border border-border p-6 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Icon name="User" size={28} className="text-primary" />
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm mb-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Icon name="User" size={28} className="text-primary" />
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-semibold text-foreground">
+                  {[baseProfile.firstName, baseProfile.lastName].filter(Boolean).join(' ') || baseProfile.username}
+                </h2>
+                <p className="text-sm text-muted-foreground">{baseProfile.email || baseProfile.username}</p>
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-muted text-foreground">
+                  {baseProfile.role}
+                </span>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {[baseProfile.firstName, baseProfile.lastName].filter(Boolean).join(' ') || baseProfile.username}
-              </h2>
-              <p className="text-sm text-muted-foreground">{baseProfile.email || baseProfile.username}</p>
-              <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-muted text-foreground">
-                {baseProfile.role}
-              </span>
-            </div>
+            <Button
+              variant="outline"
+              iconName="LogOut"
+              onClick={handleSignOut}
+              loading={isSigningOut}
+              className="flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+            >
+              {isSigningOut ? 'Signing out…' : 'Sign Out'}
+            </Button>
           </div>
         </div>
 
@@ -164,12 +192,12 @@ const Profile = () => {
         {/* Student: view-only profile */}
         {isStudent && (
           loading ? (
-            <div className="bg-card rounded-lg border border-border p-6 text-center">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm text-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
               <p className="text-muted-foreground text-sm">Loading profile...</p>
             </div>
           ) : (
-            <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {STUDENT_FIELDS.map(({ key, label }) => (
                   <div key={key}>
@@ -220,12 +248,12 @@ const Profile = () => {
         {/* Teacher: editable profile */}
         {isTeacher && (
           loading ? (
-            <div className="bg-card rounded-lg border border-border p-6 text-center">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm text-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
               <p className="text-muted-foreground text-sm">Loading profile...</p>
             </div>
           ) : (
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {TEACHER_FIELDS.map(({ key, label, type }) => (
                   <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
@@ -235,14 +263,14 @@ const Profile = () => {
                         value={form[key] ?? ''}
                         onChange={(e) => handleChange(key, e.target.value)}
                         rows={3}
-                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full px-3.5 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary transition-colors"
                       />
                     ) : (
                       <input
                         type={type === 'number' ? 'number' : 'text'}
                         value={form[key] ?? ''}
                         onChange={(e) => handleChange(key, e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full px-3.5 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary transition-colors"
                       />
                     )}
                   </div>
@@ -259,7 +287,7 @@ const Profile = () => {
 
         {/* Other roles */}
         {!isStudent && !isTeacher && (
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
             <p className="text-sm text-muted-foreground">
               Your account details are managed by your administrator. Contact them to update your information.
             </p>

@@ -77,10 +77,10 @@ const AttemptReview = ({ attempt, studentName }) => {
   return (
     <div className="space-y-5">
       {/* Summary header */}
-      <div className="bg-card border border-border rounded-lg p-5">
+      <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">{title}</h2>
+            <h2 className="font-display text-xl font-semibold text-foreground truncate">{title}</h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
               {studentName && (
                 <span className="inline-flex items-center gap-1">
@@ -102,10 +102,10 @@ const AttemptReview = ({ attempt, studentName }) => {
 
           <div className="text-right">
             {score != null && (
-              <div className="text-2xl font-bold text-foreground leading-none">
+              <div className="font-display text-3xl font-semibold text-foreground leading-none nums-tabular">
                 {fmtNum(score)}
                 {maxScore != null && (
-                  <span className="text-base font-medium text-muted-foreground"> / {fmtNum(maxScore)}</span>
+                  <span className="text-base font-medium text-muted-foreground font-sans"> / {fmtNum(maxScore)}</span>
                 )}
               </div>
             )}
@@ -116,14 +116,14 @@ const AttemptReview = ({ attempt, studentName }) => {
               {passed != null && (
                 <span
                   className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                    passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    passed ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'
                   }`}
                 >
                   {passed ? 'Passed' : 'Did not pass'}
                 </span>
               )}
               {passed == null && status && (
-                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                   {status === 'GRADED' ? 'Graded' : status.charAt(0) + status.slice(1).toLowerCase()}
                 </span>
               )}
@@ -134,8 +134,8 @@ const AttemptReview = ({ attempt, studentName }) => {
         {/* Outcome counts — when answers are hidden, only answered/skipped are knowable. */}
         {correctnessRevealed ? (
           <div className="grid grid-cols-3 gap-2 mt-4">
-            <Tally icon="CheckCircle2" className="text-green-700" label="Correct" value={tally.correct} />
-            <Tally icon="XCircle" className="text-red-600" label="Incorrect" value={tally.incorrect} />
+            <Tally icon="CheckCircle2" className="text-success" label="Correct" value={tally.correct} />
+            <Tally icon="XCircle" className="text-destructive" label="Incorrect" value={tally.incorrect} />
             <Tally icon="MinusCircle" className="text-muted-foreground" label="Skipped" value={tally.unanswered} />
           </div>
         ) : (
@@ -163,7 +163,7 @@ const AttemptReview = ({ attempt, studentName }) => {
 };
 
 const Tally = ({ icon, className, label, value }) => (
-  <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+  <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
     <Icon name={icon} size={18} className={className} />
     <div className="leading-tight">
       <div className="text-sm font-semibold text-foreground">{value}</div>
@@ -188,15 +188,15 @@ const QuestionCard = ({ q, index }) => {
   const awardedNum = awarded == null ? null : Number(awarded);
 
   const statusBadge = !answered
-    ? { cls: 'bg-slate-100 text-slate-600', icon: 'MinusCircle', text: 'Not answered' }
+    ? { cls: 'bg-muted text-muted-foreground', icon: 'MinusCircle', text: 'Not answered' }
     : !correctnessRevealed
-    ? { cls: 'bg-slate-100 text-slate-600', icon: 'CheckCircle2', text: 'Answered' }
+    ? { cls: 'bg-muted text-muted-foreground', icon: 'CheckCircle2', text: 'Answered' }
     : isCorrect
-    ? { cls: 'bg-green-100 text-green-700', icon: 'CheckCircle2', text: 'Correct' }
-    : { cls: 'bg-red-100 text-red-700', icon: 'XCircle', text: 'Incorrect' };
+    ? { cls: 'bg-success/15 text-success', icon: 'CheckCircle2', text: 'Correct' }
+    : { cls: 'bg-destructive/10 text-destructive', icon: 'XCircle', text: 'Incorrect' };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-2">
         <p className="text-sm font-medium text-foreground">
           <span className="text-muted-foreground mr-1">{index + 1}.</span>
@@ -206,7 +206,7 @@ const QuestionCard = ({ q, index }) => {
           {awardedNum != null && (
             <span
               className={`text-xs font-semibold tabular-nums ${
-                awardedNum > 0 ? 'text-green-700' : awardedNum < 0 ? 'text-red-600' : 'text-muted-foreground'
+                awardedNum > 0 ? 'text-success' : awardedNum < 0 ? 'text-destructive' : 'text-muted-foreground'
               }`}
             >
               {awardedNum > 0 ? '+' : ''}
@@ -237,9 +237,9 @@ const QuestionCard = ({ q, index }) => {
           // When the answer key is revealed: green = correct option, red = chosen but wrong.
           // When it's hidden: only highlight the student's choice neutrally, nothing as wrong.
           const cls = optCorrect
-            ? 'border-green-300 bg-green-50 text-green-800'
+            ? 'border-success/40 bg-success/10 text-success'
             : optSelected && optionsRevealed
-            ? 'border-red-300 bg-red-50 text-red-800'
+            ? 'border-destructive/40 bg-destructive/10 text-destructive'
             : optSelected
             ? 'border-primary/40 bg-primary/5 text-foreground'
             : 'border-border text-muted-foreground';
@@ -276,10 +276,10 @@ const QuestionCard = ({ q, index }) => {
           reveals its answer key (mirrors the per-option reveal above), so it never
           leaks for a showAnswers=false test. Absent/empty → nothing renders. */}
       {q.explanation && String(q.explanation).trim() && (optionsRevealed || correctnessRevealed) && (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+        <div className="mt-3 rounded-xl border border-warning/30 bg-warning/10 p-3.5">
           <div className="mb-1 flex items-center gap-1.5">
-            <Icon name="Lightbulb" size={14} className="text-amber-500" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            <Icon name="Lightbulb" size={14} className="text-warning" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-warning">
               Explanation
             </span>
           </div>

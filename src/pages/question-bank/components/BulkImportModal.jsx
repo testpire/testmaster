@@ -136,7 +136,7 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
             // Upload form
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-foreground mb-2">Upload Questions File</h3>
+                <h3 className="text-lg font-display font-semibold text-foreground mb-2">Upload Questions File</h3>
                 <p className="text-muted-foreground mb-4">
                   Choose a CSV or Excel file containing your questions. The file will be processed and imported automatically.
                 </p>
@@ -177,9 +177,9 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
                   Select File
                 </Button>
                 {selectedFile && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800 font-medium">{selectedFile?.name}</p>
-                    <p className="text-sm text-green-600">
+                  <div className="mt-4 p-3 bg-success/15 border border-success/40 rounded-lg">
+                    <p className="text-success font-medium">{selectedFile?.name}</p>
+                    <p className="text-sm text-success">
                       {(selectedFile?.size / 1024)?.toFixed(1)} KB
                     </p>
                   </div>
@@ -192,16 +192,16 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
               <div className="text-center">
                 <div
                   className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
-                    hasRowErrors ? 'bg-yellow-100' : 'bg-green-100'
+                    hasRowErrors ? 'bg-warning/15' : 'bg-success/15'
                   }`}
                 >
                   <Icon
                     name={hasRowErrors ? 'AlertTriangle' : 'Check'}
                     size={32}
-                    className={hasRowErrors ? 'text-yellow-600' : 'text-green-600'}
+                    className={hasRowErrors ? 'text-warning' : 'text-success'}
                   />
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mt-4 mb-1">
+                <h3 className="text-xl font-display font-semibold text-foreground mt-4 mb-1">
                   {hasRowErrors ? 'Upload Completed with Issues' : 'Upload Successful!'}
                 </h3>
                 <p className="text-muted-foreground">
@@ -230,14 +230,14 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
               {hasRowErrors && (
                 <div
                   className={`border rounded-lg overflow-hidden ${
-                    hasFailures ? 'border-destructive/20' : 'border-yellow-300'
+                    hasFailures ? 'border-destructive/20' : 'border-warning/40'
                   }`}
                 >
                   <div
                     className={`px-4 py-2 text-sm font-medium ${
                       hasFailures
                         ? 'bg-destructive/10 text-destructive'
-                        : 'bg-yellow-50 text-yellow-700'
+                        : 'bg-warning/10 text-warning'
                     }`}
                   >
                     {rowErrors.length} {hasFailures ? 'error' : 'warning'}

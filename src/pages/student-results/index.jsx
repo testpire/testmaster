@@ -74,8 +74,8 @@ const StudentResults = () => {
     <PageLayout title="Test Results">
       <div className="p-4 lg:p-6 max-w-4xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-xl lg:text-2xl font-bold text-foreground">Test Results</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl lg:text-3xl font-semibold text-foreground tracking-tight">Test results</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
             Your completed tests. Open one to review every question, your answer, and the correct answer.
           </p>
         </div>
@@ -92,8 +92,10 @@ const StudentResults = () => {
           </div>
         ) : completed.length === 0 ? (
           <div className="text-center py-16">
-            <Icon name="Award" size={48} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-foreground mb-1">No results yet</h3>
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+              <Icon name="Award" size={30} className="text-muted-foreground" />
+            </div>
+            <h3 className="font-display text-lg font-semibold text-foreground mb-1">No results yet</h3>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">
               Once you submit a test it will appear here so you can review your answers.
             </p>
@@ -109,14 +111,14 @@ const StudentResults = () => {
                 <button
                   key={getTestId(t)}
                   onClick={() => navigate(`/test-result/${attemptId}`)}
-                  className="w-full text-left bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-muted/30 transition-colors"
+                  className="w-full text-left bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-primary/30 hover:bg-muted/20 transition-colors"
                 >
                   <div className="min-w-0">
-                    <h3 className="font-medium text-foreground truncate">
+                    <h3 className="font-semibold text-foreground truncate">
                       {t.title || `Test #${getTestId(t)}`}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 text-green-700">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 font-medium text-success">
                         <Icon name="CheckCircle2" size={13} /> Completed
                       </span>
                       {getSubmitted(t) && (
@@ -129,12 +131,12 @@ const StudentResults = () => {
                   <div className="flex items-center gap-4 flex-shrink-0">
                     {score != null && (
                       <div className="text-right">
-                        <div className="text-lg font-bold text-foreground leading-none">
+                        <div className="font-display text-xl font-semibold text-foreground leading-none nums-tabular">
                           {score}
-                          {max != null && <span className="text-sm text-muted-foreground"> / {max}</span>}
+                          {max != null && <span className="text-sm text-muted-foreground font-sans"> / {max}</span>}
                         </div>
                         {pct != null && (
-                          <div className="text-xs text-muted-foreground mt-0.5">{pct.toFixed(0)}%</div>
+                          <div className="text-xs text-muted-foreground mt-1 nums-tabular">{pct.toFixed(0)}%</div>
                         )}
                       </div>
                     )}

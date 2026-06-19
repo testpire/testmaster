@@ -149,9 +149,9 @@ const CurriculumUploadModal = ({ isOpen, onClose, onUploaded }) => {
               Select File
             </Button>
             {selectedFile && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 font-medium">{selectedFile?.name}</p>
-                <p className="text-sm text-green-600">
+              <div className="mt-4 p-3 bg-success/15 border border-success/30 rounded-lg">
+                <p className="text-success font-medium">{selectedFile?.name}</p>
+                <p className="text-sm text-success">
                   {(selectedFile?.size / 1024)?.toFixed(1)} KB
                 </p>
               </div>
@@ -164,16 +164,16 @@ const CurriculumUploadModal = ({ isOpen, onClose, onUploaded }) => {
           <div className="text-center">
             <div
               className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
-                hasRowErrors ? 'bg-yellow-100' : 'bg-green-100'
+                hasRowErrors ? 'bg-warning/15' : 'bg-success/15'
               }`}
             >
               <Icon
                 name={hasRowErrors ? 'AlertTriangle' : 'Check'}
                 size={32}
-                className={hasRowErrors ? 'text-yellow-600' : 'text-green-600'}
+                className={hasRowErrors ? 'text-warning' : 'text-success'}
               />
             </div>
-            <h3 className="text-xl font-semibold text-foreground mt-4 mb-1">
+            <h3 className="font-display text-xl font-semibold text-foreground mt-4 mb-1">
               {hasRowErrors ? 'Upload Completed with Issues' : 'Upload Successful!'}
             </h3>
             <p className="text-muted-foreground">

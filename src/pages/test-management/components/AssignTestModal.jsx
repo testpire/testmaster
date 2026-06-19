@@ -132,7 +132,7 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
   };
 
   const inputCls =
-    'w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
+    'w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary';
   const isDraft = (test?.status || '').toUpperCase() === 'DRAFT';
 
   return (
@@ -157,9 +157,9 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
           )}
 
           {isDraft && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-              <Icon name="AlertTriangle" size={16} className="text-amber-600 mt-0.5" />
-              <p className="text-amber-700 text-sm">
+            <div className="p-3 bg-warning/15 border border-warning/40 rounded-lg flex items-start gap-2">
+              <Icon name="AlertTriangle" size={16} className="text-warning mt-0.5" />
+              <p className="text-warning text-sm">
                 This test is still a <strong>draft</strong>. Publish it so assigned students can take it.
               </p>
             </div>
@@ -296,7 +296,7 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
 
           {/* Existing assignments */}
           <div>
-            <h3 className="text-sm font-medium text-foreground mb-2">
+            <h3 className="text-sm font-display font-semibold text-foreground mb-2">
               Current Assignments ({assignments.length})
             </h3>
             {loading ? (

@@ -5,6 +5,7 @@ import { useInstitute } from '../../contexts/InstituteContext';
 import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
+import { TestPireLogo } from './TestMasterLogo';
 import { newInstituteService } from '../../services/newInstituteService';
 import { newTestService } from '../../services/newTestService';
 import { formatDateTime } from '../../pages/test-management/testConstants';
@@ -181,7 +182,7 @@ const NavigationHeader = ({
   const displayAvatar = currentUser?.avatar || userProfile?.avatar_url || userAvatar;
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-[1001]">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-card/85 backdrop-blur-md border-b border-border z-[1001]">
       <div className="flex items-center justify-between h-full px-4">
         {/* Left Section - Logo and Menu Toggle */}
         <div className="flex items-center space-x-4">
@@ -210,7 +211,10 @@ const NavigationHeader = ({
             </Button>
           )}
           
-          {/* Institute Dropdown (Super Admin) or Logo (Other roles) */}
+          {/* Brand mark — anchors identity on every page/role */}
+          <TestPireLogo size="small" showText={false} className="shrink-0" />
+
+          {/* Institute Dropdown (Super Admin) or Institute name (Other roles) */}
           <div className="flex items-center space-x-2">
             {showInstituteDropdown ? (
               <div className="flex items-center">
@@ -237,16 +241,13 @@ const NavigationHeader = ({
                 )}
               </div>
             ) : (
-              <>
-                <div className={`transition-opacity duration-300 ${sidebarCollapsed && showSidebarToggle ? 'hidden lg:block' : 'hidden sm:block'}`}>
-                  <h1 className="text-lg font-semibold text-foreground leading-tight">
+              instituteName && (
+                <div className="hidden sm:block border-l border-border pl-3 ml-1">
+                  <h1 className="font-display text-base font-semibold text-foreground leading-tight">
                     {instituteName}
                   </h1>
-                  {instituteName && (
-                    <p className="text-xs text-muted-foreground leading-tight"></p>
-                  )}
                 </div>
-              </>
+              )
             )}
           </div>
         </div>

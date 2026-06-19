@@ -13,9 +13,9 @@ const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
 
 // Difficulty → badge colors, shared by both panels.
 const DIFFICULTY_STYLES = {
-  EASY: 'bg-green-100 text-green-700',
-  MEDIUM: 'bg-amber-100 text-amber-700',
-  HARD: 'bg-red-100 text-red-700'
+  EASY: 'bg-success/15 text-success',
+  MEDIUM: 'bg-warning/15 text-warning',
+  HARD: 'bg-destructive/10 text-destructive'
 };
 
 const titleCase = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : '');
@@ -359,9 +359,9 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   const difficultyOptions = DIFFICULTIES.map((d) => ({ value: d, label: titleCase(d) }));
 
   const searchCls =
-    'w-full pl-9 pr-3 h-10 border border-input rounded-md bg-white text-black text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2';
+    'w-full pl-9 pr-3 h-10 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary';
   const marksInputCls =
-    'w-full mt-1 px-2 py-1 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
+    'w-full mt-1 px-2 py-1 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary';
 
   const DifficultyBadge = ({ level }) =>
     level ? (

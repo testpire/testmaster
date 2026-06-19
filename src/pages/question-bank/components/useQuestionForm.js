@@ -120,16 +120,23 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
   useEffect(() => {
     if (editingQuestion && active) {
       const loadedOptions = editingQuestion?.options?.map(opt => opt?.text || opt?.option_text) || [];
-      // Honor an explicitly saved format; otherwise infer from the loaded content.
+      // A stored 'PLAIN' is ambiguous: the list/service normalizes a missing
+      // textFormat to 'PLAIN' (QuestionCard does the same), so we can't tell a
+      // deliberate plain choice from a default. Trust an explicit 'LATEX'; for
+      // anything else, detect from the actual content so a latex question never
+      // opens as plain just because its flag wasn't persisted.
+      const savedFormat = String(editingQuestion?.textFormat || '').toUpperCase();
       const loadedFormat =
-        editingQuestion?.textFormat ||
-        detectTextFormat(
-          editingQuestion?.text || editingQuestion?.question_text || '',
-          editingQuestion?.explanation || '',
-          ...loadedOptions
-        );
-      // Pin the format (no auto re-detect) when the question already had one saved.
-      setFormatManual(!!editingQuestion?.textFormat);
+        savedFormat === 'LATEX'
+          ? 'LATEX'
+          : detectTextFormat(
+              editingQuestion?.text || editingQuestion?.question_text || '',
+              editingQuestion?.explanation || '',
+              ...loadedOptions
+            );
+      // Pin the format (skip auto re-detect) only for an explicit LATEX save — a
+      // pinned PLAIN would stop the content from auto-correcting if it has latex.
+      setFormatManual(savedFormat === 'LATEX');
       setQuestionData({
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
         textFormat: loadedFormat,

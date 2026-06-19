@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getDashboardRoute, getRoleDisplayName } from '../../utils/roleBasedRouting';
+import AuthShell from '../../components/auth/AuthShell';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/AppIcon';
 
 const SimpleLogin = () => {
-  const { signIn, loading, userProfile } = useAuth();
+  const { signIn, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [credentials, setCredentials] = useState({
-    username: '',
-    password: ''
-  });
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const notice = location.state?.message || '';
 
@@ -33,18 +34,11 @@ const SimpleLogin = () => {
           state: { username: challenge.username, session: challenge.session },
         });
       } else {
-        // Navigate based on user role from the API response (user.role)
         const userRole = data?.user?.role || data?.profile?.role || data?.role || 'STUDENT';
         const dashboardRoute = getDashboardRoute(userRole);
         const roleName = getRoleDisplayName(userRole);
-        
         console.log('🚀 Login successful! User:', data?.user?.firstName || data?.profile?.firstName || 'Unknown', 'Role:', userRole, 'Redirecting to:', dashboardRoute);
-        
-        // Show a brief success message with role info
-        if (userRole !== 'STUDENT') {
-          console.log(`✅ Welcome ${roleName}!`);
-        }
-        
+        if (userRole !== 'STUDENT') console.log(`✅ Welcome ${roleName}!`);
         navigate(dashboardRoute);
       }
     } catch (err) {
@@ -53,181 +47,69 @@ const SimpleLogin = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setCredentials(prev => ({ ...prev, [field]: value }));
-    if (error) setError(''); // Clear error when user starts typing
+    setCredentials((prev) => ({ ...prev, [field]: value }));
+    if (error) setError('');
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f3f4f6',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px',
-        margin: '1rem'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ 
-            fontSize: '2rem', 
-            fontWeight: 'bold', 
-            color: '#1f2937',
-            margin: '0 0 0.5rem 0'
-          }}>
-            TestMaster
-          </h1>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            Sign in to your account
-          </p>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to continue to your learning space."
+      footer={
+        <>
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-medium text-primary hover:underline underline-offset-4">
+            Sign up
+          </Link>
+        </>
+      }
+    >
+      {notice && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 p-3.5 text-sm text-foreground">
+          <Icon name="CheckCircle2" size={16} className="mt-0.5 flex-shrink-0 text-success" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Input
+          label="Username"
+          type="text"
+          value={credentials.username}
+          onChange={(e) => handleInputChange('username', e.target.value)}
+          placeholder="Enter your username"
+          disabled={loading}
+          autoComplete="username"
+        />
+        <div>
+          <Input
+            label="Password"
+            type="password"
+            value={credentials.password}
+            onChange={(e) => handleInputChange('password', e.target.value)}
+            placeholder="Enter your password"
+            disabled={loading}
+            autoComplete="current-password"
+          />
+          <div className="mt-2 text-right">
+            <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground">
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
-        {notice && (
-          <div style={{
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            color: '#16a34a',
-            padding: '0.75rem',
-            borderRadius: '6px',
-            marginBottom: '1rem',
-            fontSize: '0.875rem'
-          }}>
-            {notice}
+        {error && (
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Username
-            </label>
-            <input
-              type="text"
-              value={credentials.username}
-              onChange={(e) => handleInputChange('username', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your username"
-              disabled={loading}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={credentials.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your password"
-              disabled={loading}
-            />
-          </div>
-
-          {error && (
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#dc2626',
-              padding: '0.75rem',
-              borderRadius: '6px',
-              marginBottom: '1rem',
-              fontSize: '0.875rem'
-            }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              backgroundColor: loading ? '#9ca3af' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div style={{
-          marginTop: '1rem',
-          textAlign: 'center',
-          fontSize: '0.875rem'
-        }}>
-          <Link
-            to="/forgot-password"
-            style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}
-            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        <div style={{
-          marginTop: '1rem',
-          textAlign: 'center',
-          fontSize: '0.875rem'
-        }}>
-          <span style={{ color: '#6b7280' }}>Don't have an account? </span>
-          <Link
-            to="/signup"
-            style={{
-              color: '#3b82f6',
-              textDecoration: 'none',
-              fontWeight: '500'
-            }}
-            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-          >
-            Sign up
-          </Link>
-        </div>
-      </div>
-    </div>
+        <Button type="submit" size="lg" fullWidth loading={loading}>
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthShell>
   );
 };
 

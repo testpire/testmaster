@@ -1,77 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { newAuthService } from '../../services/newAuthService';
-
-// Shared inline styles to match simple-login / simple-signup aesthetic
-const styles = {
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
-    fontFamily: 'Arial, sans-serif',
-  },
-  card: {
-    backgroundColor: 'white',
-    padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    width: '100%',
-    maxWidth: '400px',
-    margin: '1rem',
-  },
-  label: {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '0.5rem',
-  },
-  input: {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    boxSizing: 'border-box',
-  },
-  primaryBtn: (disabled) => ({
-    width: '100%',
-    padding: '0.75rem',
-    backgroundColor: disabled ? '#9ca3af' : '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    fontWeight: '500',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'background-color 0.2s',
-  }),
-  errorBox: {
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
-    color: '#dc2626',
-    padding: '0.75rem',
-    borderRadius: '6px',
-    marginBottom: '1rem',
-    fontSize: '0.875rem',
-  },
-  successBox: {
-    backgroundColor: '#f0fdf4',
-    border: '1px solid #bbf7d0',
-    color: '#16a34a',
-    padding: '0.75rem',
-    borderRadius: '6px',
-    marginBottom: '1rem',
-    fontSize: '0.875rem',
-  },
-  link: {
-    color: '#3b82f6',
-    textDecoration: 'none',
-    fontWeight: '500',
-  },
-};
+import AuthShell from '../../components/auth/AuthShell';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/AppIcon';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -119,118 +52,91 @@ const ForgotPassword = () => {
       return;
     }
     setLoading(true);
-    const { error } = await newAuthService.confirmForgotPassword(
-      username.trim(),
-      code.trim(),
-      newPassword
-    );
+    const { error } = await newAuthService.confirmForgotPassword(username.trim(), code.trim(), newPassword);
     setLoading(false);
     if (error) {
       setError(error.message || 'Failed to reset password');
       return;
     }
-    navigate('/login', {
-      state: { message: 'Password reset successful. Please sign in.' },
-    });
+    navigate('/login', { state: { message: 'Password reset successful. Please sign in.' } });
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
-            Reset Password
-          </h1>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            {step === 1
-              ? 'Enter your username to receive a reset code'
-              : 'Enter the code from your email and a new password'}
-          </p>
+    <AuthShell
+      title="Reset password"
+      subtitle={step === 1 ? 'Enter your username to receive a reset code.' : 'Enter the code from your email and a new password.'}
+      footer={<Link to="/login" className="font-medium text-primary hover:underline underline-offset-4">Back to sign in</Link>}
+    >
+      {error && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
+          <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
         </div>
-
-        {error && <div style={styles.errorBox}>{error}</div>}
-        {info && <div style={styles.successBox}>{info}</div>}
-
-        {step === 1 ? (
-          <form onSubmit={requestCode}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={styles.label}>Username / Email</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={styles.input}
-                placeholder="Enter your username or email"
-                disabled={loading}
-              />
-            </div>
-            <button type="submit" disabled={loading} style={styles.primaryBtn(loading)}>
-              {loading ? 'Sending...' : 'Send Reset Code'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={confirmReset}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={styles.label}>Confirmation Code</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                style={styles.input}
-                placeholder="Enter the code from your email"
-                disabled={loading}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={styles.label}>New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                style={styles.input}
-                placeholder="At least 8 characters"
-                disabled={loading}
-              />
-            </div>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={styles.label}>Confirm New Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                style={styles.input}
-                placeholder="Re-enter new password"
-                disabled={loading}
-              />
-            </div>
-            <button type="submit" disabled={loading} style={styles.primaryBtn(loading)}>
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setStep(1); setError(''); setInfo(''); }}
-              style={{
-                width: '100%',
-                marginTop: '0.75rem',
-                padding: '0.75rem',
-                backgroundColor: 'transparent',
-                color: '#6b7280',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-              }}
-            >
-              Back
-            </button>
-          </form>
-        )}
-
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
-          <Link to="/login" style={styles.link}>Back to sign in</Link>
+      )}
+      {info && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 p-3.5 text-sm text-foreground">
+          <Icon name="CheckCircle2" size={16} className="mt-0.5 flex-shrink-0 text-success" />
+          <span>{info}</span>
         </div>
-      </div>
-    </div>
+      )}
+
+      {step === 1 ? (
+        <form onSubmit={requestCode} className="space-y-5">
+          <Input
+            label="Username / Email"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your username or email"
+            disabled={loading}
+          />
+          <Button type="submit" size="lg" fullWidth loading={loading}>
+            {loading ? 'Sending…' : 'Send reset code'}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={confirmReset} className="space-y-4">
+          <Input
+            label="Confirmation code"
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Enter the code from your email"
+            disabled={loading}
+          />
+          <Input
+            label="New password"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            disabled={loading}
+            autoComplete="new-password"
+          />
+          <Input
+            label="Confirm new password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password"
+            disabled={loading}
+            autoComplete="new-password"
+          />
+          <Button type="submit" size="lg" fullWidth loading={loading} className="!mt-6">
+            {loading ? 'Resetting…' : 'Reset password'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            fullWidth
+            onClick={() => { setStep(1); setError(''); setInfo(''); }}
+          >
+            Back
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 };
 

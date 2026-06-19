@@ -1,50 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Background Colors */
-    --color-background: #FAFBFC; /* gray-50 */
-    --color-foreground: #1F2937; /* gray-800 */
-    --color-card: #FFFFFF; /* white */
-    --color-card-foreground: #1F2937; /* gray-800 */
-    --color-popover: #FFFFFF; /* white */
-    --color-popover-foreground: #1F2937; /* gray-800 */
-    --color-muted: #F3F4F6; /* gray-100 */
-    --color-muted-foreground: #6B7280; /* gray-500 */
-    
-    /* Primary Colors */
-    --color-primary: #2563EB; /* blue-600 */
-    --color-primary-foreground: #FFFFFF; /* white */
-    
-    /* Secondary Colors */
-    --color-secondary: #7C3AED; /* violet-600 */
-    --color-secondary-foreground: #FFFFFF; /* white */
-    
-    /* Accent Colors */
-    --color-accent: #059669; /* emerald-600 */
-    --color-accent-foreground: #FFFFFF; /* white */
-    
-    /* State Colors */
-    --color-success: #10B981; /* emerald-500 */
-    --color-success-foreground: #FFFFFF; /* white */
-    --color-warning: #F59E0B; /* amber-500 */
-    --color-warning-foreground: #FFFFFF; /* white */
-    --color-error: #EF4444; /* red-500 */
-    --color-error-foreground: #FFFFFF; /* white */
-    --color-destructive: #EF4444; /* red-500 */
-    --color-destructive-foreground: #FFFFFF; /* white */
-    
-    /* Border and Input */
-    --color-border: rgba(0, 0, 0, 0.1); /* black with 10% opacity */
-    --color-input: #FFFFFF; /* white */
-    --color-ring: #2563EB; /* blue-600 */
-    
-    /* Radius */
-    --radius: 0.5rem;
+    /* ── Scholar palette (warm editorial academic) ──────────────────────────
+       Tokens are stored as space-separated RGB *channels* so Tailwind can apply
+       opacity modifiers (bg-primary/10, hover:bg-primary/90) reliably. The
+       config wraps each as rgb(var(--color-x) / <alpha-value>). */
+
+    /* Surfaces */
+    --color-background: 251 248 242;      /* paper  #FBF8F2 */
+    --color-foreground: 28 27 25;         /* ink    #1C1B19 */
+    --color-card: 255 253 248;            /* warm white #FFFDF8 */
+    --color-card-foreground: 28 27 25;
+    --color-popover: 255 253 248;
+    --color-popover-foreground: 28 27 25;
+    --color-muted: 240 234 223;           /* warm sand #F0EADF */
+    --color-muted-foreground: 107 97 85;  /* taupe    #6B6155 */
+
+    /* Brand */
+    --color-primary: 31 92 70;            /* evergreen #1F5C46 */
+    --color-primary-foreground: 251 248 242;
+    --color-secondary: 168 90 60;         /* clay      #A85A3C */
+    --color-secondary-foreground: 251 248 242;
+    --color-accent: 232 163 61;           /* honey     #E8A33D */
+    --color-accent-foreground: 28 27 25;
+
+    /* State */
+    --color-success: 47 122 87;           /* #2F7A57 */
+    --color-success-foreground: 251 248 242;
+    --color-warning: 200 130 30;          /* #C8821E */
+    --color-warning-foreground: 28 27 25;
+    --color-error: 192 57 43;             /* brick #C0392B */
+    --color-error-foreground: 251 248 242;
+    --color-destructive: 192 57 43;
+    --color-destructive-foreground: 251 248 242;
+
+    /* Lines & focus */
+    --color-border: 28 27 25;             /* used at low alpha via config */
+    --color-input: 28 27 25;              /* used at low alpha via config */
+    --color-ring: 31 92 70;
+
+    /* Radius — softened for the editorial feel */
+    --radius: 0.75rem;
 
     /* MathLive virtual keyboard: default is 105, which sits BEHIND our modals
        (z-[1000]). Raise it above so the on-screen keyboard (⌨) opened from the
@@ -55,51 +55,75 @@
   * {
     @apply border-border;
   }
-  
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  
+
+  /* Faint paper grain — reads in the page margins behind floating content. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
   }
-  
+
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', monospace;
   }
 }
 
 @layer components {
-  /* Educational Platform Specific Styles */
+  /* Display type — Inter, tightened for headings. */
+  .font-display {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Navigation links */
   .nav-item {
-    @apply flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-out;
+    @apply flex items-center px-3.5 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ease-out text-muted-foreground;
   }
-  
+
   .nav-item:hover {
-    @apply bg-muted transform scale-[0.98];
+    @apply bg-muted text-foreground;
   }
-  
+
   .nav-item.active {
-    @apply bg-primary text-primary-foreground;
+    @apply bg-primary/10 text-primary font-semibold;
   }
-  
+
   .card-elevated {
-    @apply bg-card rounded-lg shadow-sm border border-border;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    @apply bg-card rounded-2xl border border-border;
+    box-shadow: 0 2px 8px rgba(28, 27, 25, 0.06), 0 1px 2px rgba(28, 27, 25, 0.04);
   }
-  
+
   .progress-ring {
     @apply relative inline-flex items-center justify-center;
   }
-  
+
   .skeleton {
-    @apply animate-pulse bg-muted rounded;
+    @apply animate-pulse bg-muted rounded-lg;
   }
-.test-security-overlay  {
+
+  .test-security-overlay {
     @apply fixed inset-0 backdrop-blur-sm z-[1040];
   }
-  
+
   .smooth-transition {
     @apply transition-all duration-300 ease-out;
   }
@@ -109,12 +133,18 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
+  /* Tabular figures for scores, counts, timers. */
+  .nums-tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

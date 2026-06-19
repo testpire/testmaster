@@ -89,7 +89,7 @@ const Modal = ({
         aria-modal="true"
         tabIndex={-1}
         className={cn(
-          'w-full bg-card text-card-foreground rounded-lg border border-border shadow-xl',
+          'w-full bg-card text-card-foreground rounded-2xl border border-border shadow-xl',
           'max-h-[90vh] flex flex-col outline-none animate-scale-in',
           SIZE_CLASSES[size] || SIZE_CLASSES.md,
           className

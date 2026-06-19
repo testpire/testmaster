@@ -25,14 +25,14 @@ export const prettyEnum = (value) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 
-// Tailwind classes for the status badge — green for the won end of the funnel,
-// red for the lost end, blue/amber for the in-progress middle.
+// Token soft-pairs for the status badge — success for the won end of the funnel,
+// destructive for the lost end, primary/warning for the in-progress middle.
 export const LEAD_STATUS_BADGE = {
-  NEW: 'bg-slate-100 text-slate-700',
-  CONTACTED: 'bg-blue-100 text-blue-700',
-  INTERESTED: 'bg-indigo-100 text-indigo-700',
-  DEMO_SCHEDULED: 'bg-amber-100 text-amber-700',
-  ENROLLED: 'bg-green-100 text-green-700',
-  LOST: 'bg-red-100 text-red-700',
-  NOT_INTERESTED: 'bg-gray-100 text-gray-500'
+  NEW: 'bg-primary/10 text-primary',
+  CONTACTED: 'bg-primary/10 text-primary',
+  INTERESTED: 'bg-primary/10 text-primary',
+  DEMO_SCHEDULED: 'bg-warning/15 text-warning',
+  ENROLLED: 'bg-success/15 text-success',
+  LOST: 'bg-destructive/10 text-destructive',
+  NOT_INTERESTED: 'bg-muted text-muted-foreground'
 };

@@ -79,7 +79,7 @@ const StudentTests = () => {
       const attemptId = getAttemptId(t);
       return (
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-sm text-green-700">
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
             <Icon name="CheckCircle2" size={16} /> Completed
           </span>
           {score != null && (
@@ -139,8 +139,8 @@ const StudentTests = () => {
     <PageLayout title="My Tests" activeRoute="/my-tests">
       <div className="p-4 lg:p-6 max-w-4xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-xl lg:text-2xl font-bold text-foreground">My Tests</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl lg:text-3xl font-semibold text-foreground tracking-tight">My tests</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
             Tests assigned to you. Make sure you have a stable connection before starting.
           </p>
         </div>
@@ -157,8 +157,10 @@ const StudentTests = () => {
           </div>
         ) : tests.length === 0 ? (
           <div className="text-center py-16">
-            <Icon name="ClipboardList" size={48} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-foreground mb-1">No tests assigned</h3>
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+              <Icon name="ClipboardList" size={30} className="text-muted-foreground" />
+            </div>
+            <h3 className="font-display text-lg font-semibold text-foreground mb-1">No tests assigned</h3>
             <p className="text-muted-foreground text-sm">
               When your teacher assigns a test, it will show up here.
             </p>
@@ -170,10 +172,10 @@ const StudentTests = () => {
               return (
                 <div
                   key={testId}
-                  className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                  className="bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-primary/30 transition-colors"
                 >
                   <div className="min-w-0">
-                    <h3 className="font-medium text-foreground">{t.title || `Test #${testId}`}</h3>
+                    <h3 className="font-semibold text-foreground">{t.title || `Test #${testId}`}</h3>
                     {t.description && (
                       <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
                         {t.description}
@@ -245,9 +247,9 @@ const StudentTests = () => {
       >
         {confirmTest && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <Icon name="WifiOff" size={20} className="mt-0.5 flex-shrink-0 text-amber-600" />
-              <p className="text-sm text-amber-800">
+            <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3.5">
+              <Icon name="WifiOff" size={20} className="mt-0.5 flex-shrink-0 text-warning" />
+              <p className="text-sm text-foreground">
                 Make sure you have a <strong>stable internet connection</strong> before
                 you begin. A drop in connectivity during the test may cost you time or answers.
               </p>

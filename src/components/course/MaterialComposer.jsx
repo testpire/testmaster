@@ -148,7 +148,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
             className="block w-full text-sm text-foreground file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
           />
           {file && (
-            <p className={cn('text-xs mt-1', fileResolved && !fileTooBig ? 'text-muted-foreground' : 'text-red-600')}>
+            <p className={cn('text-xs mt-1', fileResolved && !fileTooBig ? 'text-muted-foreground' : 'text-destructive')}>
               {fileResolved ? `${fileResolved.type} · ${fmtBytes(file.size)}` : 'Unsupported type'}
               {fileTooBig && ' · exceeds 50 MB'}
             </p>
@@ -165,7 +165,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Lecture 1 slides"
           maxLength={200}
-          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
         />
       </div>
 
@@ -177,7 +177,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
             value={externalUrl}
             onChange={(e) => setExternalUrl(e.target.value)}
             placeholder="https://…"
-            className="w-full px-3 py-2 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
           />
         </div>
       )}
@@ -209,7 +209,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
             onChange={(e) => setContent(e.target.value)}
             rows={6}
             placeholder={contentFormat === 'LATEX' ? 'Use $…$ for inline math, $$…$$ for block.' : 'Write the note…'}
-            className="w-full px-3 py-2 text-sm border border-border rounded-md bg-card font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-card text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-y"
           />
           {contentFormat === 'LATEX' && content.trim() && (
             <div className="mt-2 p-2 border border-border rounded-md bg-card">
@@ -228,7 +228,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional"
           maxLength={500}
-          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
         />
       </div>
 
@@ -245,7 +245,7 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
       )}
 
       {err && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-xs">{err}</div>
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-md text-xs">{err}</div>
       )}
 
       <div className="flex justify-end gap-2 pt-1">

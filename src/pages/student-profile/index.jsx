@@ -31,9 +31,9 @@ const Field = ({ label, value, full = false }) => (
 );
 
 const Card = ({ title, icon, children, action }) => (
-  <div className="bg-card rounded-lg border border-border">
+  <div className="bg-card rounded-2xl border border-border shadow-sm">
     <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <h2 className="font-display flex items-center gap-2 text-sm font-semibold text-foreground">
         {icon && <Icon name={icon} size={16} className="text-muted-foreground" />}
         {title}
       </h2>
@@ -162,19 +162,19 @@ const StudentProfile = () => {
         ) : (
           <div className="space-y-5">
             {/* Header card */}
-            <div className="bg-card rounded-lg border border-border p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-green-600 font-semibold text-2xl">{initial}</span>
+            <div className="bg-card rounded-2xl border border-border shadow-sm p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-success/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-success font-semibold text-2xl">{initial}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold text-foreground truncate">{fullName}</h1>
+                <h1 className="font-display font-semibold text-2xl text-foreground truncate">{fullName}</h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Icon name="AtSign" size={14} />
                     {student.username || '—'}
                   </span>
                   <span>Student ID: {student.id}</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
                     Active
                   </span>
                 </div>
@@ -218,7 +218,7 @@ const StudentProfile = () => {
                         </span>
                       </div>
                       {en.fee != null && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 flex-shrink-0 ml-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-success/15 text-success flex-shrink-0 ml-3">
                           <Icon name="IndianRupee" size={11} />₹{Number(en.fee).toLocaleString('en-IN')}
                         </span>
                       )}
@@ -249,7 +249,7 @@ const StudentProfile = () => {
                         {slots.length > 0 ? (
                           <div className="flex flex-wrap justify-end gap-1 flex-shrink-0">
                             {slots.map((slot, si) => (
-                              <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-violet-50 text-violet-700">
+                              <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary/10 text-secondary">
                                 <Icon name="Clock" size={11} />{slot}
                               </span>
                             ))}
@@ -290,16 +290,16 @@ const StudentProfile = () => {
                     <>
                       {/* Summary stats */}
                       <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="rounded-lg border border-border p-3 text-center">
-                          <div className="text-2xl font-bold text-foreground">{tests.length}</div>
+                        <div className="rounded-xl border border-border p-3 text-center">
+                          <div className="font-display font-semibold text-2xl text-foreground nums-tabular">{tests.length}</div>
                           <div className="text-xs text-muted-foreground mt-0.5">Tests Taken</div>
                         </div>
-                        <div className="rounded-lg border border-border p-3 text-center">
-                          <div className="text-2xl font-bold text-foreground">{fmtPct(avgPct)}</div>
+                        <div className="rounded-xl border border-border p-3 text-center">
+                          <div className="font-display font-semibold text-2xl text-foreground nums-tabular">{fmtPct(avgPct)}</div>
                           <div className="text-xs text-muted-foreground mt-0.5">Average</div>
                         </div>
-                        <div className="rounded-lg border border-border p-3 text-center">
-                          <div className="text-2xl font-bold text-foreground">
+                        <div className="rounded-xl border border-border p-3 text-center">
+                          <div className="font-display font-semibold text-2xl text-foreground nums-tabular">
                             {passedCount}<span className="text-base text-muted-foreground">/{tests.length}</span>
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">Passed</div>
@@ -334,7 +334,7 @@ const StudentProfile = () => {
                                     <span
                                       className={cn(
                                         'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                                        t.passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        t.passed ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'
                                       )}
                                     >
                                       {t.passed ? 'Pass' : 'Fail'}

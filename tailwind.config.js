@@ -1,4 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+
+// Scholar tokens are stored as "R G B" channels in tailwind.css; wrap each so
+// Tailwind's opacity modifiers (bg-primary/10, hover:bg-primary/90) resolve to
+// rgb(... / <alpha-value>). Lines (border/input) bake a low alpha for a soft,
+// warm hairline by default.
+const channel = (v) => `rgb(var(${v}) / <alpha-value>)`;
+
 export default {
   darkMode: ["class"],
   content: [
@@ -18,60 +25,63 @@ export default {
     },
     extend: {
       colors: {
-        border: "var(--color-border)", /* black with 10% opacity */
-        input: "var(--color-input)", /* white */
-        ring: "var(--color-ring)", /* blue-600 */
-        background: "var(--color-background)", /* gray-50 */
-        foreground: "var(--color-foreground)", /* gray-800 */
+        border: "rgb(var(--color-border) / 0.12)",
+        input: "rgb(var(--color-input) / 0.16)",
+        ring: channel("--color-ring"),
+        background: channel("--color-background"),
+        foreground: channel("--color-foreground"),
         primary: {
-          DEFAULT: "var(--color-primary)", /* blue-600 */
-          foreground: "var(--color-primary-foreground)", /* white */
+          DEFAULT: channel("--color-primary"),
+          foreground: channel("--color-primary-foreground"),
         },
         secondary: {
-          DEFAULT: "var(--color-secondary)", /* violet-600 */
-          foreground: "var(--color-secondary-foreground)", /* white */
+          DEFAULT: channel("--color-secondary"),
+          foreground: channel("--color-secondary-foreground"),
         },
         destructive: {
-          DEFAULT: "var(--color-destructive)", /* red-500 */
-          foreground: "var(--color-destructive-foreground)", /* white */
+          DEFAULT: channel("--color-destructive"),
+          foreground: channel("--color-destructive-foreground"),
         },
         muted: {
-          DEFAULT: "var(--color-muted)", /* gray-100 */
-          foreground: "var(--color-muted-foreground)", /* gray-500 */
+          DEFAULT: channel("--color-muted"),
+          foreground: channel("--color-muted-foreground"),
         },
         accent: {
-          DEFAULT: "var(--color-accent)", /* emerald-600 */
-          foreground: "var(--color-accent-foreground)", /* white */
+          DEFAULT: channel("--color-accent"),
+          foreground: channel("--color-accent-foreground"),
         },
         popover: {
-          DEFAULT: "var(--color-popover)", /* white */
-          foreground: "var(--color-popover-foreground)", /* gray-800 */
+          DEFAULT: channel("--color-popover"),
+          foreground: channel("--color-popover-foreground"),
         },
         card: {
-          DEFAULT: "var(--color-card)", /* white */
-          foreground: "var(--color-card-foreground)", /* gray-800 */
+          DEFAULT: channel("--color-card"),
+          foreground: channel("--color-card-foreground"),
         },
         success: {
-          DEFAULT: "var(--color-success)", /* emerald-500 */
-          foreground: "var(--color-success-foreground)", /* white */
+          DEFAULT: channel("--color-success"),
+          foreground: channel("--color-success-foreground"),
         },
         warning: {
-          DEFAULT: "var(--color-warning)", /* amber-500 */
-          foreground: "var(--color-warning-foreground)", /* white */
+          DEFAULT: channel("--color-warning"),
+          foreground: channel("--color-warning-foreground"),
         },
         error: {
-          DEFAULT: "var(--color-error)", /* red-500 */
-          foreground: "var(--color-error-foreground)", /* white */
+          DEFAULT: channel("--color-error"),
+          foreground: channel("--color-error-foreground"),
         },
       },
       borderRadius: {
+        '2xl': "calc(var(--radius) + 8px)",
+        xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'JetBrains Mono', 'monospace'],
       },
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1rem' }],
@@ -82,21 +92,24 @@ export default {
         '2xl': ['1.5rem', { lineHeight: '2rem' }],
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
         '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-        '5xl': ['3rem', { lineHeight: '1' }],
-        '6xl': ['3.75rem', { lineHeight: '1' }],
+        '5xl': ['3rem', { lineHeight: '1.05' }],
+        '6xl': ['3.75rem', { lineHeight: '1.02' }],
+        '7xl': ['4.5rem', { lineHeight: '1' }],
       },
       fontWeight: {
         normal: '400',
         medium: '500',
         semibold: '600',
         bold: '700',
+        extrabold: '800',
       },
       boxShadow: {
-        'sm': '0 1px 3px rgba(0, 0, 0, 0.1)',
-        'DEFAULT': '0 2px 8px rgba(0, 0, 0, 0.1)',
-        'md': '0 4px 12px rgba(0, 0, 0, 0.1)',
-        'lg': '0 8px 20px rgba(0, 0, 0, 0.12)',
-        'xl': '0 10px 25px rgba(0, 0, 0, 0.15)',
+        'sm': '0 1px 2px rgba(28, 27, 25, 0.06)',
+        'DEFAULT': '0 2px 8px rgba(28, 27, 25, 0.06), 0 1px 2px rgba(28, 27, 25, 0.04)',
+        'md': '0 6px 16px rgba(28, 27, 25, 0.08)',
+        'lg': '0 12px 28px rgba(28, 27, 25, 0.10)',
+        'xl': '0 20px 48px rgba(28, 27, 25, 0.12)',
+        'glow': '0 0 0 1px rgb(var(--color-primary) / 0.08), 0 8px 24px rgb(var(--color-primary) / 0.12)',
         'none': 'none',
       },
       animation: {
@@ -106,6 +119,7 @@ export default {
         "slide-in": "slide-in 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
         "fadeInUp": "fadeInUp 0.6s ease-out",
+        "reveal": "reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
         "float": "float 6s ease-in-out infinite",
         "gentle-pulse": "gentle-pulse 4s ease-in-out infinite",
         "drift": "drift 8s ease-in-out infinite",
@@ -133,6 +147,10 @@ export default {
         },
         "fadeInUp": {
           from: { opacity: "0", transform: "translateY(30px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "reveal": {
+          from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "float": {

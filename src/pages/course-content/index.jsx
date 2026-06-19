@@ -105,7 +105,7 @@ const CourseContent = () => {
       <div className="p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
-            <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <h1 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
               <Icon name="BookOpen" size={20} className="text-primary" />
               Course Content
             </h1>
@@ -118,12 +118,12 @@ const CourseContent = () => {
             placeholder="Search courses…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-64 bg-card text-sm"
+            className="px-4 py-2 border border-input rounded-lg bg-card text-foreground text-sm w-64 focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
           />
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>
         )}
 
         {loading ? (
@@ -132,13 +132,13 @@ const CourseContent = () => {
             <p className="text-sm">Loading curriculum…</p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground bg-card border border-border rounded-lg">
-            <Icon name="BookOpen" size={44} className="mx-auto mb-3 text-gray-300" />
+          <div className="text-center py-16 text-muted-foreground bg-card border border-border rounded-2xl shadow-sm">
+            <Icon name="BookOpen" size={44} className="mx-auto mb-3 text-muted-foreground" />
             <p className="text-sm font-medium">No courses found</p>
             {search && <p className="text-xs mt-1">Try a different search.</p>}
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
             {filteredCourses.map((course) => {
               const cOpen = expanded.course.has(course.id);
               const subjects = subjectsByCourse[course.id];
@@ -150,7 +150,7 @@ const CourseContent = () => {
                     className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/50 text-left"
                   >
                     <Icon name={cOpen ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
-                    <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
+                    <Icon name="BookOpen" size={16} className="text-primary flex-shrink-0" />
                     <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
                     {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
                   </button>
@@ -172,7 +172,7 @@ const CourseContent = () => {
                                 className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-muted/50 text-left"
                               >
                                 <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
-                                <Icon name="Folder" size={15} className="text-emerald-600 flex-shrink-0" />
+                                <Icon name="Folder" size={15} className="text-success flex-shrink-0" />
                                 <span className="text-sm text-foreground truncate">{subject.name}</span>
                                 {subject.code && <span className="text-xs text-muted-foreground">({subject.code})</span>}
                               </button>
@@ -194,7 +194,7 @@ const CourseContent = () => {
                                             className="w-full flex items-center gap-2 px-4 py-2 hover:bg-muted/50 text-left"
                                           >
                                             <Icon name={chOpen ? 'ChevronDown' : 'ChevronRight'} size={15} className="text-muted-foreground flex-shrink-0" />
-                                            <Icon name="Bookmark" size={14} className="text-indigo-600 flex-shrink-0" />
+                                            <Icon name="Bookmark" size={14} className="text-primary flex-shrink-0" />
                                             <span className="text-sm text-foreground truncate">{chapter.name}</span>
                                             {chapter.code && <span className="text-xs text-muted-foreground">({chapter.code})</span>}
                                           </button>

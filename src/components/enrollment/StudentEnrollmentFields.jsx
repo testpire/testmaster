@@ -13,7 +13,7 @@ import { formatTimetable } from '../../utils/timetable';
 const fmtFee = (f) => (f == null || f === '' ? null : `₹${Number(f).toLocaleString('en-IN')}`);
 
 const selectCls =
-  'w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50';
+  'w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary disabled:opacity-50';
 
 const StudentEnrollmentFields = ({
   courses = [],
@@ -95,7 +95,7 @@ const StudentEnrollmentFields = ({
                     </span>
                     {c?.code && <span className="text-xs text-muted-foreground">({c.code})</span>}
                     {fmtFee(c?.fee) && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-success/15 text-success">
                         <Icon name="IndianRupee" size={11} />{fmtFee(c.fee)}
                       </span>
                     )}
@@ -167,7 +167,7 @@ const StudentEnrollmentFields = ({
                         {slots.map((slot, si) => (
                           <span
                             key={si}
-                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-700"
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-secondary/10 text-secondary"
                           >
                             <Icon name="Clock" size={11} />{slot}
                           </span>

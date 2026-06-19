@@ -7,7 +7,6 @@ import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
 import StatsCard from './components/StatsCard';
 import QuickActions from './components/QuickActions';
 import CreateInstituteModal from './components/CreateInstituteModal';
-import CreateUserModal from './components/CreateUserModal';
 import UserManagementTree from './components/UserManagementTree';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -25,9 +24,6 @@ const SuperAdminDashboard = () => {
   
   // Modal states
   const [showInstituteModal, setShowInstituteModal] = useState(false);
-  const [showTeacherModal, setShowTeacherModal] = useState(false);
-  const [showStudentModal, setShowStudentModal] = useState(false);
-  const [showInstAdminModal, setShowInstAdminModal] = useState(false);
   const [showUserManagementTree, setShowUserManagementTree] = useState(false);
   
   // Notification state
@@ -158,13 +154,13 @@ const SuperAdminDashboard = () => {
         setShowInstituteModal(true);
         break;
       case 'show-teacher-modal':
-        setShowTeacherModal(true);
+        goToUserForm('TEACHER');
         break;
       case 'show-student-modal':
-        setShowStudentModal(true);
+        goToUserForm('STUDENT');
         break;
       case 'show-institute-admin-modal':
-        setShowInstAdminModal(true);
+        goToUserForm('INST_ADMIN');
         break;
       default:
         console.log('Unknown action:', actionId);
@@ -196,15 +192,16 @@ const SuperAdminDashboard = () => {
     fetchInstitutes(true);
   };
 
-  const handleUserCreated = (userData) => {
-    setNotification({
-      show: true,
-      message: `${userData?.role === 'TEACHER' ? 'Teacher' : userData?.role === 'INST_ADMIN' ? 'Institute Admin' : 'Student'} "${userData?.firstName}" created successfully!`,
-      type: 'success'
+  // Open the full-page create-user form, scoped to the selected institute when one
+  // is active (otherwise the form shows an institute picker).
+  const goToUserForm = (role) => {
+    navigate('/user-form', {
+      state: {
+        userRole: role,
+        defaultInstituteId: selectedInstitute?.id !== 'all' ? selectedInstitute?.id : undefined,
+        returnTo: '/super-admin-dashboard'
+      }
     });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
-    // Refresh data after creating user
-    fetchDashboardStats();
   };
 
 
@@ -390,30 +387,6 @@ const SuperAdminDashboard = () => {
         isOpen={showInstituteModal}
         onClose={() => setShowInstituteModal(false)}
         onSuccess={handleInstituteCreated}
-      />
-
-      <CreateUserModal
-        isOpen={showTeacherModal}
-        onClose={() => setShowTeacherModal(false)}
-        onSuccess={handleUserCreated}
-        userRole="TEACHER"
-        defaultInstituteId={selectedInstitute?.id !== 'all' ? selectedInstitute?.id : undefined}
-      />
-
-      <CreateUserModal
-        isOpen={showStudentModal}
-        onClose={() => setShowStudentModal(false)}
-        onSuccess={handleUserCreated}
-        userRole="STUDENT"
-        defaultInstituteId={selectedInstitute?.id !== 'all' ? selectedInstitute?.id : undefined}
-      />
-
-      <CreateUserModal
-        isOpen={showInstAdminModal}
-        onClose={() => setShowInstAdminModal(false)}
-        onSuccess={handleUserCreated}
-        userRole="INST_ADMIN"
-        defaultInstituteId={selectedInstitute?.id !== 'all' ? selectedInstitute?.id : undefined}
       />
 
       <UserManagementTree

@@ -209,12 +209,12 @@ const LeadManagement = () => {
         <div className="bg-background border-b border-border px-4 lg:px-6 py-4 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-foreground">Lead Management</h1>
+              <h1 className="font-display text-xl lg:text-2xl font-semibold text-foreground">Lead Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {loading && leads.length === 0
                   ? 'Loading leads...'
                   : `${pagination.totalElements} lead${pagination.totalElements === 1 ? '' : 's'}`}
-                {pagination.hasMore && <span className="text-blue-600 ml-1">(scroll for more)</span>}
+                {pagination.hasMore && <span className="text-primary ml-1">(scroll for more)</span>}
               </p>
             </div>
             <Button
@@ -298,8 +298,8 @@ const LeadManagement = () => {
 
           {!loading && !error && leads.length === 0 && (
             <div className="text-center py-12">
-              <Icon name="UserPlus" size={48} className="mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Leads Found</h3>
+              <Icon name="UserPlus" size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <h3 className="font-display text-lg font-semibold text-foreground mb-2">No Leads Found</h3>
               <p className="text-muted-foreground mb-4">
                 Capture your first lead or adjust the filters.
               </p>
@@ -316,7 +316,7 @@ const LeadManagement = () => {
 
           {leads.length > 0 && (
             <>
-              <div className="overflow-x-auto border border-border rounded-lg">
+              <div className="overflow-x-auto border border-border rounded-2xl shadow-sm">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-left text-muted-foreground">
                     <tr>
@@ -345,7 +345,7 @@ const LeadManagement = () => {
                               {`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || '—'}
                             </div>
                             {converted && (
-                              <span className="inline-flex items-center gap-1 mt-1 text-xs text-green-700">
+                              <span className="inline-flex items-center gap-1 mt-1 text-xs text-success">
                                 <Icon name="CheckCircle" size={12} /> Converted
                               </span>
                             )}
@@ -357,7 +357,7 @@ const LeadManagement = () => {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                                LEAD_STATUS_BADGE[lead.status] || 'bg-slate-100 text-slate-700'
+                                LEAD_STATUS_BADGE[lead.status] || 'bg-muted text-muted-foreground'
                               }`}
                             >
                               {prettyEnum(lead.status)}

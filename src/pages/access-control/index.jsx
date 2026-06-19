@@ -230,7 +230,7 @@ const AccessControl = () => {
       <div className="p-6">
         {/* Heading */}
         <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <h1 className="font-display text-2xl font-semibold text-foreground flex items-center gap-2">
             <Icon name="ShieldCheck" size={24} />
             Role-Based Access Control
           </h1>
@@ -240,17 +240,17 @@ const AccessControl = () => {
         </div>
 
         {/* Backend-capability note */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 text-sm">
-          <Icon name="Info" size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-          <p className="text-blue-800">
+        <div className="mb-4 p-3 bg-primary/10 border border-primary/40 rounded-lg flex items-start gap-2 text-sm">
+          <Icon name="Info" size={16} className="text-primary mt-0.5 flex-shrink-0" />
+          <p className="text-primary">
             Saving requires the RBAC write API (<code>PUT /api/rbac/roles/&#123;role&#125;/permissions</code>).
             If it isn't deployed yet, this page still works as a live viewer and Save will report it clearly.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600">{error}</p>
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/40 rounded-lg">
+            <p className="text-destructive">{error}</p>
           </div>
         )}
 
@@ -258,8 +258,8 @@ const AccessControl = () => {
           <div
             className={`mb-4 p-3 rounded-lg border flex items-start gap-2 ${
               statusMessage.type === 'success'
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-red-50 border-red-200 text-red-700'
+                ? 'bg-success/15 border-success/40 text-success'
+                : 'bg-destructive/10 border-destructive/40 text-destructive'
             }`}
           >
             <Icon
@@ -284,13 +284,13 @@ const AccessControl = () => {
               placeholder="Search permissions..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-72"
+              className="pl-9 pr-4 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary w-72"
             />
           </div>
 
           <div className="flex items-center gap-3">
             {dirtyRoles.length > 0 && (
-              <span className="text-sm text-amber-600 font-medium">
+              <span className="text-sm text-warning font-medium">
                 {dirtyRoles.length} role{dirtyRoles.length === 1 ? '' : 's'} with unsaved changes
               </span>
             )}
@@ -332,12 +332,12 @@ const AccessControl = () => {
           </div>
         ) : catalog.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <Icon name="ShieldOff" size={48} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-1">No permissions found</h3>
+            <Icon name="ShieldOff" size={48} className="mx-auto mb-4 text-muted-foreground" />
+            <h3 className="font-display text-lg font-semibold mb-1">No permissions found</h3>
             <p>The permission catalog returned no entries.</p>
           </div>
         ) : (
-          <div className="bg-card rounded-lg shadow overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead className="bg-muted">
@@ -359,13 +359,13 @@ const AccessControl = () => {
                           />
                         )}
                         {dirtyRoles.includes(role) && (
-                          <span className="ml-1 inline-block w-2 h-2 rounded-full bg-amber-500 align-middle" />
+                          <span className="ml-1 inline-block w-2 h-2 rounded-full bg-warning align-middle" />
                         )}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-border">
                   {groups.map(([group, perms]) => (
                     <React.Fragment key={group}>
                       <tr className="bg-muted/70">
@@ -388,7 +388,7 @@ const AccessControl = () => {
                               <td
                                 key={role}
                                 className={`px-4 py-3 text-center ${
-                                  isDirtyCell(role, perm) ? 'bg-amber-50' : ''
+                                  isDirtyCell(role, perm) ? 'bg-warning/15' : ''
                                 }`}
                               >
                                 <div className="flex justify-center">

@@ -46,9 +46,9 @@ const Field = ({ label, value, full = false }) => (
 );
 
 const Card = ({ title, icon, children }) => (
-  <div className="bg-card rounded-lg border border-border">
+  <div className="bg-card rounded-2xl border border-border shadow-sm">
     <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <h2 className="flex items-center gap-2 text-sm font-display font-semibold text-foreground">
         {icon && <Icon name={icon} size={16} className="text-muted-foreground" />}
         {title}
       </h2>
@@ -141,24 +141,24 @@ const LeadProfile = () => {
         ) : (
           <div className="space-y-5">
             {/* Header card */}
-            <div className="bg-card rounded-lg border border-border p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-indigo-600 font-semibold text-2xl">{initial}</span>
+            <div className="bg-card rounded-2xl border border-border shadow-sm p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-primary font-semibold text-2xl">{initial}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold text-foreground truncate">{fullName}</h1>
+                <h1 className="font-display text-2xl font-semibold text-foreground truncate">{fullName}</h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   <span>Lead ID: {lead.id}</span>
                   <span
                     className={cn(
                       'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                      LEAD_STATUS_BADGE[lead.status] || 'bg-slate-100 text-slate-700'
+                      LEAD_STATUS_BADGE[lead.status] || 'bg-muted text-muted-foreground'
                     )}
                   >
                     {prettyEnum(lead.status)}
                   </span>
                   {converted && (
-                    <span className="inline-flex items-center gap-1 text-xs text-green-700">
+                    <span className="inline-flex items-center gap-1 text-xs text-success">
                       <Icon name="CheckCircle" size={12} /> Converted
                     </span>
                   )}

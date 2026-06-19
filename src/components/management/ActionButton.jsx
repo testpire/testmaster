@@ -50,7 +50,7 @@ export const EditButton = ({ onClick, size = 'icon', ...props }) => (
     variant="ghost"
     size={size}
     onClick={onClick}
-    className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+    className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
     title="Edit"
     {...props}
   >
@@ -63,7 +63,7 @@ export const DeleteButton = ({ onClick, size = 'icon', ...props }) => (
     variant="ghost"
     size={size}
     onClick={onClick}
-    className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+    className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
     title="Delete"
     {...props}
   >

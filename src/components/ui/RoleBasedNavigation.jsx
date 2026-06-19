@@ -179,6 +179,12 @@ const RoleBasedNavigation = ({
         roles: ['student']
       },
       {
+        label: 'Study Materials',
+        path: '/study-materials',
+        icon: 'Library',
+        roles: ['student']
+      },
+      {
         label: 'My Tests',
         path: '/my-tests',
         icon: 'ClipboardList',

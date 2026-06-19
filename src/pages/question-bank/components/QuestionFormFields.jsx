@@ -68,7 +68,7 @@ const ImageUploadField = ({ previewUrl, uploading, disabled, disabledHint, onFil
             type="button"
             variant="ghost"
             size="sm"
-            className="text-red-600 hover:text-red-700"
+            className="text-destructive hover:text-destructive/80"
             onClick={onClear}
           >
             <span className="flex items-center space-x-1">
@@ -79,7 +79,7 @@ const ImageUploadField = ({ previewUrl, uploading, disabled, disabledHint, onFil
         )}
       </div>
       {disabled && disabledHint && (
-        <p className="text-xs text-amber-600 mt-1">{disabledHint}</p>
+        <p className="text-xs text-warning mt-1">{disabledHint}</p>
       )}
       {previewUrl && (
         <div className="mt-2">
@@ -245,7 +245,7 @@ const QuestionFormFields = ({ form }) => {
           onFocus={recordCaret('questionText')}
           onSelect={recordCaret('questionText')}
           rows={4}
-          className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-vertical"
+          className="w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-vertical"
           placeholder="Enter the question text here..."
           required
         />
@@ -315,7 +315,7 @@ const QuestionFormFields = ({ form }) => {
                     />
                     {option?.isCorrect && (
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-success rounded-full flex items-center justify-center">
-                        <Icon name="Check" size={8} className="text-white" />
+                        <Icon name="Check" size={8} className="text-success-foreground" />
                       </div>
                     )}
                   </div>
@@ -368,14 +368,14 @@ const QuestionFormFields = ({ form }) => {
           </div>
 
           {/* Helper Text */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+          <div className="bg-primary/5 border border-primary/30 rounded-lg p-3 mt-4">
             <div className="flex items-start space-x-2">
-              <Icon name="Info" size={16} className="text-blue-600 mt-0.5" />
+              <Icon name="Info" size={16} className="text-primary mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">
+                <p className="text-sm font-medium text-primary">
                   How to mark the correct answer:
                 </p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className="text-xs text-primary/80 mt-1">
                   Click the radio button (○) next to the option you want to mark as correct.
                   The selected option will be highlighted in green with a "✓ Correct Answer" badge.
                 </p>
@@ -413,7 +413,7 @@ const QuestionFormFields = ({ form }) => {
           onFocus={recordCaret('explanation')}
           onSelect={recordCaret('explanation')}
           rows={3}
-          className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-vertical"
+          className="w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-vertical"
           placeholder="Provide a detailed explanation of the solution..."
         />
         {(questionData?.textFormat || 'PLAIN') === 'LATEX' && questionData?.explanation?.trim() && (

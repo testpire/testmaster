@@ -5,7 +5,6 @@ import NavigationHeader from '../../components/ui/NavigationHeader';
 import RoleBasedNavigation from '../../components/ui/RoleBasedNavigation';
 import QuickActionPanel from '../../components/ui/QuickActionPanel';
 import StatsCard from '../super-admin-dashboard/components/StatsCard';
-import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { courseService } from '../../services/courseService';
@@ -22,7 +21,6 @@ const TeacherDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Modal states
-  const [showStudentModal, setShowStudentModal] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
@@ -101,7 +99,7 @@ const TeacherDashboard = () => {
   const handleNavigationAction = (actionId) => {
     switch (actionId) {
       case 'show-student-modal':
-        setShowStudentModal(true);
+        goToUserForm();
         break;
       default:
         console.log('Unknown action:', actionId);
@@ -116,7 +114,7 @@ const TeacherDashboard = () => {
       'create-test': '/question-bank',
     };
     if (actionId === 'show-student-modal') {
-      setShowStudentModal(true);
+      goToUserForm();
       return;
     }
     if (actionRoutes?.[actionId]) {
@@ -128,14 +126,15 @@ const TeacherDashboard = () => {
     navigate('/login');
   };
 
-  const handleUserCreated = (userData) => {
-    setNotification({
-      show: true,
-      message: `Student "${userData?.firstName}" created successfully!`,
-      type: 'success'
+  // Open the full-page create-student form scoped to the teacher's institute.
+  const goToUserForm = () => {
+    navigate('/user-form', {
+      state: {
+        userRole: 'STUDENT',
+        defaultInstituteId: currentUser.instituteId,
+        returnTo: '/teacher-dashboard'
+      }
     });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
-    fetchTeacherData();
   };
 
   return (
@@ -184,11 +183,11 @@ const TeacherDashboard = () => {
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground mb-2">
+                <h1 className="font-display text-3xl font-semibold text-foreground tracking-tight mb-1.5">
                   Welcome, {currentUser?.firstName}
                 </h1>
                 <p className="text-muted-foreground">
-                  {formatDisplayTime(currentTime)} • Teaching Portal
+                  {formatDisplayTime(currentTime)} · Teaching portal
                 </p>
               </div>
 
@@ -217,10 +216,10 @@ const TeacherDashboard = () => {
           {/* Teacher Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {/* Question Bank Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Question Bank</h3>
+                  <h3 className="font-display text-lg font-semibold text-foreground">Question Bank</h3>
                   <p className="text-sm text-muted-foreground">Create and manage questions</p>
                 </div>
                 <Icon name="FileText" size={24} className="text-accent" />
@@ -232,25 +231,25 @@ const TeacherDashboard = () => {
             </div>
 
             {/* Add Student Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Add Student</h3>
+                  <h3 className="font-display text-lg font-semibold text-foreground">Add Student</h3>
                   <p className="text-sm text-muted-foreground">Enroll new students</p>
                 </div>
-                <Icon name="User" size={24} className="text-blue-600" />
+                <Icon name="User" size={24} className="text-primary" />
               </div>
-              <Button onClick={() => setShowStudentModal(true)} className="w-full" variant="outline">
+              <Button onClick={() => goToUserForm()} className="w-full" variant="outline">
                 <Icon name="Plus" size={16} />
                 Add Student
               </Button>
             </div>
 
             {/* Manage Courses Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Courses</h3>
+                  <h3 className="font-display text-lg font-semibold text-foreground">Courses</h3>
                   <p className="text-sm text-muted-foreground">Manage academic structure</p>
                 </div>
                 <Icon name="BookOpen" size={24} className="text-success" />
@@ -264,9 +263,9 @@ const TeacherDashboard = () => {
 
           {/* Courses list */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Your Courses</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Your Courses</h3>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/course-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
@@ -295,9 +294,9 @@ const TeacherDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Quick Links</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Quick Links</h3>
               </div>
               <div className="space-y-3">
                 <button onClick={() => navigate('/question-bank')} className="w-full flex items-center space-x-3 p-2 hover:bg-muted/50 rounded text-left">
@@ -309,7 +308,7 @@ const TeacherDashboard = () => {
                   <span className="text-sm text-foreground">Manage Students</span>
                 </button>
                 <button onClick={() => navigate('/profile')} className="w-full flex items-center space-x-3 p-2 hover:bg-muted/50 rounded text-left">
-                  <Icon name="User" size={16} className="text-blue-600" />
+                  <Icon name="User" size={16} className="text-primary" />
                   <span className="text-sm text-foreground">My Profile</span>
                 </button>
               </div>
@@ -327,40 +326,22 @@ const TeacherDashboard = () => {
 
       {/* Success Notification */}
       {notification.show && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 1001,
-          backgroundColor: notification.type === 'success' ? '#10b981' : '#ef4444',
-          color: 'white',
-          padding: '12px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          maxWidth: '400px'
-        }}>
-          <Icon name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} size={20} />
-          {notification.message}
-          <button
-            onClick={() => setNotification({ show: false, message: '', type: 'success' })}
-            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '8px', fontSize: '18px' }}
-          >
-            ×
-          </button>
+        <div className="fixed top-20 right-4 z-[1020] max-w-sm animate-reveal">
+          <div className={`flex items-center gap-2 rounded-xl px-4 py-3 shadow-lg text-sm font-medium ${
+            notification.type === 'success' ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
+          }`}>
+            <Icon name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} size={18} />
+            <span>{notification.message}</span>
+            <button
+              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+              className="ml-2 text-current opacity-80 hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Modals */}
-      <CreateUserModal
-        isOpen={showStudentModal}
-        onClose={() => setShowStudentModal(false)}
-        onSuccess={handleUserCreated}
-        userRole="STUDENT"
-        defaultInstituteId={currentUser.instituteId}
-      />
     </div>
   );
 };

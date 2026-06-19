@@ -239,11 +239,11 @@ const InstituteAdminDashboard = () => {
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground mb-2">
+                <h1 className="font-display text-3xl font-semibold text-foreground tracking-tight mb-1.5">
                   Welcome, {currentUser?.firstName}
                 </h1>
                 <p className="text-muted-foreground">
-                  {formatDisplayTime(currentTime)} • {instituteData.institute?.name || 'Institute'} Administration
+                  {formatDisplayTime(currentTime)} · {instituteData.institute?.name || 'Institute'} administration
                 </p>
               </div>
               
@@ -257,14 +257,14 @@ const InstituteAdminDashboard = () => {
 
           {/* Institute Info Card */}
           {instituteData.institute && (
-            <div className="bg-card rounded-lg border border-border p-6 mb-8">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm mb-8">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
                     <Icon name="Building" size={32} className="text-primary-foreground" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-foreground">{instituteData.institute.name}</h2>
+                    <h2 className="font-display text-xl font-semibold text-foreground">{instituteData.institute.name}</h2>
                     <p className="text-muted-foreground">Code: {instituteData.institute.code || instituteData.institute.instituteCode}</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       {instituteData.institute.city}, {instituteData.institute.state}
@@ -272,10 +272,10 @@ const InstituteAdminDashboard = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-primary">
+                  <div className="font-display text-3xl font-semibold text-primary nums-tabular">
                     {instituteData.totalStudents + instituteData.totalTeachers}
                   </div>
-                  <div className="text-sm text-muted-foreground">Total Users</div>
+                  <div className="text-sm text-muted-foreground">Total users</div>
                 </div>
               </div>
               {instituteData.institute.description && (
@@ -321,13 +321,13 @@ const InstituteAdminDashboard = () => {
           {/* Quick Actions Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {/* Create Teacher Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Create Teacher</h3>
+                  <h3 className="font-display text-lg font-semibold text-foreground">Create Teacher</h3>
                   <p className="text-sm text-muted-foreground">Add new teaching staff to your institute</p>
                 </div>
-                <Icon name="GraduationCap" size={24} className="text-green-600" />
+                <Icon name="GraduationCap" size={24} className="text-success" />
               </div>
               <Button
                 onClick={() => navigate('/teacher-management')}
@@ -340,13 +340,13 @@ const InstituteAdminDashboard = () => {
             </div>
 
             {/* Create Student Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Create Student</h3>
+                  <h3 className="font-display text-lg font-semibold text-foreground">Create Student</h3>
                   <p className="text-sm text-muted-foreground">Enroll new students in your institute</p>
                 </div>
-                <Icon name="User" size={24} className="text-blue-600" />
+                <Icon name="User" size={24} className="text-primary" />
               </div>
               <Button
                 onClick={() => navigate('/student-management')}
@@ -359,9 +359,9 @@ const InstituteAdminDashboard = () => {
             </div>
 
             {/* Quick Stats Card */}
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Quick Overview</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Quick Overview</h3>
                 <Icon name="BarChart3" size={24} className="text-primary" />
               </div>
               <div className="space-y-3">
@@ -398,9 +398,9 @@ const InstituteAdminDashboard = () => {
 
           {/* Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Recent Students</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Recent Students</h3>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/student-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
@@ -414,8 +414,8 @@ const InstituteAdminDashboard = () => {
                 ) : (
                   instituteData.recentStudents.map((student) => (
                     <div key={student.id || student.email} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-blue-600">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-semibold text-primary">
                           {student.firstName?.[0]?.toUpperCase() || student.username?.[0]?.toUpperCase() || 'S'}
                         </span>
                       </div>
@@ -431,9 +431,9 @@ const InstituteAdminDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Recent Teachers</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Recent Teachers</h3>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/teacher-management')}>
                   View All
                   <Icon name="ArrowRight" size={14} className="ml-1" />
@@ -447,8 +447,8 @@ const InstituteAdminDashboard = () => {
                 ) : (
                   instituteData.recentTeachers.map((teacher) => (
                     <div key={teacher.id || teacher.email} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-green-600">
+                      <div className="w-8 h-8 bg-success/15 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-semibold text-success">
                           {teacher.firstName?.[0]?.toUpperCase() || teacher.username?.[0]?.toUpperCase() || 'T'}
                         </span>
                       </div>
@@ -476,39 +476,19 @@ const InstituteAdminDashboard = () => {
 
       {/* Success Notification */}
       {notification.show && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 1001,
-          backgroundColor: notification.type === 'success' ? '#10b981' : '#ef4444',
-          color: 'white',
-          padding: '12px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          maxWidth: '400px'
-        }}>
-          <Icon 
-            name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} 
-            size={20} 
-          />
-          {notification.message}
-          <button
-            onClick={() => setNotification({ show: false, message: '', type: 'success' })}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'white',
-              cursor: 'pointer',
-              marginLeft: '8px',
-              fontSize: '18px'
-            }}
-          >
-            ×
-          </button>
+        <div className="fixed top-20 right-4 z-[1020] max-w-sm animate-reveal">
+          <div className={`flex items-center gap-2 rounded-xl px-4 py-3 shadow-lg text-sm font-medium ${
+            notification.type === 'success' ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
+          }`}>
+            <Icon name={notification.type === 'success' ? 'CheckCircle' : 'XCircle'} size={18} />
+            <span>{notification.message}</span>
+            <button
+              onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+              className="ml-2 text-current opacity-80 hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 

@@ -7,6 +7,7 @@ import { newBatchService } from '../../services/newBatchService';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import Input from '../../components/ui/Input';
 import DateTimePicker from '../../components/ui/DateTimePicker';
 import Icon from '../../components/AppIcon';
 import CurriculumUploadModal from '../../components/course/CurriculumUploadModal';
@@ -41,11 +42,23 @@ const getCourseSubjectNames = (course) => {
 // A batch carries its own weekly timetable (the course owns the fee, not the batch).
 const EMPTY_BATCH = { name: '', code: '', description: '', startDate: '', endDate: '', capacity: '', timetable: [], active: true };
 
+// Tokenized textarea styling shared by the Course/Batch dialogs (no shared
+// Textarea primitive exists; this mirrors the Input component's look).
+const TEXTAREA_CLASS =
+  'flex w-full rounded-lg border border-input bg-card px-3.5 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground transition-colors resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-1 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50';
+
+// Tokenized native <select> styling (matches Input's height/look) for the
+// dependent dropdowns in the Chapter/Topic dialogs.
+const SELECT_CLASS =
+  'flex h-11 w-full rounded-lg border border-input bg-card px-3.5 py-2 text-sm text-foreground ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-1 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50';
+
 const BatchModal = ({ isOpen, onClose, batch, onSubmit }) => {
   const [form, setForm] = useState(EMPTY_BATCH);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     if (batch && batch.id) {
       setForm({
         name: batch.name || '',
@@ -62,11 +75,14 @@ const BatchModal = ({ isOpen, onClose, batch, onSubmit }) => {
     }
   }, [batch, isOpen]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (error) setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) { alert('Batch name is required'); return; }
+    if (!form.name.trim()) { setError('Batch name is required'); return; }
     setLoading(true);
     try {
       await onSubmit(form, batch?.id || null);
@@ -75,126 +91,104 @@ const BatchModal = ({ isOpen, onClose, batch, onSubmit }) => {
     }
   };
 
-  if (!isOpen) return null;
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button type="submit" form="batch-form" loading={loading} disabled={loading}>
+        {batch?.id ? 'Update Batch' : 'Create Batch'}
+      </Button>
+    </>
+  );
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-16 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-card">
-        <div className="flex justify-between items-center mb-1">
-          <h3 className="text-lg font-bold text-foreground">{batch?.id ? 'Edit Batch' : 'Add Batch'}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground transition-colors">
-            <Icon name="X" size={20} />
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={batch?.id ? 'Edit Batch' : 'Add Batch'}
+      description="Batches are institute-level and independent of courses."
+      size="lg"
+      footer={footer}
+    >
+      <form id="batch-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Batch Name"
+            required
+            value={form.name}
+            onChange={(e) => setField('name', e.target.value)}
+            placeholder="e.g., Morning Batch 2026"
+            disabled={loading}
+          />
+          <Input
+            label="Batch Code"
+            value={form.code}
+            onChange={(e) => setField('code', e.target.value)}
+            placeholder="e.g., MB-26"
+            disabled={loading}
+          />
         </div>
-        <p className="text-sm text-muted-foreground mb-4">Batches are institute-level and independent of courses.</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Batch Name *</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setField('name', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="e.g., Morning Batch 2026"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Batch Code</label>
-              <input
-                type="text"
-                value={form.code}
-                onChange={(e) => setField('code', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="e.g., MB-26"
-              />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-foreground">Start Date</label>
+            <DateTimePicker mode="date" value={form.startDate} onChange={(v) => setField('startDate', v)} disabled={loading} />
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
-              <DateTimePicker
-                mode="date"
-                value={form.startDate}
-                onChange={(v) => setField('startDate', v)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
-              <DateTimePicker
-                mode="date"
-                value={form.endDate}
-                onChange={(v) => setField('endDate', v)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Capacity</label>
-              <input
-                type="number"
-                min="0"
-                value={form.capacity}
-                onChange={(e) => setField('capacity', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="e.g., 30"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-foreground">End Date</label>
+            <DateTimePicker mode="date" value={form.endDate} onChange={(v) => setField('endDate', v)} disabled={loading} />
           </div>
+          <Input
+            type="number"
+            min="0"
+            label="Capacity"
+            value={form.capacity}
+            onChange={(e) => setField('capacity', e.target.value)}
+            placeholder="e.g., 30"
+            disabled={loading}
+          />
+        </div>
 
-          {/* Weekly timetable — the batch's schedule (days + time slots) */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Timetable</label>
-            <TimetableEditor
-              value={form.timetable}
-              onChange={(slots) => setField('timetable', slots)}
+        {/* Weekly timetable — the batch's schedule (days + time slots) */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Timetable</label>
+          <TimetableEditor value={form.timetable} onChange={(slots) => setField('timetable', slots)} disabled={loading} />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Description</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setField('description', e.target.value)}
+            rows={2}
+            className={TEXTAREA_CLASS}
+            placeholder="Batch description..."
+            disabled={loading}
+          />
+        </div>
+
+        {batch?.id && (
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(e) => setField('active', e.target.checked)}
+              className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
               disabled={loading}
             />
-          </div>
+            Active batch
+          </label>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setField('description', e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              rows={2}
-              placeholder="Batch description..."
-            />
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-
-          {batch?.id && (
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setField('active', e.target.checked)}
-                className="rounded border-border text-blue-600 focus:ring-ring"
-              />
-              Active batch
-            </label>
-          )}
-
-          <div className="flex justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : batch?.id ? 'Update Batch' : 'Create Batch'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Modal>
   );
 };
 
@@ -208,9 +202,11 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
   });
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [subjectsOpen, setSubjectsOpen] = useState(false);
 
   useEffect(() => {
+    setError('');
     if (course) {
       setFormData({
         name: course.name || '',
@@ -230,6 +226,11 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     }
     setSubjectsOpen(false);
   }, [course]);
+
+  const setField = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (error) setError('');
+  };
 
   // Toggle a subject code in/out of the course's subject selection.
   const toggleSubjectCode = (code) => {
@@ -251,7 +252,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
-      alert('Name and Code are required');
+      setError('Name and Code are required');
       return;
     }
 
@@ -267,63 +268,64 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
     }
   };
 
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button type="submit" form="course-form" loading={loading} disabled={loading}>
+        {course ? 'Update' : 'Create'}
+      </Button>
+    </>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={course ? 'Edit Course' : 'Add Course'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Course Name *
-          </label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., Computer Science"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Course Code *
-          </label>
-          <input
-            type="text"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., CSE01"
-            required
-          />
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={course ? 'Edit Course' : 'Add Course'}
+      footer={footer}
+    >
+      <form id="course-form" onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Course Name"
+          required
+          value={formData.name}
+          onChange={(e) => setField('name', e.target.value)}
+          placeholder="e.g., Computer Science"
+          disabled={loading}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Fee (₹)
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.fee}
-            onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., 25000"
-          />
-          <p className="mt-1 text-xs text-muted-foreground">Default fee for batches of this course; each batch can override it.</p>
-        </div>
+        <Input
+          label="Course Code"
+          required
+          value={formData.code}
+          onChange={(e) => setField('code', e.target.value)}
+          placeholder="e.g., CSE01"
+          disabled={loading}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Description
-          </label>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          label="Fee (₹)"
+          value={formData.fee}
+          onChange={(e) => setField('fee', e.target.value)}
+          placeholder="e.g., 25000"
+          description="Default fee for batches of this course; each batch can override it."
+          disabled={loading}
+        />
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Description</label>
           <textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => setField('description', e.target.value)}
+            className={TEXTAREA_CLASS}
             rows={3}
             placeholder="Course description..."
+            disabled={loading}
           />
         </div>
 
@@ -335,7 +337,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
           <button
             type="button"
             onClick={() => setSubjectsOpen((open) => !open)}
-            className="w-full flex items-center justify-between px-3 py-2 border border-border rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full flex items-center justify-between px-3 py-2 border border-input rounded-lg bg-card text-left focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
           >
             <span className={selectedCount ? 'text-foreground' : 'text-muted-foreground'}>
               {selectedCount ? `${selectedCount} subject${selectedCount > 1 ? 's' : ''} selected` : 'Select subjects'}
@@ -351,13 +353,13 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
                 return (
                   <span
                     key={code}
-                    className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+                    className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded"
                   >
                     {subj ? `${subj.name} (${subj.code})` : code}
                     <button
                       type="button"
                       onClick={() => toggleSubjectCode(code)}
-                      className="hover:text-blue-900"
+                      className="hover:text-primary/80"
                       title="Remove"
                     >
                       <Icon name="X" size={12} />
@@ -369,7 +371,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
           )}
 
           {subjectsOpen && (
-            <div className="mt-2 border border-border rounded-md max-h-48 overflow-y-auto divide-y divide-gray-100">
+            <div className="mt-2 border border-border rounded-lg max-h-48 overflow-y-auto divide-y divide-border">
               {selectableSubjects.length === 0 ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">
                   No subjects available. Create subjects first, then attach them here.
@@ -386,7 +388,7 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleSubjectCode(subj.code)}
-                        className="rounded border-border text-blue-600 focus:ring-ring"
+                        className="rounded border-input text-primary focus:ring-ring"
                       />
                       <span className="text-foreground">{subj.name}</span>
                       <span className="text-muted-foreground">({subj.code})</span>
@@ -398,22 +400,12 @@ const CourseModal = ({ isOpen, onClose, course, onSubmit, subjects = [], current
           )}
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : course ? 'Update' : 'Create'}
-          </button>
-        </div>
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </form>
     </Modal>
   );
@@ -428,8 +420,10 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     if (subject) {
       setFormData({
         name: subject.name || '',
@@ -447,10 +441,15 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
     }
   }, [subject]);
 
+  const setField = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (error) setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
-      alert('Name and Code are required');
+      setError('Name and Code are required');
       return;
     }
 
@@ -465,79 +464,62 @@ const SubjectModal = ({ isOpen, onClose, subject, onSubmit, currentUser }) => {
     }
   };
 
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
+      <Button type="submit" form="subject-form" loading={loading} disabled={loading}>
+        {subject ? 'Update' : 'Create'}
+      </Button>
+    </>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={subject ? 'Edit Subject' : 'Add Subject'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Subject Name *
-          </label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., Data Structures"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Subject Code *
-          </label>
-          <input
-            type="text"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., CS101"
-            required
-          />
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} title={subject ? 'Edit Subject' : 'Add Subject'} footer={footer}>
+      <form id="subject-form" onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Subject Name"
+          required
+          value={formData.name}
+          onChange={(e) => setField('name', e.target.value)}
+          placeholder="e.g., Data Structures"
+          disabled={loading}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Duration
-          </label>
-          <input
-            type="text"
-            value={formData.duration}
-            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., 1 Semester"
-          />
-        </div>
+        <Input
+          label="Subject Code"
+          required
+          value={formData.code}
+          onChange={(e) => setField('code', e.target.value)}
+          placeholder="e.g., CS101"
+          disabled={loading}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Description
-          </label>
+        <Input
+          label="Duration"
+          value={formData.duration}
+          onChange={(e) => setField('duration', e.target.value)}
+          placeholder="e.g., 1 Semester"
+          disabled={loading}
+        />
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Description</label>
           <textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => setField('description', e.target.value)}
+            className={TEXTAREA_CLASS}
             rows={3}
             placeholder="Subject description..."
+            disabled={loading}
           />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : subject ? 'Update' : 'Create'}
-          </button>
-        </div>
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </form>
     </Modal>
   );
@@ -554,8 +536,10 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
   });
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     if (chapter) {
       setFormData({
         name: chapter.name || '',
@@ -577,9 +561,17 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
     }
   }, [chapter, subjects]);
 
+  const setField = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (error) setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.subjectId) return;
+    if (!formData.name.trim() || !formData.subjectId) {
+      setError('Chapter name and subject are required');
+      return;
+    }
 
     setLoading(true);
     const chapterData = {
@@ -592,49 +584,46 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
     setLoading(false);
   };
 
-  if (!isOpen) return null;
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
+      <Button type="submit" form="chapter-form" loading={loading} disabled={loading}>
+        {chapter?.id ? 'Update' : 'Create'}
+      </Button>
+    </>
+  );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={chapter?.id ? 'Edit Chapter' : 'Add Chapter'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={chapter?.id ? 'Edit Chapter' : 'Add Chapter'} footer={footer}>
+      <form id="chapter-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Chapter Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Enter chapter name"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Chapter Code
-            </label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="e.g., CH01"
-            />
-          </div>
+          <Input
+            label="Chapter Name"
+            required
+            value={formData.name}
+            onChange={(e) => setField('name', e.target.value)}
+            placeholder="Enter chapter name"
+            disabled={loading}
+          />
+          <Input
+            label="Chapter Code"
+            value={formData.code}
+            onChange={(e) => setField('code', e.target.value)}
+            placeholder="e.g., CH01"
+            disabled={loading}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Subject *
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-foreground">
+              Subject<span className="text-destructive ml-1">*</span>
             </label>
             <select
               value={formData.subjectId}
-              onChange={(e) => setFormData({ ...formData, subjectId: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              required
+              onChange={(e) => setField('subjectId', e.target.value)}
+              className={SELECT_CLASS}
+              disabled={loading}
             >
               <option value="">Select Subject</option>
               {subjects.map((subject) => (
@@ -644,49 +633,33 @@ const ChapterModal = ({ isOpen, onClose, chapter, onSubmit, subjects, currentUse
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Duration
-            </label>
-            <input
-              type="text"
-              value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="e.g., 1 Week"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Description
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            rows={3}
-            placeholder="Chapter description..."
+          <Input
+            label="Duration"
+            value={formData.duration}
+            onChange={(e) => setField('duration', e.target.value)}
+            placeholder="e.g., 1 Week"
+            disabled={loading}
           />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setField('description', e.target.value)}
+            className={TEXTAREA_CLASS}
+            rows={3}
+            placeholder="Chapter description..."
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : chapter?.id ? 'Update' : 'Create'}
-          </button>
+          />
         </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </form>
     </Modal>
   );
@@ -705,8 +678,10 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
 
   const [filteredChapters, setFilteredChapters] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     if (topic) {
       setFormData({
         name: topic.name || '',
@@ -752,9 +727,17 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
     return () => { cancelled = true; };
   }, [formData.subjectId]);
 
+  const setField = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (error) setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.subjectId) return;
+    if (!formData.name.trim() || !formData.subjectId) {
+      setError('Topic name and subject are required');
+      return;
+    }
 
     setLoading(true);
     const topicData = {
@@ -767,49 +750,46 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
     setLoading(false);
   };
 
-  if (!isOpen) return null;
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
+      <Button type="submit" form="topic-form" loading={loading} disabled={loading}>
+        {topic?.id ? 'Update' : 'Create'}
+      </Button>
+    </>
+  );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={topic?.id ? 'Edit Topic' : 'Add Topic'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={topic?.id ? 'Edit Topic' : 'Add Topic'} footer={footer}>
+      <form id="topic-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Topic Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Enter topic name"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Topic Code
-            </label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="e.g., T01"
-            />
-          </div>
+          <Input
+            label="Topic Name"
+            required
+            value={formData.name}
+            onChange={(e) => setField('name', e.target.value)}
+            placeholder="Enter topic name"
+            disabled={loading}
+          />
+          <Input
+            label="Topic Code"
+            value={formData.code}
+            onChange={(e) => setField('code', e.target.value)}
+            placeholder="e.g., T01"
+            disabled={loading}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Subject *
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-foreground">
+              Subject<span className="text-destructive ml-1">*</span>
             </label>
             <select
               value={formData.subjectId}
-              onChange={(e) => setFormData({ ...formData, subjectId: e.target.value, chapterId: '' })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              required
+              onChange={(e) => setField('subjectId', e.target.value === '' ? '' : e.target.value)}
+              className={SELECT_CLASS}
+              disabled={loading}
             >
               <option value="">Select Subject</option>
               {subjects.map((subject) => (
@@ -819,15 +799,13 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Chapter
-            </label>
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-foreground">Chapter</label>
             <select
               value={formData.chapterId}
-              onChange={(e) => setFormData({ ...formData, chapterId: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              disabled={!formData.subjectId}
+              onChange={(e) => setField('chapterId', e.target.value)}
+              className={SELECT_CLASS}
+              disabled={loading || !formData.subjectId}
             >
               <option value="">Select Chapter (Optional)</option>
               {filteredChapters.map((chapter) => (
@@ -839,48 +817,32 @@ const TopicModal = ({ isOpen, onClose, topic, onSubmit, subjects, currentUser })
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Duration
-          </label>
-          <input
-            type="text"
-            value={formData.duration}
-            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="e.g., 2 Days"
-          />
-        </div>
+        <Input
+          label="Duration"
+          value={formData.duration}
+          onChange={(e) => setField('duration', e.target.value)}
+          placeholder="e.g., 2 Days"
+          disabled={loading}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Description
-          </label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none text-foreground">Description</label>
           <textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => setField('description', e.target.value)}
+            className={TEXTAREA_CLASS}
             rows={3}
             placeholder="Topic description..."
+            disabled={loading}
           />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : topic?.id ? 'Update' : 'Create'}
-          </button>
-        </div>
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </form>
     </Modal>
   );
@@ -1371,8 +1333,8 @@ const CourseManagement = () => {
       >
         <div className="p-6">
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600">{error}</p>
+            <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-destructive">{error}</p>
             </div>
           )}
 
@@ -1384,7 +1346,7 @@ const CourseManagement = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 border-b-2 font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600'
+                    ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1401,7 +1363,7 @@ const CourseManagement = () => {
               placeholder={activeTab === 'courses' ? 'Search courses...' : activeTab === 'batches' ? 'Search batches...' : 'Search subjects...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent w-64"
+              className="px-4 py-2 border border-input rounded-lg bg-card text-foreground w-64 focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
             />
 
             <div className="flex items-center gap-3">
@@ -1444,28 +1406,28 @@ const CourseManagement = () => {
               <p>Loading...</p>
             </div>
           ) : (
-            <div className="bg-card rounded-lg shadow overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
               {activeTab === 'courses' ? (
                 /* ---- Courses (flat list; fee + details) ---- */
                 filteredCourses.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-gray-300" />
-                    <h3 className="text-lg font-medium mb-2">No Courses Found</h3>
+                    <Icon name="BookOpen" size={48} className="mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-display text-lg font-semibold mb-2">No Courses Found</h3>
                     <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first course.'}</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-border">
                     {filteredCourses.map((course) => {
                       const subjectNames = getCourseSubjectNames(course);
                       return (
                       <div key={course.id} className="px-4 py-3 hover:bg-muted">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                            <Icon name="BookOpen" size={16} className="text-blue-600 flex-shrink-0" />
+                            <Icon name="BookOpen" size={16} className="text-primary flex-shrink-0" />
                             <span className="text-sm font-medium text-foreground truncate">{course.name}</span>
                             {course.code && <span className="text-xs text-muted-foreground">({course.code})</span>}
                             {fmtFee(course.fee) && (
-                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700" title="Course fee">
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-success/15 text-success" title="Course fee">
                                 <Icon name="IndianRupee" size={11} />{fmtFee(course.fee)}
                               </span>
                             )}
@@ -1475,16 +1437,16 @@ const CourseManagement = () => {
                               </span>
                             )}
                             {course.prerequisites && (
-                              <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={`Prerequisites: ${course.prerequisites}`}>
+                              <span className="inline-flex items-center gap-1 text-xs text-warning" title={`Prerequisites: ${course.prerequisites}`}>
                                 <Icon name="Info" size={11} />Prereqs
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                            <button onClick={() => handleEditCourse(course)} title="Edit course" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                               <Icon name="Edit" size={16} />
                             </button>
-                            <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                            <button onClick={() => handleDeleteCourse(course.id)} title="Delete course" className={`${actionBtn} text-destructive hover:text-destructive hover:bg-destructive/10`}>
                               <Icon name="Trash2" size={16} />
                             </button>
                           </div>
@@ -1493,7 +1455,7 @@ const CourseManagement = () => {
                           <div className="flex flex-wrap items-center gap-1.5 mt-2 pl-6">
                             {subjectNames.map((name, i) => (
                               <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
-                                <Icon name="Folder" size={11} className="text-emerald-600" />{name}
+                                <Icon name="Folder" size={11} className="text-success" />{name}
                               </span>
                             ))}
                           </div>
@@ -1507,20 +1469,20 @@ const CourseManagement = () => {
                 /* ---- Batches (flat institute-level list; timetable) ---- */
                 filteredBatches.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Icon name="Users" size={48} className="mx-auto mb-4 text-gray-300" />
-                    <h3 className="text-lg font-medium mb-2">No Batches Found</h3>
+                    <Icon name="Users" size={48} className="mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-display text-lg font-semibold mb-2">No Batches Found</h3>
                     <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first batch.'}</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-border">
                     {filteredBatches.map((b) => (
                       <div key={b.id} className="flex items-start justify-between px-4 py-3 hover:bg-muted">
                         <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                          <Icon name="Users" size={16} className="text-violet-600 flex-shrink-0" />
+                          <Icon name="Users" size={16} className="text-secondary flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate">{b.name}</span>
                           {b.code && <span className="text-xs text-muted-foreground">({b.code})</span>}
                           {b.active === false && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-muted-foreground">Inactive</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Inactive</span>
                           )}
                           {(b.startDate || b.endDate) && (
                             <span className="text-xs text-muted-foreground">{fmtDate(b.startDate) || '…'} → {fmtDate(b.endDate) || '…'}</span>
@@ -1531,17 +1493,17 @@ const CourseManagement = () => {
                           {formatTimetable(b.timetable).map((slot, si) => (
                             <span
                               key={si}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-700"
+                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-secondary/10 text-secondary"
                             >
                               <Icon name="Clock" size={11} />{slot}
                             </span>
                           ))}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <button onClick={() => openEditBatch(b)} title="Edit batch" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                          <button onClick={() => openEditBatch(b)} title="Edit batch" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                             <Icon name="Edit" size={16} />
                           </button>
-                          <button onClick={() => handleDeleteBatch(b.id)} title="Delete batch" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                          <button onClick={() => handleDeleteBatch(b.id)} title="Delete batch" className={`${actionBtn} text-destructive hover:text-destructive hover:bg-destructive/10`}>
                             <Icon name="Trash2" size={16} />
                           </button>
                         </div>
@@ -1553,12 +1515,12 @@ const CourseManagement = () => {
                 /* ---- Subjects → Chapters → Topics tree ---- */
                 filteredSubjects.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Icon name="Book" size={48} className="mx-auto mb-4 text-gray-300" />
-                    <h3 className="text-lg font-medium mb-2">No Subjects Found</h3>
+                    <Icon name="Book" size={48} className="mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-display text-lg font-semibold mb-2">No Subjects Found</h3>
                     <p className="mb-4">{searchTerm ? 'Try a different search.' : 'Start by adding your first subject.'}</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-border">
                     {filteredSubjects.map((subject) => {
                       const sOpen = expandedSubjects.has(subject.id);
                       const subjChapters = chaptersOf(subject.id);
@@ -1570,7 +1532,7 @@ const CourseManagement = () => {
                           <div className="flex items-center justify-between px-4 py-3 hover:bg-muted">
                             <button onClick={() => toggleSubject(subject.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
                               <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-muted-foreground flex-shrink-0" />
-                              <Icon name="Book" size={16} className="text-green-600 flex-shrink-0" />
+                              <Icon name="Book" size={16} className="text-success flex-shrink-0" />
                               <span className="text-sm font-medium text-foreground truncate">{subject.name}</span>
                               {subject.code && <span className="text-xs text-muted-foreground">({subject.code})</span>}
                               {chaptersLoaded && (
@@ -1578,13 +1540,13 @@ const CourseManagement = () => {
                               )}
                             </button>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button onClick={() => openAddChapter(subject)} title="Add chapter" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
+                              <button onClick={() => openAddChapter(subject)} title="Add chapter" className={`${actionBtn} text-success hover:text-success hover:bg-success/10`}>
                                 <Icon name="Plus" size={16} />
                               </button>
-                              <button onClick={() => handleEditSubject(subject)} title="Edit subject" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                              <button onClick={() => handleEditSubject(subject)} title="Edit subject" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                                 <Icon name="Edit" size={16} />
                               </button>
-                              <button onClick={() => handleDeleteSubject(subject.id)} title="Delete subject" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                              <button onClick={() => handleDeleteSubject(subject.id)} title="Delete subject" className={`${actionBtn} text-destructive hover:text-destructive hover:bg-destructive/10`}>
                                 <Icon name="Trash2" size={16} />
                               </button>
                             </div>
@@ -1598,7 +1560,7 @@ const CourseManagement = () => {
                               ) : subjChapters.length === 0 ? (
                                 <div className="py-2 pl-2 text-sm text-muted-foreground">
                                   No chapters yet.{' '}
-                                  <button onClick={() => openAddChapter(subject)} className="text-blue-600 hover:underline">Add one</button>
+                                  <button onClick={() => openAddChapter(subject)} className="text-primary hover:underline">Add one</button>
                                 </div>
                               ) : (
                                 subjChapters.map((chapter) => {
@@ -1612,7 +1574,7 @@ const CourseManagement = () => {
                                       <div className="flex items-center justify-between px-4 py-2 hover:bg-muted/60">
                                         <button onClick={() => toggleChapter(chapter.id)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
                                           <Icon name={cOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
-                                          <Icon name="FileText" size={14} className="text-amber-600 flex-shrink-0" />
+                                          <Icon name="FileText" size={14} className="text-warning flex-shrink-0" />
                                           <span className="text-sm text-foreground truncate">{chapter.name}</span>
                                           {chapter.code && <span className="text-xs text-muted-foreground">({chapter.code})</span>}
                                           {topicsLoaded && (
@@ -1623,13 +1585,13 @@ const CourseManagement = () => {
                                           <button onClick={() => navigate(`/chapter-materials/${chapter.id}`, { state: { chapter } })} title="Open chapter materials" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                                             <Icon name="Library" size={14} />
                                           </button>
-                                          <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-green-600 hover:text-green-800 hover:bg-green-50`}>
+                                          <button onClick={() => openAddTopic(chapter)} title="Add topic" className={`${actionBtn} text-success hover:text-success hover:bg-success/10`}>
                                             <Icon name="Plus" size={14} />
                                           </button>
-                                          <button onClick={() => handleEditChapter(chapter)} title="Edit chapter" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                          <button onClick={() => handleEditChapter(chapter)} title="Edit chapter" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                                             <Icon name="Edit" size={14} />
                                           </button>
-                                          <button onClick={() => handleDeleteChapter(chapter.id, chapter.subjectId)} title="Delete chapter" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                          <button onClick={() => handleDeleteChapter(chapter.id, chapter.subjectId)} title="Delete chapter" className={`${actionBtn} text-destructive hover:text-destructive hover:bg-destructive/10`}>
                                             <Icon name="Trash2" size={14} />
                                           </button>
                                         </div>
@@ -1643,10 +1605,10 @@ const CourseManagement = () => {
                                           ) : chTopics.length === 0 ? (
                                             <div className="py-1 text-sm text-muted-foreground">
                                               No topics yet.{' '}
-                                              <button onClick={() => openAddTopic(chapter)} className="text-blue-600 hover:underline">Add one</button>
+                                              <button onClick={() => openAddTopic(chapter)} className="text-primary hover:underline">Add one</button>
                                             </div>
                                           ) : (
-                                            <div className="divide-y divide-gray-100">
+                                            <div className="divide-y divide-border">
                                               {chTopics.map((topic) => (
                                                 <div key={topic.id} className="flex items-center justify-between py-2">
                                                   <button
@@ -1659,10 +1621,10 @@ const CourseManagement = () => {
                                                     {topic.code && <span className="text-xs text-muted-foreground">({topic.code})</span>}
                                                   </button>
                                                   <div className="flex items-center gap-1 flex-shrink-0">
-                                                    <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50`}>
+                                                    <button onClick={() => handleEditTopic(topic)} title="Edit topic" className={`${actionBtn} text-primary hover:text-primary hover:bg-primary/10`}>
                                                       <Icon name="Edit" size={14} />
                                                     </button>
-                                                    <button onClick={() => handleDeleteTopic(topic.id, topic.chapterId)} title="Delete topic" className={`${actionBtn} text-red-600 hover:text-red-900 hover:bg-red-50`}>
+                                                    <button onClick={() => handleDeleteTopic(topic.id, topic.chapterId)} title="Delete topic" className={`${actionBtn} text-destructive hover:text-destructive hover:bg-destructive/10`}>
                                                       <Icon name="Trash2" size={14} />
                                                     </button>
                                                   </div>
@@ -1770,9 +1732,9 @@ const CourseManagement = () => {
     return (
       <PageLayout title="Course Management">
         <div className="text-center py-8">
-          <Icon name="AlertCircle" size={48} className="mx-auto text-red-500 mb-4" />
-          <h3 className="text-xl font-semibold text-red-600 mb-2">Course Management Error</h3>
-          <p className="text-red-600 mb-4">
+          <Icon name="AlertCircle" size={48} className="mx-auto text-destructive mb-4" />
+          <h3 className="font-display text-xl font-semibold text-destructive mb-2">Course Management Error</h3>
+          <p className="text-destructive mb-4">
             Something went wrong. Please refresh the page.
           </p>
           <Button

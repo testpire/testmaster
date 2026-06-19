@@ -203,7 +203,7 @@ const InlineTopicEditor = ({
           {currentTopicName || 'Unassigned'}
         </span>
         {pendingTopicId && (
-          <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">
+          <span className="text-[10px] font-medium text-warning bg-warning/10 border border-warning/30 rounded px-1">
             changed
           </span>
         )}

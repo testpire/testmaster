@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
@@ -7,11 +8,11 @@ import { fetchAllPages } from '../../utils/pagination';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
-import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 import CreateInstituteModal from '../super-admin-dashboard/components/CreateInstituteModal';
 
 const InstituteManagement = () => {
   const { user, userProfile } = useAuth();
+  const navigate = useNavigate();
 
   // Try to get SuperAdmin context (will be null if not in super admin routes)
   let superAdminContext = null;
@@ -34,9 +35,6 @@ const InstituteManagement = () => {
 
   // Modal states
   const [showCreateInstituteModal, setShowCreateInstituteModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [modalInstitute, setModalInstitute] = useState(null);
-  const [editingAdmin, setEditingAdmin] = useState(null);
 
   const currentRole = userProfile?.role?.toLowerCase()?.replace('_', '-') || 'super-admin';
 
@@ -135,24 +133,30 @@ const InstituteManagement = () => {
     });
   };
 
-  // Modal handlers
+  // Admin create/edit now opens the full-page user form. The list reloads on
+  // return because this page remounts (its mount effect refetches admins).
   const openCreateAdmin = (institute) => {
-    setEditingAdmin(null);
-    setModalInstitute(institute);
-    setShowAdminModal(true);
+    navigate('/user-form', {
+      state: {
+        userRole: 'INST_ADMIN',
+        defaultInstituteId: institute?.id,
+        defaultInstitute: institute,
+        returnTo: '/institute-management'
+      }
+    });
   };
 
   const openEditAdmin = (admin, institute) => {
-    setEditingAdmin(admin);
-    setModalInstitute(institute);
-    setShowAdminModal(true);
-  };
-
-  const handleAdminModalSuccess = () => {
-    setShowAdminModal(false);
-    setEditingAdmin(null);
-    setModalInstitute(null);
-    fetchAdmins();
+    navigate('/user-form', {
+      state: {
+        userRole: 'INST_ADMIN',
+        defaultInstituteId: institute?.id,
+        defaultInstitute: institute,
+        editMode: true,
+        existingUser: admin,
+        returnTo: '/institute-management'
+      }
+    });
   };
 
   const handleInstituteCreateSuccess = (instituteData) => {
@@ -218,7 +222,7 @@ const InstituteManagement = () => {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Institute Management</h1>
+            <h1 className="font-display text-2xl font-semibold text-foreground">Institute Management</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Browse institutes and expand any institute to manage its admins
             </p>
@@ -253,12 +257,12 @@ const InstituteManagement = () => {
 
         {/* Institute Tree */}
         {loading ? (
-          <div className="bg-card rounded-lg border border-border p-4 sm:p-8 text-center">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-4 sm:p-8 text-center">
             <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">Loading institutes...</p>
           </div>
         ) : error ? (
-          <div className="bg-card rounded-lg border border-border p-4 sm:p-8 text-center">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-4 sm:p-8 text-center">
             <Icon name="AlertCircle" size={32} className="mx-auto mb-4 text-destructive" />
             <p className="text-destructive">{error}</p>
             <Button onClick={fetchAdmins} className="mt-4">
@@ -266,9 +270,9 @@ const InstituteManagement = () => {
             </Button>
           </div>
         ) : visibleInstitutes.length === 0 ? (
-          <div className="bg-card rounded-lg border border-border p-4 sm:p-8 text-center">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-4 sm:p-8 text-center">
             <Icon name="Building2" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
+            <h3 className="font-display text-lg font-semibold text-foreground mb-2">
               {searchTerm ? 'No matching institutes' : 'No institutes yet'}
             </h3>
             <p className="text-muted-foreground">
@@ -286,7 +290,7 @@ const InstituteManagement = () => {
                 : allInstAdmins;
 
               return (
-                <div key={institute.id} className="bg-card rounded-lg border border-border overflow-hidden">
+                <div key={institute.id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                   {/* Institute Header (clickable) */}
                   <div className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30">
                     <button
@@ -299,8 +303,8 @@ const InstituteManagement = () => {
                         size={18}
                         className="text-muted-foreground flex-shrink-0"
                       />
-                      <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Icon name="Building2" size={18} className="text-blue-600" />
+                      <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Icon name="Building2" size={18} className="text-primary" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -329,7 +333,7 @@ const InstituteManagement = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteInstitute(institute)}
-                        className="h-9 w-9 hover:bg-red-50 hover:text-red-600"
+                        className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive"
                         title="Delete institute"
                       >
                         <Icon name="Trash2" size={16} />
@@ -374,8 +378,8 @@ const InstituteManagement = () => {
                                 <tr key={admin.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                                   <td className="p-4">
                                     <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                        <span className="text-purple-600 font-semibold text-sm">
+                                      <div className="w-8 h-8 bg-secondary/15 rounded-full flex items-center justify-center">
+                                        <span className="text-secondary font-semibold text-sm">
                                           {admin.firstName?.[0]?.toUpperCase() || admin.username?.[0]?.toUpperCase() || 'A'}
                                         </span>
                                       </div>
@@ -393,8 +397,8 @@ const InstituteManagement = () => {
                                     <span
                                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                         admin.enabled === false
-                                          ? 'bg-gray-100 text-gray-600'
-                                          : 'bg-green-100 text-green-800'
+                                          ? 'bg-muted text-muted-foreground'
+                                          : 'bg-success/15 text-success'
                                       }`}
                                     >
                                       {admin.enabled === false ? 'Disabled' : 'Active'}
@@ -406,7 +410,7 @@ const InstituteManagement = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => openEditAdmin(admin, institute)}
-                                        className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+                                        className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                                         title="Edit institute admin"
                                       >
                                         <Icon name="Edit" size={16} />
@@ -415,7 +419,7 @@ const InstituteManagement = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => handleDeleteAdmin(admin.id)}
-                                        className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                                        className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                                         title="Delete institute admin"
                                       >
                                         <Icon name="Trash2" size={16} />
@@ -446,22 +450,6 @@ const InstituteManagement = () => {
           </div>
         )}
       </div>
-
-      {/* Create / Edit Institute Admin Modal */}
-      <CreateUserModal
-        isOpen={showAdminModal}
-        onClose={() => {
-          setShowAdminModal(false);
-          setEditingAdmin(null);
-          setModalInstitute(null);
-        }}
-        onSuccess={handleAdminModalSuccess}
-        userRole="INST_ADMIN"
-        defaultInstituteId={modalInstitute?.id}
-        defaultInstitute={modalInstitute}
-        editMode={!!editingAdmin}
-        existingUser={editingAdmin}
-      />
 
       {/* Create Institute Modal */}
       <CreateInstituteModal

@@ -4,10 +4,10 @@
 export const TEST_STATUSES = ['DRAFT', 'PUBLISHED'];
 
 export const TEST_STATUS_BADGE = {
-  DRAFT: 'bg-amber-100 text-amber-700',
-  PUBLISHED: 'bg-green-100 text-green-700',
-  ARCHIVED: 'bg-slate-100 text-slate-500',
-  CLOSED: 'bg-slate-100 text-slate-500'
+  DRAFT: 'bg-warning/15 text-warning',
+  PUBLISHED: 'bg-success/15 text-success',
+  ARCHIVED: 'bg-muted text-muted-foreground',
+  CLOSED: 'bg-muted text-muted-foreground'
 };
 
 // Assignment targets (AssignTestRequestDto.targetType).

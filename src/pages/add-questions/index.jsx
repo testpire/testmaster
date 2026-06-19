@@ -132,7 +132,7 @@ const AddQuestions = () => {
                 <Icon name="ArrowLeft" size={20} />
               </Button>
               <div className="min-w-0">
-                <h1 className="text-xl lg:text-2xl font-bold text-foreground truncate">Add Questions</h1>
+                <h1 className="text-xl lg:text-2xl font-display font-semibold text-foreground truncate">Add Questions</h1>
                 <p className="text-sm text-muted-foreground">
                   Saved as drafts — review and publish them later from the Question Bank.
                 </p>
@@ -207,7 +207,7 @@ const AddQuestions = () => {
             {/* Session list */}
             <div className="lg:col-span-1">
               <div className="lg:sticky lg:top-0">
-                <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-display font-semibold text-foreground mb-3 flex items-center gap-2">
                   <Icon name="ListChecks" size={16} />
                   Added this session ({added.length})
                 </h2>
@@ -234,7 +234,7 @@ const AddQuestions = () => {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="w-7 h-7 text-red-600 hover:text-red-700 shrink-0"
+                              className="w-7 h-7 text-destructive hover:text-destructive/80 shrink-0"
                               onClick={() => handleRemoveAdded(q.id)}
                               title="Delete this question"
                             >
@@ -243,7 +243,7 @@ const AddQuestions = () => {
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning font-medium">
                             Draft
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-muted">

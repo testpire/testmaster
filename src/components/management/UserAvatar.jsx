@@ -3,7 +3,7 @@ import React from 'react';
 const UserAvatar = ({
   user,
   size = 'md',
-  colorClass = 'text-blue-600 bg-blue-100'
+  colorClass = 'text-primary bg-primary/10'
 }) => {
   const getSizeClasses = () => {
     switch (size) {

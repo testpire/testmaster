@@ -69,7 +69,7 @@ const ManagementPageLayout = ({
 
       {/* Mobile Navigation Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[998] lg:hidden">
+        <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-[998] lg:hidden">
           <div className="fixed right-0 top-0 h-full w-64 bg-card transform translate-x-0 transition-transform duration-300 ease-in-out z-[999]">
             <div className="p-4 border-b border-border flex justify-end">
               <button
@@ -102,8 +102,8 @@ const ManagementPageLayout = ({
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h1 className="font-display text-3xl font-semibold text-foreground tracking-tight">{title}</h1>
+              <p className="text-sm text-muted-foreground mt-1.5">
                 {subtitle}
               </p>
             </div>

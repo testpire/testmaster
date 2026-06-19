@@ -9,11 +9,11 @@ import { formatBytes as fmtBytes } from '../../utils/formatters';
 
 // Per-type display metadata.
 const TYPE_META = {
-  PDF: { icon: 'FileText', label: 'PDF', color: 'text-red-600', badge: 'bg-red-50 text-red-700' },
-  PPT: { icon: 'Presentation', label: 'Slides', color: 'text-orange-600', badge: 'bg-orange-50 text-orange-700' },
-  VIDEO: { icon: 'Video', label: 'Video', color: 'text-purple-600', badge: 'bg-purple-50 text-purple-700' },
-  NOTE: { icon: 'StickyNote', label: 'Note', color: 'text-amber-600', badge: 'bg-amber-50 text-amber-700' },
-  LINK: { icon: 'Link', label: 'Link', color: 'text-blue-600', badge: 'bg-blue-50 text-blue-700' },
+  PDF: { icon: 'FileText', label: 'PDF', color: 'text-destructive', badge: 'bg-destructive/10 text-destructive' },
+  PPT: { icon: 'Presentation', label: 'Slides', color: 'text-warning', badge: 'bg-warning/10 text-warning' },
+  VIDEO: { icon: 'Video', label: 'Video', color: 'text-secondary', badge: 'bg-secondary/10 text-secondary' },
+  NOTE: { icon: 'StickyNote', label: 'Note', color: 'text-warning', badge: 'bg-warning/10 text-warning' },
+  LINK: { icon: 'Link', label: 'Link', color: 'text-primary', badge: 'bg-primary/10 text-primary' },
 };
 const metaFor = (type) => TYPE_META[type] || { icon: 'File', label: type || 'File', color: 'text-muted-foreground', badge: 'bg-muted text-muted-foreground' };
 const FILE_TYPES = new Set(['PDF', 'PPT', 'VIDEO']);
@@ -27,10 +27,12 @@ const FILE_TYPES = new Set(['PDF', 'PPT', 'VIDEO']);
  * and previews materials for the given owner, and reloads whenever the owner changes.
  *
  * Props:
- *  - scope   : 'topics' | 'chapters'
- *  - ownerId : id of the owning topic / chapter
+ *  - scope    : 'topics' | 'chapters'
+ *  - ownerId  : id of the owning topic / chapter
+ *  - readOnly : when true, render a view-only experience (no add/edit/delete/
+ *               reorder) — used by the student Study Materials section.
  */
-const MaterialsManager = ({ scope, ownerId }) => {
+const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -142,30 +144,32 @@ const MaterialsManager = ({ scope, ownerId }) => {
 
   return (
     <>
-      {/* Add buttons */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'FILE', editing: null })}>
-          <Icon name="Upload" size={15} className="mr-1.5" /> File
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'NOTE', editing: null })}>
-          <Icon name="StickyNote" size={15} className="mr-1.5" /> Note
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'LINK', editing: null })}>
-          <Icon name="Link" size={15} className="mr-1.5" /> Link
-        </Button>
-      </div>
+      {/* Add buttons (hidden in read-only / student view) */}
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'FILE', editing: null })}>
+            <Icon name="Upload" size={15} className="mr-1.5" /> File
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'NOTE', editing: null })}>
+            <Icon name="StickyNote" size={15} className="mr-1.5" /> Note
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setComposer({ mode: 'LINK', editing: null })}>
+            <Icon name="Link" size={15} className="mr-1.5" /> Link
+          </Button>
+        </div>
+      )}
 
       {error && (
-        <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm mb-4">
+        <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-md text-sm mb-4">
           <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
           <span className="flex-1">{error}</span>
-          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
+          <button onClick={() => setError('')} className="text-destructive/70 hover:text-destructive">
             <Icon name="X" size={14} />
           </button>
         </div>
       )}
 
-      {composer && (
+      {!readOnly && composer && (
         <div className="mb-4">
           <MaterialComposer
             scope={scope}
@@ -182,7 +186,7 @@ const MaterialsManager = ({ scope, ownerId }) => {
       {/* Two-pane layout */}
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-13rem)]">
         {/* Sidebar list */}
-        <aside className="lg:w-80 flex-shrink-0 border border-border rounded-lg bg-card overflow-hidden flex flex-col">
+        <aside className="lg:w-80 flex-shrink-0 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col">
           <div className="px-3 py-2 border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {materials.length} material{materials.length === 1 ? '' : 's'}
           </div>
@@ -193,9 +197,9 @@ const MaterialsManager = ({ scope, ownerId }) => {
             </div>
           ) : materials.length === 0 ? (
             <div className="p-6 text-center text-muted-foreground">
-              <Icon name="FolderOpen" size={36} className="mx-auto mb-2 text-gray-300" />
+              <Icon name="FolderOpen" size={36} className="mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm">No materials yet.</p>
-              <p className="text-xs mt-1">Add a file, note or link above.</p>
+              {!readOnly && <p className="text-xs mt-1">Add a file, note or link above.</p>}
             </div>
           ) : (
             <ul className="overflow-y-auto divide-y divide-border flex-1">
@@ -217,20 +221,22 @@ const MaterialsManager = ({ scope, ownerId }) => {
                           </span>
                         </span>
                       </button>
-                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button onClick={() => handleMove(i, -1)} disabled={i === 0 || busyId === m.id} title="Move up" className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30">
-                          <Icon name="ChevronUp" size={14} />
-                        </button>
-                        <button onClick={() => handleMove(i, 1)} disabled={i === materials.length - 1 || busyId === m.id} title="Move down" className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30">
-                          <Icon name="ChevronDown" size={14} />
-                        </button>
-                        <button onClick={() => setComposer({ mode: m.type === 'NOTE' ? 'NOTE' : m.type === 'LINK' ? 'LINK' : 'FILE', editing: m })} title="Edit" className="p-1 rounded text-indigo-600 hover:bg-indigo-50">
-                          <Icon name="Edit" size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(m)} disabled={busyId === m.id} title="Delete" className="p-1 rounded text-red-600 hover:bg-red-50 disabled:opacity-50">
-                          <Icon name="Trash2" size={14} />
-                        </button>
-                      </div>
+                      {!readOnly && (
+                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <button onClick={() => handleMove(i, -1)} disabled={i === 0 || busyId === m.id} title="Move up" className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30">
+                            <Icon name="ChevronUp" size={14} />
+                          </button>
+                          <button onClick={() => handleMove(i, 1)} disabled={i === materials.length - 1 || busyId === m.id} title="Move down" className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30">
+                            <Icon name="ChevronDown" size={14} />
+                          </button>
+                          <button onClick={() => setComposer({ mode: m.type === 'NOTE' ? 'NOTE' : m.type === 'LINK' ? 'LINK' : 'FILE', editing: m })} title="Edit" className="p-1 rounded text-primary hover:bg-primary/10">
+                            <Icon name="Edit" size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(m)} disabled={busyId === m.id} title="Delete" className="p-1 rounded text-destructive hover:bg-destructive/10 disabled:opacity-50">
+                            <Icon name="Trash2" size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </li>
                 );
@@ -240,10 +246,10 @@ const MaterialsManager = ({ scope, ownerId }) => {
         </aside>
 
         {/* Viewer pane */}
-        <section ref={viewerRef} className="flex-1 border border-border rounded-lg bg-card overflow-hidden flex flex-col min-h-[400px]">
+        <section ref={viewerRef} className="flex-1 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col min-h-[400px]">
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
-              <Icon name="MonitorPlay" size={48} className="mb-3 text-gray-300" />
+              <Icon name="MonitorPlay" size={48} className="mb-3 text-muted-foreground" />
               <p className="text-sm">Select a material to view it here.</p>
             </div>
           ) : (
@@ -300,7 +306,7 @@ const MaterialViewer = ({ material, url, loading, error }) => {
   if (material.type === 'LINK') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 h-full">
-        <Icon name="Link" size={40} className="text-blue-500 mb-3" />
+        <Icon name="Link" size={40} className="text-primary mb-3" />
         <p className="text-sm font-medium text-foreground mb-1">{material.title}</p>
         <p className="text-xs text-muted-foreground break-all mb-4 max-w-md">{material.externalUrl}</p>
         <a href={material.externalUrl} target="_blank" rel="noopener noreferrer">
@@ -320,7 +326,7 @@ const MaterialViewer = ({ material, url, loading, error }) => {
   if (error) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
-        <Icon name="AlertCircle" size={36} className="text-red-400 mb-2" />
+        <Icon name="AlertCircle" size={36} className="text-destructive/70 mb-2" />
         <p className="text-sm">{error}</p>
       </div>
     );

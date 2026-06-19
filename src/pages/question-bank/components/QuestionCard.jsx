@@ -80,9 +80,9 @@ const QuestionCard = ({
   const getDifficultyColor = (difficulty) => {
     const safeLevel = (difficulty || '').toLowerCase();
     switch (safeLevel) {
-      case 'easy': return 'text-green-700 bg-green-100';
-      case 'medium': return 'text-yellow-700 bg-yellow-100';
-      case 'hard': return 'text-red-700 bg-red-100';
+      case 'easy': return 'text-success bg-success/15';
+      case 'medium': return 'text-warning bg-warning/15';
+      case 'hard': return 'text-destructive bg-destructive/10';
       default: return 'text-foreground bg-muted';
     }
   };
@@ -104,8 +104,8 @@ const QuestionCard = ({
 
   return (
     <div
-      className={`bg-card border rounded-lg p-4 shadow-sm transition-all duration-200 hover:shadow-md ${
-        isDirty ? 'border-amber-300 ring-1 ring-amber-200' : 'border-border'
+      className={`bg-card border rounded-2xl p-4 shadow-sm transition-all duration-200 hover:shadow-md ${
+        isDirty ? 'border-warning/40 ring-1 ring-warning/30' : 'border-border'
       }`}
     >
 
@@ -124,19 +124,19 @@ const QuestionCard = ({
           )}
 
           {/* Question Number */}
-          <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
+          <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
             {(index || 0) + 1}
           </div>
 
           {/* Question Type Badge */}
-          <div className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <div className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
             {safeQuestion.questionType.toUpperCase()}
           </div>
 
           {/* Publish status badge */}
           <div
             className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isDraft ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+              isDraft ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'
             }`}
           >
             {isDraft ? 'Draft' : 'Published'}
@@ -162,7 +162,7 @@ const QuestionCard = ({
           )}
 
           {isDirty && (
-            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+            <span className="text-[10px] font-medium text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
               Unsaved
             </span>
           )}
@@ -256,7 +256,7 @@ const QuestionCard = ({
             variant="ghost"
             size="icon"
             onClick={() => safeHandleClick(onDelete, safeQuestion.id)}
-            className="w-8 h-8 text-red-600 hover:text-red-700"
+            className="w-8 h-8 text-destructive hover:text-destructive/80"
             title="Delete Question"
           >
             <Icon name="Trash2" size={14} />
@@ -284,7 +284,7 @@ const QuestionCard = ({
                 {safeQuestion.text.length > 150 && (
                   <button
                     onClick={() => setShowFullQuestion(!showFullQuestion)}
-                    className="ml-2 text-blue-600 hover:underline text-xs"
+                    className="ml-2 text-primary hover:underline text-xs"
                   >
                     {showFullQuestion ? 'Show less' : 'Show more'}
                   </button>
@@ -329,7 +329,7 @@ const QuestionCard = ({
                 key={safeOption.id}
                 className={`text-xs p-2 rounded border ${
                   safeOption.isCorrect
-                    ? 'bg-green-50 border-green-300 text-green-800'
+                    ? 'bg-success/10 border-success/40 text-success'
                     : 'bg-muted border-border text-foreground'
                 }`}
               >
@@ -421,7 +421,7 @@ const QuestionCard = ({
 
       {/* Negative Marking Info */}
       {safeQuestion.negativeMarks > 0 && (
-        <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+        <div className="mt-2 text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">
           <Icon name="Minus" size={12} className="inline mr-1" />
           Negative marking: -{safeQuestion.negativeMarks} marks
         </div>

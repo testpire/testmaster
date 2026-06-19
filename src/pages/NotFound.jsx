@@ -6,41 +6,36 @@ import Icon from 'components/AppIcon';
 const NotFound = () => {
   const navigate = useNavigate();
 
-  const handleGoHome = () => {
-    navigate('/');
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <div className="text-center max-w-md">
-        <div className="flex justify-center mb-6">
-          <div className="relative">
-            <h1 className="text-9xl font-bold text-primary opacity-20">404</h1>
-          </div>
+      <div className="text-center max-w-md animate-reveal">
+        <div className="relative flex justify-center mb-2">
+          <h1 className="font-display text-[8rem] sm:text-[10rem] font-semibold text-primary/15 leading-none select-none">404</h1>
+          <span className="absolute top-1/2 -translate-y-1/2 w-16 h-16 rounded-2xl bg-accent/15 flex items-center justify-center">
+            <Icon name="Compass" size={30} className="text-accent" />
+          </span>
         </div>
 
-        <h2 className="text-2xl font-medium text-onBackground mb-2">Page Not Found</h2>
-        <p className="text-onBackground/70 mb-8">
-          The page you're looking for doesn't exist. Let's get you back!
+        <h2 className="font-display text-2xl font-semibold text-foreground mb-2">Page not found</h2>
+        <p className="text-muted-foreground mb-8">
+          The page you're looking for doesn't exist. Let's get you back on track.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
-            variant="primary"
-            icon={<Icon name="ArrowLeft" />}
+            variant="outline"
+            iconName="ArrowLeft"
             iconPosition="left"
             onClick={() => window.history?.back()}
           >
-            Go Back
+            Go back
           </Button>
-
           <Button
-            variant="outline"
-            icon={<Icon name="Home" />}
+            iconName="Home"
             iconPosition="left"
-            onClick={handleGoHome}
+            onClick={() => navigate('/')}
           >
-            Back to Home
+            Back to home
           </Button>
         </div>
       </div>

@@ -47,7 +47,7 @@ const DataTable = ({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => onSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full h-11 pl-10 pr-4 py-2 border border-border rounded-xl bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary transition-colors"
           />
         </div>
       </div>
@@ -83,7 +83,7 @@ const DataTable = ({
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 {columns.map((column, index) => (
-                  <th key={index} className={`text-left p-4 font-semibold text-foreground ${column.className || ''}`}>
+                  <th key={index} className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${column.className || ''}`}>
                     {column.header}
                   </th>
                 ))}

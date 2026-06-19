@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { newUserService } from '../../../services/newUserService';
 import Modal from '../../../components/ui/Modal';
+import Input from '../../../components/ui/Input';
+import Select from '../../../components/ui/Select';
+import Button from '../../../components/ui/Button';
+import Icon from '../../../components/AppIcon';
+
+const FORM_ID = 'user-action-form';
 
 const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -51,12 +57,10 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
             return;
           }
 
-          const updateData = {
+          result = await newUserService.updateUserProfile(user.id, {
             ...formData,
             fullName: `${formData.firstName} ${formData.lastName}`.trim()
-          };
-
-          result = await newUserService.updateUserProfile(user.id, updateData);
+          });
           message = 'User updated successfully';
           break;
 
@@ -104,25 +108,19 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
     if (error) setError('');
   };
 
+  const roleWord = user?.role === 'TEACHER' ? 'Teacher' : 'Student';
+
   const getModalTitle = () => {
     if (!user) return 'User Action';
     switch (actionType) {
-      case 'edit': return `Edit ${user.role === 'TEACHER' ? 'Teacher' : 'Student'}`;
-      case 'move': return `Move ${user.role === 'TEACHER' ? 'Teacher' : 'Student'}`;
-      case 'delete': return `Delete ${user.role === 'TEACHER' ? 'Teacher' : 'Student'}`;
+      case 'edit': return `Edit ${roleWord}`;
+      case 'move': return `Move ${roleWord}`;
+      case 'delete': return `Delete ${roleWord}`;
       default: return 'User Action';
     }
   };
 
   const getActionButtonText = () => {
-    if (loading) {
-      switch (actionType) {
-        case 'edit': return 'Updating...';
-        case 'move': return 'Moving...';
-        case 'delete': return 'Deleting...';
-        default: return 'Processing...';
-      }
-    }
     switch (actionType) {
       case 'edit': return 'Update User';
       case 'move': return 'Move User';
@@ -131,336 +129,147 @@ const UserActionModal = ({ isOpen, onClose, user, institutes, actionType, onSucc
     }
   };
 
-  const getActionButtonColor = () => {
-    if (loading) return '#9ca3af';
-    switch (actionType) {
-      case 'edit': return '#3b82f6';
-      case 'move': return '#059669';
-      case 'delete': return '#dc2626';
-      default: return '#3b82f6';
-    }
-  };
+  // Submit button styling follows the action's intent.
+  const submitVariant =
+    actionType === 'delete' ? 'destructive' :
+    actionType === 'move' ? 'success' :
+    'default';
+
+  // Institutes available to move the user into (exclude their current one).
+  const instituteOptions = (institutes || [])
+    .filter((inst) => inst.id !== user?.instituteId)
+    .map((inst) => ({
+      value: inst.id,
+      label: `${inst.name} (${inst.code || inst.instituteCode || 'N/A'})`
+    }));
+
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button type="submit" form={FORM_ID} variant={submitVariant} loading={loading} disabled={loading}>
+        {getActionButtonText()}
+      </Button>
+    </>
+  );
 
   return (
-    <Modal isOpen={isOpen && !!user} onClose={onClose} title={getModalTitle()} size="md">
-        {/* Content */}
-        <form onSubmit={handleSubmit}>
-          {actionType === 'delete' ? (
-            // Delete Confirmation
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                backgroundColor: '#fef2f2',
-                padding: '16px',
-                borderRadius: '8px',
-                marginBottom: '20px'
-              }}>
-                <p style={{ 
-                  fontSize: '1rem',
-                  color: '#dc2626',
-                  margin: '0 0 12px 0',
-                  fontWeight: '500'
-                }}>
-                  Are you sure you want to delete this user?
-                </p>
-                <p style={{ 
-                  fontSize: '0.875rem', 
-                  color: '#6b7280',
-                  margin: 0
-                }}>
-                  <strong>{user.firstName} {user.lastName}</strong><br />
-                  {user.email}<br />
-                  {user.role}
-                </p>
-              </div>
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#6b7280',
-                marginBottom: '20px'
-              }}>
-                This action cannot be undone. All user data will be permanently removed.
-              </p>
-            </div>
-          ) : actionType === 'move' ? (
-            // Move Institute Selection
-            <div>
-              <div style={{ marginBottom: '20px' }}>
-                <p style={{ 
-                  fontSize: '1rem',
-                  color: '#374151',
-                  margin: '0 0 12px 0'
-                }}>
-                  Moving: <strong>{user.firstName} {user.lastName}</strong>
-                </p>
-                <p style={{ 
-                  fontSize: '0.875rem', 
-                  color: '#6b7280',
-                  margin: '0 0 20px 0'
-                }}>
-                  {user.email} ({user.role})
-                </p>
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Select New Institute *
-                </label>
-                <select
-                  value={selectedInstituteId}
-                  onChange={(e) => setSelectedInstituteId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  disabled={loading}
-                >
-                  <option value="">Select an institute</option>
-                  {institutes.filter(inst => inst.id !== user.instituteId).map((institute) => (
-                    <option key={institute.id} value={institute.id}>
-                      {institute.name} ({institute.code || institute.instituteCode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ) : (
-            // Edit Form
-            <div style={{ display: 'grid', gap: '20px' }}>
-              {/* Name Fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+    <Modal
+      isOpen={isOpen && !!user}
+      onClose={onClose}
+      title={getModalTitle()}
+      size="md"
+      footer={footer}
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-4">
+        {actionType === 'delete' ? (
+          // Delete confirmation
+          <div className="space-y-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+              <div className="flex items-start gap-3">
+                <Icon name="AlertTriangle" size={20} className="mt-0.5 flex-shrink-0 text-destructive" />
                 <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="First name"
-                    disabled={loading}
-                  />
-                </div>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '6px'
-                  }}>
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Last name"
-                    disabled={loading}
-                  />
+                  <p className="text-sm font-semibold text-destructive">
+                    Are you sure you want to delete this user?
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">
+                    <span className="font-medium">{user.firstName} {user.lastName}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <p className="text-sm text-muted-foreground">{user.role}</p>
                 </div>
               </div>
-
-              {/* Email */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="email@example.com"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Username */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Username"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Phone number"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Role (read-only) */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '6px'
-                }}>
-                  Role
-                </label>
-                <input
-                  type="text"
-                  value={formData.role}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box',
-                    backgroundColor: '#f9fafb',
-                    color: '#6b7280'
-                  }}
-                  disabled
-                />
-              </div>
             </div>
-          )}
-
-          {error && (
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#dc2626',
-              padding: '12px',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-              marginTop: '20px'
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Footer */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
-            marginTop: '24px'
-          }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: getActionButtonColor(),
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {getActionButtonText()}
-            </button>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone. All user data will be permanently removed.
+            </p>
           </div>
-        </form>
+        ) : actionType === 'move' ? (
+          // Move institute selection
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/50 p-3">
+              <p className="text-sm text-foreground">
+                Moving: <span className="font-medium">{user.firstName} {user.lastName}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">{user.email} ({user.role})</p>
+            </div>
+
+            <Select
+              label="Select New Institute"
+              required
+              placeholder="Select an institute"
+              searchable
+              options={instituteOptions}
+              value={selectedInstituteId}
+              onChange={(value) => setSelectedInstituteId(value)}
+              disabled={loading}
+            />
+          </div>
+        ) : (
+          // Edit form
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                required
+                value={formData.firstName}
+                onChange={(e) => handleInputChange('firstName', e.target.value)}
+                placeholder="First name"
+                disabled={loading}
+              />
+              <Input
+                label="Last Name"
+                value={formData.lastName}
+                onChange={(e) => handleInputChange('lastName', e.target.value)}
+                placeholder="Last name"
+                disabled={loading}
+              />
+            </div>
+
+            <Input
+              type="email"
+              label="Email Address"
+              required
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              placeholder="email@example.com"
+              disabled={loading}
+            />
+
+            <Input
+              label="Username"
+              value={formData.username}
+              onChange={(e) => handleInputChange('username', e.target.value)}
+              placeholder="Username"
+              disabled={loading}
+            />
+
+            <Input
+              type="tel"
+              label="Phone Number"
+              value={formData.phone}
+              onChange={(e) => handleInputChange('phone', e.target.value)}
+              placeholder="Phone number"
+              disabled={loading}
+            />
+
+            <Input
+              label="Role"
+              value={formData.role}
+              disabled
+              description="Role cannot be changed here."
+            />
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </form>
     </Modal>
   );
 };

@@ -326,24 +326,26 @@ const TestTaking = () => {
     return (
       <div className="min-h-screen bg-background p-4 lg:p-6">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-card border border-border rounded-lg p-6 text-center mb-6">
-            <Icon
-              name={passed === false ? 'XCircle' : 'CheckCircle2'}
-              size={56}
-              className={`mx-auto mb-3 ${passed === false ? 'text-destructive' : 'text-green-600'}`}
-            />
-            <h1 className="text-2xl font-bold text-foreground mb-1">Test Submitted</h1>
+          <div className="bg-card border border-border rounded-2xl p-8 text-center mb-6 shadow-sm">
+            <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center ${passed === false ? 'bg-destructive/10' : 'bg-success/10'}`}>
+              <Icon
+                name={passed === false ? 'XCircle' : 'CheckCircle2'}
+                size={32}
+                className={passed === false ? 'text-destructive' : 'text-success'}
+              />
+            </div>
+            <h1 className="font-display text-3xl font-semibold text-foreground mb-1">Test submitted</h1>
             <p className="text-muted-foreground mb-4">Your responses have been recorded.</p>
             {score != null && (
-              <div className="text-3xl font-bold text-foreground">
+              <div className="font-display text-4xl font-semibold text-foreground nums-tabular">
                 {score}
-                {totalMarks != null && <span className="text-lg text-muted-foreground"> / {totalMarks}</span>}
+                {totalMarks != null && <span className="text-lg text-muted-foreground font-sans"> / {totalMarks}</span>}
               </div>
             )}
             {passed != null && (
               <span
                 className={`inline-block mt-3 px-3 py-1 rounded-full text-sm font-medium ${
-                  passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  passed ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'
                 }`}
               >
                 {passed ? 'Passed' : 'Did not pass'}
@@ -372,7 +374,7 @@ const TestTaking = () => {
                 const qid = getQId(q);
                 const chosen = answers.get(qid) || [];
                 return (
-                  <div key={qid} className="bg-card border border-border rounded-lg p-4">
+                  <div key={qid} className="bg-card border border-border rounded-xl p-4">
                     <p className="text-sm font-medium text-foreground mb-2">
                       {i + 1}. <MathText text={q.text} textFormat={q.textFormat} />
                     </p>
@@ -383,11 +385,11 @@ const TestTaking = () => {
                         return (
                           <div
                             key={o.id}
-                            className={`text-sm px-3 py-1.5 rounded border ${
+                            className={`text-sm px-3 py-1.5 rounded-lg border ${
                               isCorrect
-                                ? 'border-green-300 bg-green-50 text-green-800'
+                                ? 'border-success/40 bg-success/10 text-success'
                                 : isChosen
-                                ? 'border-red-300 bg-red-50 text-red-800'
+                                ? 'border-destructive/40 bg-destructive/10 text-destructive'
                                 : 'border-border text-muted-foreground'
                             }`}
                           >
@@ -419,10 +421,10 @@ const TestTaking = () => {
 
   const paletteCls = {
     current: 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-card',
-    answered: 'bg-green-600 text-white',
-    answeredMarked: 'bg-green-600 text-white relative',
-    marked: 'bg-purple-600 text-white relative',
-    notAnswered: 'bg-red-100 text-red-700 border border-red-300',
+    answered: 'bg-success text-success-foreground',
+    answeredMarked: 'bg-success text-success-foreground relative',
+    marked: 'bg-warning text-warning-foreground relative',
+    notAnswered: 'bg-destructive/10 text-destructive border border-destructive/30',
     notVisited: 'bg-muted text-muted-foreground border border-border'
   };
 
@@ -472,7 +474,7 @@ const TestTaking = () => {
             {!q ? (
               <div className="text-center py-16 text-muted-foreground">This test has no questions.</div>
             ) : (
-              <div className="bg-card border border-border rounded-lg p-5">
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-muted-foreground">
                     {hasSubjects && <span className="text-foreground">{activeSubject.label} · </span>}
@@ -480,7 +482,7 @@ const TestTaking = () => {
                     {hasSubjects ? activeSubject.indices.length : questions.length}
                     {q.marks != null && <span className="ml-2 text-foreground">· {q.marks} marks</span>}
                     {isMulti(q) && (
-                      <span className="ml-2 inline-block px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded text-xs bg-primary/10 text-primary">
                         Multiple correct
                       </span>
                     )}
@@ -488,7 +490,7 @@ const TestTaking = () => {
                   <button
                     onClick={() => toggleFlag(qid)}
                     className={`inline-flex items-center gap-1 text-sm ${
-                      flagged.has(qid) ? 'text-purple-600' : 'text-muted-foreground hover:text-foreground'
+                      flagged.has(qid) ? 'text-warning font-medium' : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     <Icon name="Bookmark" size={15} />
@@ -591,9 +593,9 @@ const TestTaking = () => {
 
           {/* Palette */}
           <div className="w-full lg:w-72 flex-shrink-0">
-            <div className="bg-card border border-border rounded-lg p-4 lg:sticky lg:top-24">
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm lg:sticky lg:top-24">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-foreground">
+                <span className="font-display text-base font-semibold text-foreground">
                   {hasSubjects ? activeSubject.label : 'Questions'}
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -603,9 +605,9 @@ const TestTaking = () => {
 
               {/* Status summary */}
               <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-                <SummaryStat color="bg-green-600" label="Answered" count={summary.answered + summary.answeredMarked} />
-                <SummaryStat color="bg-red-100 border border-red-300" label="Not answered" count={summary.notAnswered} dark />
-                <SummaryStat color="bg-purple-600" label="Marked" count={summary.marked + summary.answeredMarked} />
+                <SummaryStat color="bg-success" label="Answered" count={summary.answered + summary.answeredMarked} />
+                <SummaryStat color="bg-destructive/10 border border-destructive/30" label="Not answered" count={summary.notAnswered} dark />
+                <SummaryStat color="bg-warning" label="Marked" count={summary.marked + summary.answeredMarked} dark />
                 <SummaryStat color="bg-muted border border-border" label="Not visited" count={summary.notVisited} dark />
               </div>
 
@@ -622,7 +624,7 @@ const TestTaking = () => {
                     >
                       {label}
                       {(st === 'marked' || st === 'answeredMarked') && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-card" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-warning border-2 border-card" />
                       )}
                     </button>
                   );
@@ -647,8 +649,8 @@ const TestTaking = () => {
       {/* Submit confirmation */}
       {showConfirm && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1050] p-4">
-          <div className="bg-card rounded-lg border border-border shadow-lg w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Submit test?</h3>
+          <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-md p-6">
+            <h3 className="font-display text-xl font-semibold text-foreground mb-3">Submit test?</h3>
             <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
               <SubmitRow label="Answered" value={summary.answered + summary.answeredMarked} />
               <SubmitRow label="Not answered" value={summary.notAnswered} />

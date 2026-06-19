@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
 import { newUserService } from '../../services/newUserService';
@@ -7,10 +8,10 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
-import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
 const TeacherManagement = () => {
   const { user, userProfile } = useAuth();
+  const navigate = useNavigate();
   
   // Try to get SuperAdmin context (will be null if not in super admin routes)
   let superAdminContext = null;
@@ -28,9 +29,6 @@ const TeacherManagement = () => {
   const loadingMoreRef = useRef(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTeacher, setEditingTeacher] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   // Institute data for filtering
   const [instituteData, setInstituteData] = useState({
@@ -142,20 +140,22 @@ const TeacherManagement = () => {
   };
 
 
-  const handleCreateSuccess = () => {
-    setShowCreateModal(false);
-    loadTeachers(); // Reload the list
-  };
-
-  const handleEditSuccess = () => {
-    setShowEditModal(false);
-    setEditingTeacher(null);
-    loadTeachers(); // Reload the list
+  // Navigate to the full-page create/edit user form. The list reloads on return
+  // because this page remounts (its mount effect refetches teachers).
+  const goToUserForm = (extra = {}) => {
+    navigate('/user-form', {
+      state: {
+        userRole: 'TEACHER',
+        defaultInstituteId: currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId,
+        defaultInstitute: currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute,
+        returnTo: '/teacher-management',
+        ...extra
+      }
+    });
   };
 
   const handleEditTeacher = (teacher) => {
-    setEditingTeacher(teacher);
-    setShowEditModal(true);
+    goToUserForm({ editMode: true, existingUser: teacher });
   };
 
   const handleDeleteTeacher = async (teacherId) => {
@@ -209,7 +209,7 @@ const TeacherManagement = () => {
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Teacher Management</h1>
+              <h1 className="font-display font-semibold text-2xl text-foreground">Teacher Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {currentUser.role === 'super-admin' ? 
                   (superAdminContext?.selectedInstitute ? 
@@ -226,7 +226,7 @@ const TeacherManagement = () => {
             
             {/* Create Teacher Button */}
             <Button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => goToUserForm()}
               className="flex items-center gap-2"
             >
               <Icon name="Plus" size={16} />
@@ -247,13 +247,13 @@ const TeacherManagement = () => {
                 placeholder="Search teachers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
               />
             </div>
           </div>
 
           {/* Teachers Table */}
-          <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-4 sm:p-8 text-center">
                 <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -270,7 +270,7 @@ const TeacherManagement = () => {
             ) : filteredTeachers.length === 0 ? (
               <div className="p-4 sm:p-8 text-center">
                 <Icon name="Users" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
+                <h3 className="font-display font-semibold text-lg text-foreground mb-2">
                   {searchTerm ? 'No teachers found' : 'No teachers yet'}
                 </h3>
                 <p className="text-muted-foreground mb-4">
@@ -281,7 +281,7 @@ const TeacherManagement = () => {
                 </p>
                 {!searchTerm && (
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => goToUserForm()}
                   >
                     <Icon name="Plus" size={16} className="mr-2" />
                     Add First Teacher
@@ -305,8 +305,8 @@ const TeacherManagement = () => {
                       <tr key={teacher.id} className="border-b border-border hover:bg-muted/30">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-semibold text-sm">
+                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                              <span className="text-primary font-semibold text-sm">
                                 {teacher.firstName?.[0]?.toUpperCase() || teacher.username?.[0]?.toUpperCase() || 'T'}
                               </span>
                             </div>
@@ -323,7 +323,7 @@ const TeacherManagement = () => {
                         <td className="p-4 text-foreground">{teacher.email}</td>
                         <td className="p-4 text-foreground">{teacher.username}</td>
                         <td className="p-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
                             Active
                           </span>
                         </td>
@@ -333,7 +333,7 @@ const TeacherManagement = () => {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleEditTeacher(teacher)}
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                               title="Edit teacher"
                             >
                               <Icon name="Edit" size={16} />
@@ -342,7 +342,7 @@ const TeacherManagement = () => {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteTeacher(teacher.id)}
-                              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                               title="Delete teacher"
                             >
                               <Icon name="Trash2" size={16} />
@@ -382,33 +382,6 @@ const TeacherManagement = () => {
             </div>
           )}
         </div>
-
-      {/* Create Teacher Modal */}
-      <CreateUserModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-        userRole="TEACHER"
-        defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
-        defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
-      />
-
-      {/* Edit Teacher Modal */}
-      {editingTeacher && (
-        <CreateUserModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingTeacher(null);
-          }}
-          onSuccess={handleEditSuccess}
-          userRole="TEACHER"
-          defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
-          defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
-          editMode={true}
-          existingUser={editingTeacher}
-        />
-      )}
     </PageLayout>
   );
 };

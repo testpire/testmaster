@@ -35,6 +35,8 @@ import ForgotPassword from './pages/forgot-password';
 import SetPassword from './pages/set-password';
 import Profile from './pages/profile';
 import AccessControl from './pages/access-control';
+import UserForm from './pages/user-form';
+import StudyMaterials from './pages/study-materials';
 
 const Routes = () => {
   return (
@@ -57,6 +59,8 @@ const Routes = () => {
           <Route path="/teacher-management" element={<ProtectedManagementRoutes><TeacherManagement /></ProtectedManagementRoutes>} />
           {/* Student management — usable by admins and teachers */}
           <Route path="/student-management" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><StudentManagement /></ProtectedRoute>} />
+          {/* Create/edit user form (page) — shared by all management pages */}
+          <Route path="/user-form" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><UserForm /></ProtectedRoute>} />
           <Route path="/student-profile/:studentId" element={<ProtectedRoute allowedRoles={MANAGEMENT_ROLES}><StudentProfile /></ProtectedRoute>} />
           <Route path="/lead-management" element={<ProtectedManagementRoutes><LeadManagement /></ProtectedManagementRoutes>} />
           <Route path="/lead-profile/:leadId" element={<ProtectedManagementRoutes><LeadProfile /></ProtectedManagementRoutes>} />
@@ -81,6 +85,7 @@ const Routes = () => {
           <Route path="/student-dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
 
           {/* Student test-taking */}
+          <Route path="/study-materials" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudyMaterials /></ProtectedRoute>} />
           <Route path="/my-tests" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentTests /></ProtectedRoute>} />
           <Route path="/my-results" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentResults /></ProtectedRoute>} />
           <Route path="/test-result/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestResult /></ProtectedRoute>} />

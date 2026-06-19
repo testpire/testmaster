@@ -166,7 +166,7 @@ const TestManagement = () => {
     : currentUser?.instituteId;
 
   const inputCls =
-    'px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary';
+    'px-3 py-2 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary';
 
   return (
     <PageLayout
@@ -183,7 +183,7 @@ const TestManagement = () => {
         <div className="bg-background border-b border-border px-4 lg:px-6 py-4 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-foreground">Test Management</h1>
+              <h1 className="text-xl lg:text-2xl font-display font-semibold text-foreground">Test Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {loading && tests.length === 0
                   ? 'Loading tests...'
@@ -250,8 +250,8 @@ const TestManagement = () => {
 
           {!loading && !error && filtered.length === 0 && (
             <div className="text-center py-12">
-              <Icon name="ClipboardList" size={48} className="mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Tests Found</h3>
+              <Icon name="ClipboardList" size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-display font-semibold text-foreground mb-2">No Tests Found</h3>
               <p className="text-muted-foreground mb-4">
                 Create your first test or adjust the filters.
               </p>
@@ -293,7 +293,7 @@ const TestManagement = () => {
                         <td className="px-4 py-3">
                           <span
                             className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                              TEST_STATUS_BADGE[status] || 'bg-slate-100 text-slate-700'
+                              TEST_STATUS_BADGE[status] || 'bg-muted text-muted-foreground'
                             }`}
                           >
                             {prettyEnum(test.status) || '—'}
@@ -364,7 +364,7 @@ const TestManagement = () => {
                                 title="Publish"
                                 disabled={isBusy}
                                 onClick={() => handlePublish(test)}
-                                className="w-8 h-8 text-green-600"
+                                className="w-8 h-8 text-success"
                               >
                                 <Icon name={isBusy ? 'Loader2' : 'Upload'} size={16} className={isBusy ? 'animate-spin' : ''} />
                               </Button>

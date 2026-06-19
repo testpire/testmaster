@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { newInstituteService } from '../../services/newInstituteService';
+import AuthShell from '../../components/auth/AuthShell';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/AppIcon';
 
 const SimpleSignup = () => {
   const { signUp, loading } = useAuth();
@@ -12,7 +16,7 @@ const SimpleSignup = () => {
     phone_number: '',
     password: '',
     confirmPassword: '',
-    instituteCode: ''
+    instituteCode: '',
   });
   const [error, setError] = useState('');
   const [resolving, setResolving] = useState(false);
@@ -21,24 +25,20 @@ const SimpleSignup = () => {
     e.preventDefault();
     setError('');
 
-    // Basic validation
     if (!formData.name.trim() || !formData.email.trim() || !formData.phone_number.trim() || !formData.password.trim() || !formData.instituteCode.trim()) {
       setError('Please fill in all fields');
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
       return;
     }
 
     try {
-      // Resolve institute code → id via the public endpoint before registering
       setResolving(true);
       const { data: instituteData, error: instituteError } = await newInstituteService.getInstituteByCode(formData.instituteCode.trim());
       setResolving(false);
@@ -48,7 +48,6 @@ const SimpleSignup = () => {
         return;
       }
 
-      // Support both flat { id, ... } and nested { data: { id, ... } } responses
       const institute = instituteData.data || instituteData;
       const resolvedInstituteId = institute.id;
       if (!resolvedInstituteId) {
@@ -58,17 +57,16 @@ const SimpleSignup = () => {
 
       const userData = {
         name: formData.name,
-        username: formData.email, // Use email as username
+        username: formData.email,
         phone_number: formData.phone_number,
         role: 'STUDENT',
         instituteId: resolvedInstituteId,
       };
 
-      const { data, error } = await signUp(formData.email, formData.password, userData);
+      const { error } = await signUp(formData.email, formData.password, userData);
       if (error) {
         setError(error.message || 'Registration failed');
       } else {
-        // Redirect to login page on success
         navigate('/login');
       }
     } catch (err) {
@@ -78,262 +76,95 @@ const SimpleSignup = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(''); // Clear error when user starts typing
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (error) setError('');
   };
 
   const isSubmitting = loading || resolving;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f3f4f6',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px',
-        margin: '1rem'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ 
-            fontSize: '2rem', 
-            fontWeight: 'bold', 
-            color: '#1f2937',
-            margin: '0 0 0.5rem 0'
-          }}>
-            TestMaster
-          </h1>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            Create your account
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your name"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your email"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={formData.phone_number}
-              onChange={(e) => handleInputChange('phone_number', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your phone number"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Institute Code <span style={{ color: '#dc2626' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.instituteCode}
-              onChange={(e) => handleInputChange('instituteCode', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your institute code (e.g. ACME2024)"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Create a password (min 6 characters)"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Confirm your password"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {error && (
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#dc2626',
-              padding: '0.75rem',
-              borderRadius: '6px',
-              marginBottom: '1rem',
-              fontSize: '0.875rem'
-            }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              backgroundColor: isSubmitting ? '#9ca3af' : '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-          >
-            {resolving ? 'Verifying institute...' : loading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-
-        <div style={{
-          marginTop: '1.5rem',
-          textAlign: 'center',
-          fontSize: '0.875rem'
-        }}>
-          <span style={{ color: '#6b7280' }}>Already have an account? </span>
-          <Link
-            to="/login"
-            style={{
-              color: '#3b82f6',
-              textDecoration: 'none',
-              fontWeight: '500'
-            }}
-            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-          >
+    <AuthShell
+      title="Create your account"
+      subtitle="Join your institute and start learning."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-primary hover:underline underline-offset-4">
             Sign in
           </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Full name"
+          type="text"
+          value={formData.name}
+          onChange={(e) => handleInputChange('name', e.target.value)}
+          placeholder="Enter your name"
+          disabled={isSubmitting}
+          autoComplete="name"
+        />
+        <Input
+          label="Email address"
+          type="email"
+          value={formData.email}
+          onChange={(e) => handleInputChange('email', e.target.value)}
+          placeholder="Enter your email"
+          disabled={isSubmitting}
+          autoComplete="email"
+        />
+        <Input
+          label="Phone number"
+          type="tel"
+          value={formData.phone_number}
+          onChange={(e) => handleInputChange('phone_number', e.target.value)}
+          placeholder="Enter your phone number"
+          disabled={isSubmitting}
+          autoComplete="tel"
+        />
+        <Input
+          label="Institute code"
+          required
+          type="text"
+          value={formData.instituteCode}
+          onChange={(e) => handleInputChange('instituteCode', e.target.value)}
+          placeholder="e.g. ACME2024"
+          disabled={isSubmitting}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Password"
+            type="password"
+            value={formData.password}
+            onChange={(e) => handleInputChange('password', e.target.value)}
+            placeholder="Min 6 characters"
+            disabled={isSubmitting}
+            autoComplete="new-password"
+          />
+          <Input
+            label="Confirm password"
+            type="password"
+            value={formData.confirmPassword}
+            onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+            placeholder="Re-enter password"
+            disabled={isSubmitting}
+            autoComplete="new-password"
+          />
         </div>
-      </div>
-    </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
+            <Icon name="AlertCircle" size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <Button type="submit" size="lg" fullWidth loading={isSubmitting} className="!mt-6">
+          {resolving ? 'Verifying institute…' : loading ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+    </AuthShell>
   );
 };
 

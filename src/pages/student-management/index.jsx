@@ -11,7 +11,6 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Icon from '../../components/AppIcon';
 import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
-import CreateUserModal from '../super-admin-dashboard/components/CreateUserModal';
 
 const StudentManagement = () => {
   const navigate = useNavigate();
@@ -33,9 +32,6 @@ const StudentManagement = () => {
   const loadingMoreRef = useRef(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   // Course / batch filter state
   const [courses, setCourses] = useState([]);
@@ -201,20 +197,22 @@ const StudentManagement = () => {
 
 
 
-  const handleCreateSuccess = () => {
-    setShowCreateModal(false);
-    loadStudents(); // Reload the list
-  };
-
-  const handleEditSuccess = () => {
-    setShowEditModal(false);
-    setEditingStudent(null);
-    loadStudents(); // Reload the list
+  // Navigate to the full-page create/edit user form. The list reloads on return
+  // because this page remounts (its mount effect refetches students).
+  const goToUserForm = (extra = {}) => {
+    navigate('/user-form', {
+      state: {
+        userRole: 'STUDENT',
+        defaultInstituteId: currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId,
+        defaultInstitute: currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute,
+        returnTo: '/student-management',
+        ...extra
+      }
+    });
   };
 
   const handleEditStudent = (student) => {
-    setEditingStudent(student);
-    setShowEditModal(true);
+    goToUserForm({ editMode: true, existingUser: student });
   };
 
   const handleDeleteStudent = async (studentId) => {
@@ -284,7 +282,7 @@ const StudentManagement = () => {
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Student Management</h1>
+              <h1 className="font-display font-semibold text-2xl text-foreground">Student Management</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {displayInstitute ?
                   `Manage students for ${displayInstitute.name}` :
@@ -295,7 +293,7 @@ const StudentManagement = () => {
             
             {/* Create Student Button */}
             <Button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => goToUserForm()}
               className="flex items-center gap-2"
             >
               <Icon name="Plus" size={16} />
@@ -316,7 +314,7 @@ const StudentManagement = () => {
                 placeholder="Search students..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary"
               />
             </div>
 
@@ -360,7 +358,7 @@ const StudentManagement = () => {
           </div>
 
           {/* Students Table */}
-          <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-4 sm:p-8 text-center">
                 <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -377,7 +375,7 @@ const StudentManagement = () => {
             ) : filteredStudents.length === 0 ? (
               <div className="p-4 sm:p-8 text-center">
                 <Icon name="GraduationCap" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
+                <h3 className="font-display font-semibold text-lg text-foreground mb-2">
                   {hasActiveFilter ? 'No students found' : 'No students yet'}
                 </h3>
                 <p className="text-muted-foreground mb-4">
@@ -388,7 +386,7 @@ const StudentManagement = () => {
                 </p>
                 {!hasActiveFilter && (
                   <Button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => goToUserForm()}
                   >
                     <Icon name="Plus" size={16} className="mr-2" />
                     Add First Student
@@ -417,8 +415,8 @@ const StudentManagement = () => {
                       >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <span className="text-green-600 font-semibold text-sm">
+                            <div className="w-8 h-8 bg-success/15 rounded-full flex items-center justify-center">
+                              <span className="text-success font-semibold text-sm">
                                 {student.firstName?.[0]?.toUpperCase() || student.username?.[0]?.toUpperCase() || 'S'}
                               </span>
                             </div>
@@ -448,7 +446,7 @@ const StudentManagement = () => {
                                 {courseEnrollments.map((en, i) => (
                                   <span
                                     key={en.enrollmentId || `c${i}`}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary"
                                     title={en.fee != null ? `Fee: ₹${Number(en.fee).toLocaleString('en-IN')}` : undefined}
                                   >
                                     <Icon name="BookOpen" size={11} />
@@ -458,7 +456,7 @@ const StudentManagement = () => {
                                 {batchMemberships.map((m, i) => (
                                   <span
                                     key={m.membershipId || `b${i}`}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-violet-50 text-violet-700"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary/10 text-secondary"
                                   >
                                     <Icon name="Users" size={11} />
                                     {m.batchName || `Batch #${m.batchId}`}
@@ -469,7 +467,7 @@ const StudentManagement = () => {
                           })()}
                         </td>
                         <td className="p-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
                             Active
                           </span>
                         </td>
@@ -482,7 +480,7 @@ const StudentManagement = () => {
                                 e.stopPropagation();
                                 handleEditStudent(student);
                               }}
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                               title="Edit student"
                             >
                               <Icon name="Edit" size={16} />
@@ -494,7 +492,7 @@ const StudentManagement = () => {
                                 e.stopPropagation();
                                 handleDeleteStudent(student.id);
                               }}
-                              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                               title="Delete student"
                             >
                               <Icon name="Trash2" size={16} />
@@ -539,33 +537,6 @@ const StudentManagement = () => {
             </div>
           )}
         </div>
-
-      {/* Create Student Modal */}
-      <CreateUserModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-        userRole="STUDENT"
-        defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
-        defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
-      />
-
-      {/* Edit Student Modal */}
-      {editingStudent && (
-        <CreateUserModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingStudent(null);
-          }}
-          onSuccess={handleEditSuccess}
-          userRole="STUDENT"
-          defaultInstituteId={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute?.id : currentUser.instituteId}
-          defaultInstitute={currentUser.role === 'super-admin' ? superAdminContext?.selectedInstitute : instituteData.institute}
-          editMode={true}
-          existingUser={editingStudent}
-        />
-      )}
     </PageLayout>
   );
 };

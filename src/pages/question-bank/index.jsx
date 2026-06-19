@@ -699,7 +699,7 @@ const QuestionBank = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             {/* Title and Question Count */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4">
-              <h1 className="text-xl lg:text-2xl font-bold text-foreground">Question Bank</h1>
+              <h1 className="text-xl lg:text-2xl font-display font-semibold text-foreground">Question Bank</h1>
               <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1 lg:mt-0">
                 <span>
                   {loading && selectedQuestions.length === 0 ? (
@@ -841,7 +841,7 @@ const QuestionBank = () => {
                   <span
                     className={`ml-2 inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-medium ${
                       tab.key === 'draft' && tab.count > 0
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'bg-warning/15 text-warning'
                         : active
                           ? 'bg-primary/10 text-primary'
                           : 'bg-muted text-muted-foreground'
@@ -909,13 +909,13 @@ const QuestionBank = () => {
 
         {/* Bulk-publish action strip (Draft tab) */}
         {isDraftTab && !loading && selectedQuestions.length > 0 && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-amber-800 cursor-pointer select-none">
+          <div className="bg-warning/10 border-b border-warning/30 px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-warning cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-amber-300 text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-warning/40 text-primary focus:ring-primary"
               />
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
             </label>
@@ -958,8 +958,8 @@ const QuestionBank = () => {
 
           {!loading && !error && selectedQuestions?.length === 0 && (
             <div className="text-center py-12">
-              <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
+              <Icon name="FileText" size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-display font-semibold text-foreground mb-2">
                 {isDraftTab ? 'No draft questions' : 'No published questions'}
               </h3>
               <p className="text-muted-foreground mb-4">
