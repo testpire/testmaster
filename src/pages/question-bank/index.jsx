@@ -8,8 +8,10 @@ import Button from '../../components/ui/Button';
 import QuestionCard from './components/QuestionCard';
 import ManualQuestionModal from './components/ManualQuestionModal';
 import BulkImportModal from './components/BulkImportModal';
+import CurriculumTree from './components/CurriculumTree';
 import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
 import { questionService } from '../../services/questionService';
+import { cn } from '../../utils/cn';
 
 const PAGE_SIZE = 20;
 
@@ -28,7 +30,8 @@ const QuestionBank = () => {
   // always a context object (its institute fields are only populated for SUPER_ADMIN).
   const superAdminContext = useSuperAdmin();
   
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  // Mobile-only disclosure for the curriculum tree (persistent column on lg+).
+  const [treeOpen, setTreeOpen] = useState(false);
   const [isManualQuestionModalOpen, setIsManualQuestionModalOpen] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
@@ -55,7 +58,9 @@ const QuestionBank = () => {
     size: 20
   });
   
-  // Filter states
+  // Filter states. Difficulty is the only facet still driven by a control in the
+  // header; subject/chapter/topic are driven by the curriculum tree (which simply
+  // reports a {subjectId, chapterId, topicId} path it sets into these same fields).
   const [filters, setFilters] = useState({
     difficulty: '',
     subject: '',
@@ -63,14 +68,26 @@ const QuestionBank = () => {
     topic: ''
   });
 
+  // Human-readable names for the currently selected tree node, used for the scope
+  // breadcrumb above the list (filters only carry ids).
+  const [selectedPath, setSelectedPath] = useState({ subjectName: '', chapterName: '', topicName: '' });
+
   // Sort state — backend supports createdAt | updatedAt with asc/desc.
   const [sort, setSort] = useState({ sortBy: 'createdAt', sortDirection: 'desc' });
 
-  // Filter dropdown data
+  // Curriculum (subjects) for the tree's top level and the inline topic editor.
   const [subjects, setSubjects] = useState([]);
-  const [chapters, setChapters] = useState([]);
-  const [topics, setTopics] = useState([]);
-  const [loadingFilters, setLoadingFilters] = useState(false);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+
+  // Per-node question counts for the tree (coverage). Coverage is intentionally
+  // tab/difficulty-agnostic — it answers "how many questions exist under this
+  // node" regardless of the active Published/Draft tab — so it caches cleanly by
+  // node key and only resets when the institute changes. The precise count for the
+  // *selected* node, scoped to the current tab + difficulty, is always shown by the
+  // list header ("Showing X of N"). Fetched lazily as each tree level is revealed.
+  const [nodeCounts, setNodeCounts] = useState({});
+  const nodeCountsRef = useRef({});
+  const countInFlightRef = useRef(new Set());
 
   // State for questions - starts empty, loads from API
   const [selectedQuestions, setSelectedQuestions] = useState([]);
@@ -204,50 +221,45 @@ const QuestionBank = () => {
     }
   };
 
-  // Load filter data
+  // Load the subject list (tree top level + inline topic editor source).
   const loadSubjects = async () => {
     try {
+      setSubjectsLoading(true);
       const { data } = await questionService.getSubjects();
       setSubjects(data || []);
     } catch (error) {
       console.warn('Failed to load subjects:', error);
+    } finally {
+      setSubjectsLoading(false);
     }
   };
 
-  const loadChapters = async (subjectId) => {
-    if (!subjectId) {
-      setChapters([]);
-      return;
-    }
-    
+  // Fetch (once) the question count for a tree node and cache it by key. Dedupes
+  // in-flight requests via a ref so a burst of expands can't double-fetch. size:1
+  // — we only need totalElements. draftMode/difficulty are intentionally omitted
+  // so the badge is a stable coverage total (see nodeCounts comment above).
+  const ensureNodeCount = useCallback(async (nodeKey, criteria) => {
+    if (nodeKey in nodeCountsRef.current || countInFlightRef.current.has(nodeKey)) return;
+    countInFlightRef.current.add(nodeKey);
     try {
-      setLoadingFilters(true);
-      const { data } = await questionService.getChaptersBySubject(subjectId);
-      setChapters(data || []);
-    } catch (error) {
-      console.warn('Failed to load chapters:', error);
-      setChapters([]);
+      const res = await questionService.searchQuestions({ ...criteria, page: 0, size: 1 });
+      const total = res?.pagination?.totalElements ?? 0;
+      nodeCountsRef.current = { ...nodeCountsRef.current, [nodeKey]: total };
+      setNodeCounts(nodeCountsRef.current);
     } finally {
-      setLoadingFilters(false);
+      countInFlightRef.current.delete(nodeKey);
     }
-  };
+  }, []);
 
-  const loadTopics = async (chapterId) => {
-    if (!chapterId) {
-      setTopics([]);
-      return;
-    }
-    
-    try {
-      setLoadingFilters(true);
-      const { data } = await questionService.getTopicsByChapter(chapterId);
-      setTopics(data || []);
-    } catch (error) {
-      console.warn('Failed to load topics:', error);
-      setTopics([]);
-    } finally {
-      setLoadingFilters(false);
-    }
+  // Tree node selected → drive the same search filters the old dropdown used.
+  // Empty strings clear the deeper levels (e.g. selecting a subject clears any
+  // chapter/topic), and "All questions" clears all three.
+  const handleTreeSelect = ({ subjectId, subjectName, chapterId, chapterName, topicId, topicName }) => {
+    setFilters((prev) => ({ ...prev, subject: subjectId || '', chapter: chapterId || '', topic: topicId || '' }));
+    setSelectedPath({ subjectName: subjectName || '', chapterName: chapterName || '', topicName: topicName || '' });
+    // On mobile the tree is a disclosure above the list — collapse it once a node
+    // is chosen so the results are immediately visible.
+    setTreeOpen(false);
   };
 
   // Load (reset to first page) when a user is present, filters change, or the
@@ -268,26 +280,15 @@ const QuestionBank = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!currentUser, isSuperAdmin, filters, sort, activeTab, superAdminContext?.selectedInstitute?.id]);
 
-  // Load subjects on mount
+  // Load subjects on mount, and refetch when a super-admin switches institute
+  // (curriculum is institute-scoped). Keyed on user *presence* to avoid the
+  // double-fire as user → userProfile resolves.
   useEffect(() => {
     if (currentUser) {
       loadSubjects();
     }
-  }, [currentUser]);
-
-  // Close filter dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isFilterDropdownOpen && !event.target.closest('.filter-dropdown')) {
-        setIsFilterDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isFilterDropdownOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!currentUser, superAdminContext?.selectedInstitute?.id]);
 
   // Enhanced handlers with API integration
   const handleQuestionCreated = () => {
@@ -322,35 +323,15 @@ const QuestionBank = () => {
     }
   };
 
-  const handleFilterChange = (filterType, value) => {
-    const newFilters = { ...filters, [filterType]: value };
-    
-    // Reset dependent filters when parent filter changes
-    if (filterType === 'subject') {
-      newFilters.chapter = '';
-      newFilters.topic = '';
-      setChapters([]);
-      setTopics([]);
-      if (value) loadChapters(value);
-    } else if (filterType === 'chapter') {
-      newFilters.topic = '';
-      setTopics([]);
-      if (value) loadTopics(value);
-    }
-    
-    setFilters(newFilters);
-  };
+  // Difficulty is the only header-driven facet now (curriculum lives in the tree).
+  const handleDifficultyChange = (value) => setFilters((prev) => ({ ...prev, difficulty: value }));
 
-  const handleClearFilters = () => {
-    setFilters({
-      difficulty: '',
-      subject: '',
-      chapter: '',
-      topic: ''
-    });
-    setChapters([]);
-    setTopics([]);
-  };
+  // Return the tree to "All questions" (clears subject/chapter/topic); difficulty
+  // is intentionally left as-is.
+  const clearScope = () => handleTreeSelect({ subjectId: '', chapterId: '', topicId: '' });
+
+  const hasScope = !!(filters.subject || filters.chapter || filters.topic);
+  const scopeCrumbs = [selectedPath.subjectName, selectedPath.chapterName, selectedPath.topicName].filter(Boolean);
 
   const handleQuestionEdit = (question) => {
     // Set the editing question for the ManualQuestionModal
@@ -632,6 +613,11 @@ const QuestionBank = () => {
     chaptersCacheRef.current = {};
     topicsCacheRef.current = {};
     topicPathCacheRef.current = {};
+    // Tree question counts are institute-scoped too — reset so the tree recomputes
+    // them for the newly selected institute.
+    nodeCountsRef.current = {};
+    countInFlightRef.current = new Set();
+    setNodeCounts({});
   }, [superAdminContext?.selectedInstitute?.id]);
 
   const handleQuestionRemove = (index) => {
@@ -663,106 +649,6 @@ const QuestionBank = () => {
     });
   };
 
-  // FilterDropdownContent component
-  const FilterDropdownContent = ({ filters, onFilterChange, onClearFilters }) => (
-    <div className="space-y-4">
-      {/* Difficulty Filter */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          Difficulty Level
-        </label>
-        <select
-          value={filters.difficulty}
-          onChange={(e) => onFilterChange('difficulty', e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-        >
-          <option value="">All Difficulty Levels</option>
-          <option value="EASY">Easy</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HARD">Hard</option>
-        </select>
-      </div>
-
-      {/* Subject Filter */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          Subject
-        </label>
-        <select
-          value={filters.subject}
-          onChange={(e) => onFilterChange('subject', e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-        >
-          <option value="">All Subjects</option>
-          {subjects.map(subject => (
-            <option key={subject.id} value={subject.id}>
-              {subject.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Chapter Filter */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          Chapter
-        </label>
-        <select
-          value={filters.chapter}
-          onChange={(e) => onFilterChange('chapter', e.target.value)}
-          disabled={!filters.subject || loadingFilters}
-          className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <option value="">All Chapters</option>
-          {chapters.map(chapter => (
-            <option key={chapter.id} value={chapter.id}>
-              {chapter.name}
-            </option>
-          ))}
-        </select>
-        {loadingFilters && filters.subject && (
-          <p className="text-xs text-muted-foreground mt-1">Loading chapters...</p>
-        )}
-      </div>
-
-      {/* Topic Filter */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          Topic
-        </label>
-        <select
-          value={filters.topic}
-          onChange={(e) => onFilterChange('topic', e.target.value)}
-          disabled={!filters.chapter || loadingFilters}
-          className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <option value="">All Topics</option>
-          {topics.map(topic => (
-            <option key={topic.id} value={topic.id}>
-              {topic.name}
-            </option>
-          ))}
-        </select>
-        {loadingFilters && filters.chapter && (
-          <p className="text-xs text-muted-foreground mt-1">Loading topics...</p>
-        )}
-      </div>
-
-      {/* Clear Filters Button */}
-      <div className="pt-2 border-t border-border">
-        <Button
-          variant="outline"
-          onClick={onClearFilters}
-          className="w-full text-sm"
-          iconName="X"
-          iconPosition="left"
-        >
-          Clear All Filters
-        </Button>
-      </div>
-    </div>
-  );
-
   return (
     <PageLayout
       title="Question Bank"
@@ -773,7 +659,9 @@ const QuestionBank = () => {
       onInstituteChange={superAdminContext?.handleInstituteChange || (() => {})}
       institutesLoading={superAdminContext?.institutesLoading || false}
     >
-      <div className="h-full flex flex-col">
+      {/* Bound to the viewport below the fixed 64px (pt-16) header so the tree and
+          the question list each scroll independently instead of the whole window. */}
+      <div className="h-[calc(100vh-4rem)] flex flex-col">
         {/* Header Section with Actions and Filters */}
         <div className="bg-background border-b border-border px-4 lg:px-6 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -816,43 +704,32 @@ const QuestionBank = () => {
                 </select>
               </div>
 
-              {/* Filter Dropdown */}
-              <div className="relative filter-dropdown">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                  iconName="Filter"
-                  iconPosition="left"
-                  className="text-sm"
+              {/* Difficulty (the only header-driven facet; curriculum lives in the tree) */}
+              <div className="flex items-center space-x-2">
+                <Icon name="SlidersHorizontal" size={16} className="text-muted-foreground hidden sm:block" />
+                <select
+                  aria-label="Filter by difficulty"
+                  value={filters.difficulty}
+                  onChange={(e) => handleDifficultyChange(e.target.value)}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
                 >
-                  Filters
-                </Button>
-                
-                {isFilterDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[calc(100vw-1rem)] bg-card border border-border rounded-lg shadow-lg z-50">
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-foreground">Filters</h3>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setIsFilterDropdownOpen(false)}
-                          className="w-6 h-6"
-                        >
-                          <Icon name="X" size={16} />
-                        </Button>
-                      </div>
-                      
-                      {/* Filter Content */}
-                      <FilterDropdownContent
-                        filters={filters}
-                        onFilterChange={handleFilterChange}
-                        onClearFilters={handleClearFilters}
-                      />
-                    </div>
-                  </div>
-                )}
+                  <option value="">All difficulty</option>
+                  <option value="EASY">Easy</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HARD">Hard</option>
+                </select>
               </div>
+
+              {/* Mobile-only: open the curriculum tree (persistent column on lg+) */}
+              <Button
+                variant="outline"
+                onClick={() => setTreeOpen((v) => !v)}
+                iconName="FolderTree"
+                iconPosition="left"
+                className="text-sm lg:hidden"
+              >
+                Topics
+              </Button>
 
               <Button
                 variant={bulkMode ? 'default' : 'outline'}
@@ -944,6 +821,58 @@ const QuestionBank = () => {
             })}
           </div>
         </div>
+
+        {/* Two-pane body: curriculum tree (left) + question list (right) */}
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          {/* Curriculum tree — persistent left column on lg; collapsible disclosure
+              on mobile (toggled by the "Topics" button). Remounted per institute so
+              its expand state / loaded children reset on an institute switch. */}
+          <aside
+            className={cn(
+              'bg-card border-border overflow-y-auto shrink-0',
+              'lg:w-72 lg:border-r lg:block lg:max-h-none',
+              treeOpen ? 'block max-h-72 border-b' : 'hidden'
+            )}
+          >
+            <CurriculumTree
+              key={superAdminContext?.selectedInstitute?.id || 'default'}
+              subjects={subjects}
+              subjectsLoading={subjectsLoading}
+              fetchChapters={fetchChaptersFor}
+              fetchTopics={fetchTopicsFor}
+              selection={{ subjectId: filters.subject, chapterId: filters.chapter, topicId: filters.topic }}
+              onSelect={handleTreeSelect}
+              counts={nodeCounts}
+              ensureCount={ensureNodeCount}
+            />
+          </aside>
+
+          {/* Right pane: scope breadcrumb + bulk strip + question list */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Scope breadcrumb — shows the selected tree path with a quick clear */}
+            {hasScope && (
+              <div className="bg-muted/40 border-b border-border px-4 lg:px-6 py-2 flex items-center gap-2 text-sm">
+                <Icon name="FolderTree" size={15} className="text-muted-foreground shrink-0" />
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap text-foreground">
+                  {scopeCrumbs.map((name, i) => (
+                    <span key={i} className="flex items-center gap-1.5 min-w-0">
+                      {i > 0 && <Icon name="ChevronRight" size={13} className="text-muted-foreground shrink-0" />}
+                      <span className={cn('truncate', i === scopeCrumbs.length - 1 ? 'font-medium' : 'text-muted-foreground')}>
+                        {name}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={clearScope}
+                  className="ml-auto shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Icon name="X" size={13} />
+                  Clear
+                </button>
+              </div>
+            )}
 
         {/* Bulk-publish action strip (Draft tab) */}
         {isDraftTab && !loading && selectedQuestions.length > 0 && (
@@ -1091,6 +1020,8 @@ const QuestionBank = () => {
               )}
             </>
           )}
+            </div>
+          </div>
         </div>
       </div>
 
