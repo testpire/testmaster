@@ -110,8 +110,8 @@ const QuestionCard = ({
     >
 
       {/* Question Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Selection checkbox (bulk publish) */}
           {selectable && (
             <input
@@ -169,7 +169,7 @@ const QuestionCard = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1 flex-wrap shrink-0 ml-auto">
           {/* Publish (draft → published) / Unpublish (published → draft).
               The one-click move from draft to published lives right on the card. */}
           {onPublish && isDraft && (

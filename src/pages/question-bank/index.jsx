@@ -333,6 +333,30 @@ const QuestionBank = () => {
   const hasScope = !!(filters.subject || filters.chapter || filters.topic);
   const scopeCrumbs = [selectedPath.subjectName, selectedPath.chapterName, selectedPath.topicName].filter(Boolean);
 
+  // Mobile: auto-hide the header toolbar while scrolling down through the list and
+  // reveal it on scroll up, reclaiming vertical space on small screens. Desktop
+  // keeps it pinned (the collapse classes are overridden at lg). Driven by the
+  // list scroller's position; an 8px deadband avoids flicker on tiny moves, and
+  // we always reveal once scrolled back near the top.
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const lastScrollTopRef = useRef(0);
+  const handleListScroll = (e) => {
+    const st = e.currentTarget.scrollTop;
+    const last = lastScrollTopRef.current;
+    if (st <= 8) {
+      lastScrollTopRef.current = st;
+      setHeaderCollapsed(false);
+      return;
+    }
+    if (st > last + 8) {
+      lastScrollTopRef.current = st;
+      setHeaderCollapsed(true);
+    } else if (st < last - 8) {
+      lastScrollTopRef.current = st;
+      setHeaderCollapsed(false);
+    }
+  };
+
   const handleQuestionEdit = (question) => {
     // Set the editing question for the ManualQuestionModal
     setEditingQuestion(question);
@@ -662,8 +686,16 @@ const QuestionBank = () => {
       {/* Bound to the viewport below the fixed 64px (pt-16) header so the tree and
           the question list each scroll independently instead of the whole window. */}
       <div className="h-[calc(100vh-4rem)] flex flex-col">
-        {/* Header Section with Actions and Filters */}
-        <div className="bg-background border-b border-border px-4 lg:px-6 py-4">
+        {/* Header Section with Actions and Filters. Collapses on scroll-down on
+            mobile to free up space; always visible from lg up. */}
+        <div
+          className={cn(
+            'bg-background border-b border-border px-4 lg:px-6 overflow-hidden transition-all duration-300 ease-in-out',
+            headerCollapsed
+              ? 'max-h-0 py-0 opacity-0 lg:max-h-[600px] lg:py-4 lg:opacity-100'
+              : 'max-h-[600px] py-4 opacity-100'
+          )}
+        >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             {/* Title and Question Count */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4">
@@ -683,8 +715,9 @@ const QuestionBank = () => {
               </div>
             </div>
 
-            {/* Action Buttons and Filter */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+            {/* Action Buttons and Filter — wrap as natural-width units on mobile
+                instead of stacking full-width, so the toolbar stays compact. */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {/* Sort */}
               <div className="flex items-center space-x-2">
                 <Icon name="ArrowUpDown" size={16} className="text-muted-foreground hidden sm:block" />
@@ -905,6 +938,7 @@ const QuestionBank = () => {
         {/* Questions List */}
         <div
           ref={scrollContainerRef}
+          onScroll={handleListScroll}
           className="flex-1 overflow-y-auto p-4 lg:p-6"
         >
           {loading && (
