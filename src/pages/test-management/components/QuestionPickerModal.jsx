@@ -186,7 +186,8 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   );
 
   const buildParams = (page) => {
-    const p = { page, size: PAGE_SIZE };
+    // Only published questions can be added to a test — drafts are hidden here.
+    const p = { page, size: PAGE_SIZE, draftMode: false };
     if (filters.subjectId) p.subjectId = filters.subjectId;
     if (filters.chapterId) p.chapterId = filters.chapterId;
     if (filters.topicId) p.topicId = filters.topicId;

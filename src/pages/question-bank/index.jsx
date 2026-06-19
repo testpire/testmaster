@@ -63,6 +63,9 @@ const QuestionBank = () => {
     topic: ''
   });
 
+  // Sort state — backend supports createdAt | updatedAt with asc/desc.
+  const [sort, setSort] = useState({ sortBy: 'createdAt', sortDirection: 'desc' });
+
   // Filter dropdown data
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
@@ -72,6 +75,38 @@ const QuestionBank = () => {
   // State for questions - starts empty, loads from API
   const [selectedQuestions, setSelectedQuestions] = useState([]);
 
+  // Published vs Draft tab. New questions are created as drafts; this tab drives
+  // the `draftMode` filter sent to the search API.
+  const [activeTab, setActiveTab] = useState('published');
+  const isDraftTab = activeTab === 'draft';
+
+  // Totals shown on the tabs, scoped to the current filters so they match the list.
+  const [counts, setCounts] = useState({ published: 0, draft: 0 });
+
+  // Bulk-publish selection (Draft tab only) + in-flight publish tracking.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [publishingId, setPublishingId] = useState(null);
+  const [bulkPublishing, setBulkPublishing] = useState(false);
+
+  // Shared search params for the active tab — filters + draftMode + sort. The list
+  // loads and the tab-count queries both build from this so they can't drift apart.
+  // Institute is scoped server-side via the X-Institute-Id header (selected
+  // institute for SUPER_ADMIN) or the JWT for other roles — no instituteId needed.
+  const buildSearchParams = (page) => {
+    const params = {
+      page,
+      size: PAGE_SIZE,
+      sortBy: sort.sortBy,
+      sortDirection: sort.sortDirection,
+      draftMode: isDraftTab
+    };
+    if (filters.difficulty) params.difficulty = filters.difficulty;
+    if (filters.subject) params.subjectId = filters.subject;
+    if (filters.chapter) params.chapterId = filters.chapter;
+    if (filters.topic) params.topicId = filters.topic;
+    return params;
+  };
+
   // Load a specific page of questions from the backend (replaces the current list).
   const loadQuestions = async (page = 0) => {
     if (!currentUser) return;
@@ -80,20 +115,7 @@ const QuestionBank = () => {
       setLoading(true);
       setError(null);
 
-      const searchParams = {
-        page,
-        size: PAGE_SIZE
-      };
-      // Institute is scoped server-side via the X-Institute-Id header (selected institute
-      // for SUPER_ADMIN) or the JWT for other roles — no instituteId needed in the body.
-
-      // Add filters to search params if they exist
-      if (filters.difficulty) searchParams.difficulty = filters.difficulty;
-      if (filters.subject) searchParams.subjectId = filters.subject;
-      if (filters.chapter) searchParams.chapterId = filters.chapter;
-      if (filters.topic) searchParams.topicId = filters.topic;
-
-      const result = await questionService.searchQuestions(searchParams);
+      const result = await questionService.searchQuestions(buildSearchParams(page));
       const { data, pagination: paginationData } = result;
 
       setSelectedQuestions(data && Array.isArray(data) ? data : []);
@@ -134,16 +156,9 @@ const QuestionBank = () => {
     try {
       setLoadingMore(true);
 
-      const searchParams = {
-        page: pagination.currentPage + 1,
-        size: PAGE_SIZE
-      };
-      if (filters.difficulty) searchParams.difficulty = filters.difficulty;
-      if (filters.subject) searchParams.subjectId = filters.subject;
-      if (filters.chapter) searchParams.chapterId = filters.chapter;
-      if (filters.topic) searchParams.topicId = filters.topic;
-
-      const result = await questionService.searchQuestions(searchParams);
+      const result = await questionService.searchQuestions(
+        buildSearchParams(pagination.currentPage + 1)
+      );
       const { data, pagination: paginationData } = result;
 
       if (data && Array.isArray(data) && data.length > 0) {
@@ -157,6 +172,35 @@ const QuestionBank = () => {
     } finally {
       setLoadingMore(false);
       loadingMoreRef.current = false;
+    }
+  };
+
+  // Fetch the published & draft totals for the current filters (size:1 — we only
+  // need totalElements) so the tabs can show how many questions are in each state.
+  const loadCounts = async () => {
+    if (!currentUser) return;
+    const base = {
+      page: 0,
+      size: 1,
+      sortBy: sort.sortBy,
+      sortDirection: sort.sortDirection
+    };
+    if (filters.difficulty) base.difficulty = filters.difficulty;
+    if (filters.subject) base.subjectId = filters.subject;
+    if (filters.chapter) base.chapterId = filters.chapter;
+    if (filters.topic) base.topicId = filters.topic;
+
+    try {
+      const [pub, draft] = await Promise.all([
+        questionService.searchQuestions({ ...base, draftMode: false }),
+        questionService.searchQuestions({ ...base, draftMode: true })
+      ]);
+      setCounts({
+        published: pub?.pagination?.totalElements || 0,
+        draft: draft?.pagination?.totalElements || 0
+      });
+    } catch (err) {
+      // Non-critical — leave the prior counts in place.
     }
   };
 
@@ -220,8 +264,9 @@ const QuestionBank = () => {
     // JWT and have no selectedInstitute, so they must not be blocked here.
     if (isSuperAdmin && !superAdminContext?.selectedInstitute?.id) return;
     loadQuestions(0);
+    loadCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!currentUser, isSuperAdmin, filters, superAdminContext?.selectedInstitute?.id]);
+  }, [!!currentUser, isSuperAdmin, filters, sort, activeTab, superAdminContext?.selectedInstitute?.id]);
 
   // Load subjects on mount
   useEffect(() => {
@@ -251,6 +296,7 @@ const QuestionBank = () => {
     // Refresh questions from API with fresh pagination after creating a new question
     if (currentUser && !loading) {
       loadQuestions(0);
+      loadCounts();
     }
   };
   
@@ -267,6 +313,12 @@ const QuestionBank = () => {
       // Restore and surface the failure
       setSelectedQuestions(previous);
       setError(error.message || 'Failed to delete question');
+    } else {
+      setPagination((prev) => ({
+        ...prev,
+        totalElements: Math.max(0, (prev.totalElements || 0) - 1)
+      }));
+      loadCounts();
     }
   };
 
@@ -429,6 +481,103 @@ const QuestionBank = () => {
   const toggleBulkMode = () => {
     // Leaving bulk mode keeps any staged edits — they fall back to per-row Save.
     setBulkMode((prev) => !prev);
+  };
+
+  // --- Tabs (Published / Draft) ------------------------------------------
+  const handleTabChange = (tab) => {
+    if (tab === activeTab) return;
+    // Staged inline edits and selections are list-specific — drop them so they
+    // don't silently apply to the other tab's questions.
+    setPendingEdits({});
+    setRowErrors({});
+    setSelectedIds(new Set());
+    setError(null);
+    setActiveTab(tab);
+  };
+
+  // --- Publish / draft -----------------------------------------------------
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleSelected =
+    selectedQuestions.length > 0 && selectedQuestions.every((q) => selectedIds.has(q.id));
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectedQuestions.map((q) => q.id)));
+    }
+  };
+
+  // After a publish/unpublish, the question no longer matches the active tab's
+  // filter, so drop it from the list and keep the counters honest.
+  const dropFromList = (questionId, n = 1) => {
+    const ids = new Set([].concat(questionId).map(String));
+    setSelectedQuestions((prev) => prev.filter((q) => !ids.has(String(q.id))));
+    setPagination((prev) => ({
+      ...prev,
+      totalElements: Math.max(0, (prev.totalElements || 0) - n)
+    }));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((sid) => !ids.has(String(sid))));
+      return next.size === prev.size ? prev : next;
+    });
+  };
+
+  // Optimistically move the tab counts when a question flips state.
+  const shiftCounts = (publishedDelta, draftDelta) =>
+    setCounts((prev) => ({
+      published: Math.max(0, prev.published + publishedDelta),
+      draft: Math.max(0, prev.draft + draftDelta)
+    }));
+
+  // publish === true  → draftMode false (publish); false → draftMode true (unpublish).
+  const handlePublishToggle = async (questionId, publish) => {
+    if (publishingId != null || bulkPublishing) return;
+    setPublishingId(questionId);
+    setError(null);
+    const result = await questionService.setQuestionDraftMode(questionId, !publish);
+    setPublishingId(null);
+    if (result?.error) {
+      setError(result.error.message || 'Failed to update publish status');
+      return;
+    }
+    dropFromList(questionId);
+    shiftCounts(publish ? 1 : -1, publish ? -1 : 1);
+  };
+
+  // Bulk publish the selected drafts (Draft tab only). Sequential so failures are
+  // isolated; failed ids stay selected for a retry.
+  const handleBulkPublish = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || bulkPublishing) return;
+    setBulkPublishing(true);
+    setError(null);
+
+    const failed = [];
+    const succeeded = [];
+    for (const id of ids) {
+      const result = await questionService.setQuestionDraftMode(id, false); // publish
+      if (result?.error) failed.push(id);
+      else succeeded.push(id);
+    }
+
+    if (succeeded.length > 0) {
+      dropFromList(succeeded, succeeded.length);
+      shiftCounts(succeeded.length, -succeeded.length);
+    }
+    setSelectedIds(new Set(failed)); // keep only failures selected for retry
+    if (failed.length > 0) {
+      setError(`${failed.length} question(s) couldn't be published. Try again.`);
+    }
+    setBulkPublishing(false);
   };
 
   // Cache the cascade option lists. Each card's topic editor prefills its current
@@ -648,6 +797,25 @@ const QuestionBank = () => {
 
             {/* Action Buttons and Filter */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              {/* Sort */}
+              <div className="flex items-center space-x-2">
+                <Icon name="ArrowUpDown" size={16} className="text-muted-foreground hidden sm:block" />
+                <select
+                  aria-label="Sort questions"
+                  value={`${sort.sortBy}|${sort.sortDirection}`}
+                  onChange={(e) => {
+                    const [sortBy, sortDirection] = e.target.value.split('|');
+                    setSort({ sortBy, sortDirection });
+                  }}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
+                >
+                  <option value="createdAt|desc">Newest first</option>
+                  <option value="createdAt|asc">Oldest first</option>
+                  <option value="updatedAt|desc">Recently updated</option>
+                  <option value="updatedAt|asc">Least recently updated</option>
+                </select>
+              </div>
+
               {/* Filter Dropdown */}
               <div className="relative filter-dropdown">
                 <Button
@@ -740,6 +908,71 @@ const QuestionBank = () => {
           </div>
         </div>
 
+        {/* Published / Draft tabs */}
+        <div className="bg-background border-b border-border px-4 lg:px-6">
+          <div className="flex items-center gap-1">
+            {[
+              { key: 'published', label: 'Published', count: counts.published },
+              { key: 'draft', label: 'Draft', count: counts.draft }
+            ].map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key)}
+                  className={`relative px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    active
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`ml-2 inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                      tab.key === 'draft' && tab.count > 0
+                        ? 'bg-amber-100 text-amber-700'
+                        : active
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bulk-publish action strip (Draft tab) */}
+        {isDraftTab && !loading && selectedQuestions.length > 0 && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-amber-800 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded border-amber-300 text-primary focus:ring-primary"
+              />
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+            </label>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={handleBulkPublish}
+              disabled={selectedIds.size === 0 || bulkPublishing}
+              iconName={bulkPublishing ? 'Loader2' : 'CheckCircle'}
+              iconPosition="left"
+              className={`text-sm ${bulkPublishing ? 'animate-pulse' : ''}`}
+            >
+              {bulkPublishing
+                ? 'Publishing…'
+                : `Publish selected${selectedIds.size ? ` (${selectedIds.size})` : ''}`}
+            </Button>
+          </div>
+        )}
+
         {/* Questions List */}
         <div
           ref={scrollContainerRef}
@@ -763,16 +996,35 @@ const QuestionBank = () => {
           {!loading && !error && selectedQuestions?.length === 0 && (
             <div className="text-center py-12">
               <Icon name="FileText" size={48} className="mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Questions Found</h3>
-              <p className="text-muted-foreground mb-4">Start by adding your first question or adjust your filters.</p>
-              <Button
-                variant="primary"
-                onClick={() => navigate('/question-bank/add')}
-                iconName="Plus"
-                iconPosition="left"
-              >
-                Add First Question
-              </Button>
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {isDraftTab ? 'No draft questions' : 'No published questions'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {isDraftTab
+                  ? 'New questions you add appear here as drafts until you publish them.'
+                  : counts.draft > 0
+                    ? 'Publish questions from the Draft tab to make them available here.'
+                    : 'Start by adding your first question or adjust your filters.'}
+              </p>
+              {!isDraftTab && counts.draft > 0 ? (
+                <Button
+                  variant="outline"
+                  onClick={() => handleTabChange('draft')}
+                  iconName="FileText"
+                  iconPosition="left"
+                >
+                  Go to Drafts ({counts.draft})
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={() => navigate('/question-bank/add')}
+                  iconName="Plus"
+                  iconPosition="left"
+                >
+                  {isDraftTab ? 'Add Questions' : 'Add First Question'}
+                </Button>
+              )}
             </div>
           )}
 
@@ -802,6 +1054,14 @@ const QuestionBank = () => {
                     onResetRow={clearPending}
                     savingRow={savingAll || String(savingRowId) === String(question?.id)}
                     rowError={rowErrors[question?.id] || null}
+                    onPublish={handlePublishToggle}
+                    publishing={
+                      String(publishingId) === String(question?.id) ||
+                      (bulkPublishing && selectedIds.has(question?.id))
+                    }
+                    selectable={isDraftTab}
+                    selected={selectedIds.has(question?.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </div>
@@ -858,6 +1118,7 @@ const QuestionBank = () => {
             // visible; the user closes it manually. Just refresh the list underneath.
             if (currentUser && !loading) {
               loadQuestions(0);
+              loadCounts();
             }
           }}
         />

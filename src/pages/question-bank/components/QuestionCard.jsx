@@ -27,7 +27,14 @@ const QuestionCard = ({
   onSaveRow,
   onResetRow,
   savingRow = false,
-  rowError = null
+  rowError = null,
+  // Publish / draft wiring.
+  onPublish,
+  publishing = false,
+  // Multi-select (used for bulk publish on the Draft tab).
+  selectable = false,
+  selected = false,
+  onToggleSelect
 }) => {
   const [showFullQuestion, setShowFullQuestion] = useState(false);
 
@@ -54,6 +61,10 @@ const QuestionCard = ({
     chapterId: question.chapterId ?? question.chapter ?? null,
     topicId: question.topicId ?? question.topic ?? null
   };
+
+  // A question is a draft until explicitly published. Backend always returns
+  // draftMode on QuestionResponseDto; treat a missing value as published.
+  const isDraft = question.draftMode === true;
 
   const isLatex = String(safeQuestion.textFormat).toUpperCase() === 'LATEX';
 
@@ -101,6 +112,17 @@ const QuestionCard = ({
       {/* Question Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-3">
+          {/* Selection checkbox (bulk publish) */}
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect?.(safeQuestion.id)}
+              className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+              title="Select for bulk publish"
+            />
+          )}
+
           {/* Question Number */}
           <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
             {(index || 0) + 1}
@@ -109,6 +131,15 @@ const QuestionCard = ({
           {/* Question Type Badge */}
           <div className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             {safeQuestion.questionType.toUpperCase()}
+          </div>
+
+          {/* Publish status badge */}
+          <div
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              isDraft ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+            }`}
+          >
+            {isDraft ? 'Draft' : 'Published'}
           </div>
 
           {/* Difficulty — inline editable dropdown right where the badge was */}
@@ -139,6 +170,37 @@ const QuestionCard = ({
 
         {/* Action Buttons */}
         <div className="flex items-center space-x-1">
+          {/* Publish (draft → published) / Unpublish (published → draft).
+              The one-click move from draft to published lives right on the card. */}
+          {onPublish && isDraft && (
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => onPublish(safeQuestion.id, true)}
+              disabled={publishing}
+              iconName={publishing ? 'Loader2' : 'CheckCircle'}
+              iconPosition="left"
+              className={`text-xs ${publishing ? 'animate-pulse' : ''}`}
+              title="Publish this question"
+            >
+              {publishing ? 'Publishing…' : 'Publish'}
+            </Button>
+          )}
+          {onPublish && !isDraft && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onPublish(safeQuestion.id, false)}
+              disabled={publishing}
+              iconName={publishing ? 'Loader2' : 'RotateCcw'}
+              iconPosition="left"
+              className={`text-xs text-muted-foreground ${publishing ? 'animate-pulse' : ''}`}
+              title="Move back to draft"
+            >
+              {publishing ? 'Working…' : 'Unpublish'}
+            </Button>
+          )}
+
           {/* Per-row save lives here in single-row mode; bulk mode saves everything
               at once from the page header, so we hide it to avoid two save paths. */}
           {editable && !bulkMode && isDirty && (

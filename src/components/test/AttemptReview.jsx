@@ -270,6 +270,27 @@ const QuestionCard = ({ q, index }) => {
           );
         })}
       </div>
+
+      {/* Explanation — rendered from the attempt's per-question `explanation` (served
+          by the backend on AttemptQuestionResponseDto). Only shown when this attempt
+          reveals its answer key (mirrors the per-option reveal above), so it never
+          leaks for a showAnswers=false test. Absent/empty → nothing renders. */}
+      {q.explanation && String(q.explanation).trim() && (optionsRevealed || correctnessRevealed) && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <div className="mb-1 flex items-center gap-1.5">
+            <Icon name="Lightbulb" size={14} className="text-amber-500" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+              Explanation
+            </span>
+          </div>
+          <MathText
+            as="div"
+            className="text-sm text-foreground leading-relaxed whitespace-pre-wrap"
+            text={q.explanation}
+            textFormat={q.textFormat}
+          />
+        </div>
+      )}
     </div>
   );
 };

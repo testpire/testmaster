@@ -62,7 +62,10 @@ const AddQuestions = () => {
 
     try {
       const payload = form.buildPayload({
-        instituteId: currentUser?.instituteId || userProfile?.instituteId
+        instituteId: currentUser?.instituteId || userProfile?.instituteId,
+        // Newly added questions are saved as drafts; they're published later from
+        // the Question Bank's Draft tab after review.
+        draftMode: true
       });
       const result = await questionService.createQuestion(payload);
 
@@ -131,7 +134,7 @@ const AddQuestions = () => {
               <div className="min-w-0">
                 <h1 className="text-xl lg:text-2xl font-bold text-foreground truncate">Add Questions</h1>
                 <p className="text-sm text-muted-foreground">
-                  Add as many as you like — save one, the form clears for the next.
+                  Saved as drafts — review and publish them later from the Question Bank.
                 </p>
               </div>
             </div>
@@ -240,6 +243,9 @@ const AddQuestions = () => {
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                            Draft
+                          </span>
                           <span className="px-2 py-0.5 rounded-full bg-muted">
                             {QUESTION_TYPE_LABELS[q.questionType] || q.questionType}
                           </span>

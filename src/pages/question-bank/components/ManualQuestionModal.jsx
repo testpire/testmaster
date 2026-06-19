@@ -29,7 +29,10 @@ const ManualQuestionModal = ({ isOpen, onClose, onQuestionAdded, editingQuestion
 
     try {
       const questionPayload = form.buildPayload({
-        instituteId: currentUser?.instituteId || userProfile?.instituteId
+        instituteId: currentUser?.instituteId || userProfile?.instituteId,
+        // New questions start as drafts; edits preserve the question's current
+        // publish state so saving an edit never silently publishes/unpublishes it.
+        draftMode: editingQuestion ? editingQuestion?.draftMode : true
       });
 
       let result;

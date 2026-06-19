@@ -19,6 +19,17 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
     changes.difficultyLevel || q?.difficultyLevel || q?.difficulty_level || 'EASY'
   ).toUpperCase();
 
+  // Publish state. An explicit boolean in `changes` (publish / unpublish action)
+  // wins; otherwise preserve whatever the loaded question already had so an
+  // unrelated edit (difficulty/topic) never silently flips a question between
+  // draft and published.
+  const resolvedDraftMode =
+    typeof changes.draftMode === 'boolean'
+      ? changes.draftMode
+      : typeof q?.draftMode === 'boolean'
+        ? q.draftMode
+        : undefined;
+
   return {
     text: q?.text ?? q?.question_text ?? '',
     questionImagePath: q?.questionImagePath || '',
@@ -29,6 +40,7 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
     negativeMarks: parseFloat(q?.negativeMarks) || 0,
     textFormat: q?.textFormat || 'PLAIN',
     explanation: q?.explanation || '',
+    ...(typeof resolvedDraftMode === 'boolean' && { draftMode: resolvedDraftMode }),
     ...(q?.instituteId != null && { instituteId: q.instituteId }),
     ...(q?.correctIntegerAnswer != null && { correctIntegerAnswer: q.correctIntegerAnswer }),
     ...(String(type).toLowerCase() === 'mcq' && {
@@ -45,6 +57,15 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
 export const questionService = {
   async searchQuestions(searchParams = {}) {
     try {
+      // Sort field/direction. Backend supports sorting by createdAt | updatedAt.
+      // Default preserves prior behavior (newest first). We send it both as query
+      // params (?sortBy=&sortDirection=) — the form the API documents — and in the
+      // body `sorting` object the existing search convention uses, kept in sync so
+      // whichever the backend reads, the result is the same and they can't conflict.
+      const allowedSortFields = ['createdAt', 'updatedAt'];
+      const sortBy = allowedSortFields.includes(searchParams.sortBy) ? searchParams.sortBy : 'createdAt';
+      const sortDirection = String(searchParams.sortDirection).toLowerCase() === 'asc' ? 'asc' : 'desc';
+
       // Prepare search payload for POST /questions/search/advanced
       const payload = {
         criteria: {},
@@ -53,8 +74,8 @@ export const questionService = {
           size: searchParams.size || 20
         },
         sorting: {
-          field: 'createdAt',
-          direction: 'desc'
+          field: sortBy,
+          direction: sortDirection
         }
       };
 
@@ -74,10 +95,18 @@ export const questionService = {
       if (searchParams.topicId && searchParams.topicId !== '') {
         payload.criteria.topicId = parseInt(searchParams.topicId);
       }
+      // Draft vs published filter (drives the Question Bank tabs). Only sent when
+      // an explicit boolean is provided — omitting it returns both, preserving the
+      // old "show everything" behavior for callers that don't pass it.
+      if (typeof searchParams.draftMode === 'boolean') {
+        payload.criteria.draftMode = searchParams.draftMode;
+      }
 
 
 
-      const response = await post('/questions/search/advanced', payload);
+      const response = await post('/questions/search/advanced', payload, {
+        params: { sortBy, sortDirection }
+      });
       
       // Parse response. The backend wraps as { message, success, data } and the
       // questions page is { questions: [...], totalCount: N } — note the total is
@@ -127,7 +156,13 @@ export const questionService = {
   async createQuestion(questionData) {
     try {
       const scopedId = getActiveInstituteId();
-      const body = scopedId != null ? { ...questionData, instituteId: scopedId } : questionData;
+      const body = scopedId != null ? { ...questionData, instituteId: scopedId } : { ...questionData };
+      // New questions land in draft until a user explicitly publishes them. Default
+      // here as a safety net so any create path is draft unless it opted out by
+      // passing an explicit draftMode.
+      if (typeof body.draftMode !== 'boolean') {
+        body.draftMode = true;
+      }
       const { data, error, success } = await post('/questions', body);
       if (success) {
         return { data: data?.data || data || null, error: null };
@@ -150,11 +185,11 @@ export const questionService = {
     }
   },
 
-  // Update only a question's difficulty and/or topic without opening the full
-  // editor. Re-fetches the complete question first and merges the change in, so
-  // no other field (text, options, explanation) is lost — this holds whether the
-  // backend PUT is a partial update or a full replace.
-  // `changes` = { difficultyLevel?, topicId? }.
+  // Update only a question's difficulty, topic, and/or draft state without opening
+  // the full editor. Re-fetches the complete question first and merges the change
+  // in, so no other field (text, options, explanation) is lost — this holds
+  // whether the backend PUT is a partial update or a full replace.
+  // `changes` = { difficultyLevel?, topicId?, draftMode? }.
   async updateQuestionFields(questionId, changes = {}) {
     try {
       const { data: full, error: loadError } = await this.getQuestionById(questionId);
@@ -166,6 +201,13 @@ export const questionService = {
     } catch (error) {
       return { data: null, error: { message: error?.message || 'Failed to update question' } };
     }
+  },
+
+  // Move a question between draft and published. `draftMode = false` publishes it,
+  // `true` returns it to draft. The backend has no dedicated publish endpoint, so
+  // this rides the normal update path (load full question, flip draftMode, PUT).
+  async setQuestionDraftMode(questionId, draftMode) {
+    return await this.updateQuestionFields(questionId, { draftMode: !!draftMode });
   },
 
   async getQuestionById(questionId) {

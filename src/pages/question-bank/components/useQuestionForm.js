@@ -436,7 +436,10 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
   };
 
   // Build the `/questions` request body from the current form state.
-  const buildPayload = ({ instituteId } = {}) => ({
+  // `draftMode` (when a boolean) is sent through so the create flow can default a
+  // new question to draft, and the edit flow can preserve the question's current
+  // publish state instead of accidentally flipping it.
+  const buildPayload = ({ instituteId, draftMode } = {}) => ({
     text: questionData?.questionText,
     questionImagePath: questionData?.questionImagePath || '',
     difficultyLevel: questionData?.difficultyLevel?.toUpperCase() || 'EASY',
@@ -447,6 +450,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
     textFormat: questionData?.textFormat || 'PLAIN',
     explanation: questionData?.explanation || '',
+    ...(typeof draftMode === 'boolean' && { draftMode }),
     ...(questionData?.questionType === 'mcq' && {
       options: questionData?.options?.map((opt, index) => ({
         text: opt?.text || '',
