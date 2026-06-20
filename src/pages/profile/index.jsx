@@ -149,16 +149,16 @@ const Profile = () => {
 
         {/* Account summary (always read-only) */}
         <div className="bg-card rounded-2xl border border-border p-6 shadow-sm mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Icon name="User" size={28} className="text-primary" />
               </div>
-              <div>
-                <h2 className="font-display text-xl font-semibold text-foreground">
+              <div className="min-w-0">
+                <h2 className="font-display text-xl font-semibold text-foreground truncate">
                   {[baseProfile.firstName, baseProfile.lastName].filter(Boolean).join(' ') || baseProfile.username}
                 </h2>
-                <p className="text-sm text-muted-foreground">{baseProfile.email || baseProfile.username}</p>
+                <p className="text-sm text-muted-foreground truncate">{baseProfile.email || baseProfile.username}</p>
                 <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-muted text-foreground">
                   {baseProfile.role}
                 </span>
@@ -169,7 +169,8 @@ const Profile = () => {
               iconName="LogOut"
               onClick={handleSignOut}
               loading={isSigningOut}
-              className="flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+              fullWidth
+              className="sm:w-auto flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
             >
               {isSigningOut ? 'Signing out…' : 'Sign Out'}
             </Button>
