@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../../components/layout/PageLayout';
 import Icon from '../../components/AppIcon';
 import { cn } from '../../utils/cn';
+import useMediaQuery from '../../hooks/useMediaQuery';
 import { courseService } from '../../services/courseService';
 import { newUserService } from '../../services/newUserService';
 import { newMaterialService, MATERIAL_SCOPES } from '../../services/newMaterialService';
@@ -28,6 +29,12 @@ const StudyMaterials = () => {
 
   // The chapter/topic whose materials are shown in the right pane.
   const [selected, setSelected] = useState(null); // { scope, id, name }
+
+  // On phones/tablets the tree and the viewer can't share the screen, so we
+  // drill down: show the tree until a node is picked, then swap to its materials
+  // (with a back affordance). `lg` (1024px) is where the two-pane desktop layout
+  // fits; mirror that breakpoint so the JS and the `lg:` classes agree.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Load the student's enrolled courses (the only roots they may browse).
   useEffect(() => {
@@ -197,8 +204,9 @@ const StudyMaterials = () => {
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Curriculum tree (enrolled courses only) */}
-            <aside className="lg:w-96 flex-shrink-0">
+            {/* Curriculum tree (enrolled courses only). On mobile it gives way to
+                the materials once a node is picked; on lg+ both panes coexist. */}
+            <aside className={cn('lg:w-96 flex-shrink-0', selected && 'hidden lg:block')}>
               <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
                 {courses.map((course) => {
                   const cOpen = expanded.course.has(course.id);
@@ -236,7 +244,6 @@ const StudyMaterials = () => {
                                     <Icon name={sOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
                                     <Icon name="Folder" size={15} className="text-success flex-shrink-0" />
                                     <span className="text-sm text-foreground truncate">{subject.name}</span>
-                                    {subject.code && <span className="text-xs text-muted-foreground">({subject.code})</span>}
                                   </button>
 
                                   {sOpen && (
@@ -261,7 +268,6 @@ const StudyMaterials = () => {
                                                   <Icon name={chOpen ? 'ChevronDown' : 'ChevronRight'} size={15} className="text-muted-foreground flex-shrink-0" />
                                                   <Icon name="Bookmark" size={14} className="text-primary flex-shrink-0" />
                                                   <span className="text-sm text-foreground truncate">{chapter.name}</span>
-                                                  {chapter.code && <span className="text-xs text-muted-foreground">({chapter.code})</span>}
                                                 </button>
                                                 <MaterialsPill
                                                   active={isSelected(MATERIAL_SCOPES.CHAPTER, chapter.id)}
@@ -292,7 +298,6 @@ const StudyMaterials = () => {
                                                         >
                                                           <Icon name="List" size={14} className="text-muted-foreground flex-shrink-0" />
                                                           <span className="text-sm text-foreground truncate">{topic.name}</span>
-                                                          {topic.code && <span className="text-xs text-muted-foreground">({topic.code})</span>}
                                                         </button>
                                                         <MaterialsPill
                                                           active={isSelected(MATERIAL_SCOPES.TOPIC, topic.id)}
@@ -321,19 +326,30 @@ const StudyMaterials = () => {
               </div>
             </aside>
 
-            {/* Materials viewer (read-only) for the selected chapter / topic */}
-            <section className="flex-1 min-w-0">
+            {/* Materials viewer (read-only) for the selected chapter / topic.
+                Hidden on mobile until a node is selected (the tree owns the screen). */}
+            <section className={cn('flex-1 min-w-0', !selected && 'hidden lg:block')}>
               {selected ? (
                 <>
                   <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                    <Icon name={selected.scope === MATERIAL_SCOPES.CHAPTER ? 'Bookmark' : 'List'} size={15} className="text-primary" />
+                    {/* Back to the curriculum tree — mobile only. */}
+                    <button
+                      onClick={() => setSelected(null)}
+                      className="lg:hidden -ml-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-primary hover:bg-primary/10"
+                      aria-label="Back to curriculum"
+                    >
+                      <Icon name="ChevronLeft" size={18} />
+                      <span className="text-sm font-medium">Curriculum</span>
+                    </button>
+                    <Icon name={selected.scope === MATERIAL_SCOPES.CHAPTER ? 'Bookmark' : 'List'} size={15} className="text-primary flex-shrink-0" />
                     <span className="text-foreground font-medium truncate">{selected.name}</span>
-                    <span className="text-xs">· {selected.scope === MATERIAL_SCOPES.CHAPTER ? 'Chapter' : 'Topic'} materials</span>
+                    <span className="text-xs flex-shrink-0">· {selected.scope === MATERIAL_SCOPES.CHAPTER ? 'Chapter' : 'Topic'} materials</span>
                   </div>
                   <MaterialsManager
                     key={`${selected.scope}-${selected.id}`}
                     scope={selected.scope}
                     ownerId={selected.id}
+                    autoOpenFirst={isDesktop}
                     readOnly
                   />
                 </>

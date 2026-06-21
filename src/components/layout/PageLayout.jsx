@@ -241,7 +241,7 @@ const PageLayout = ({
       {/* Main Content with proper mobile margins */}
       <div className={`transition-all duration-300 pt-16 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-      } ${currentUser.role === 'student' ? 'mb-16 md:mb-0' : ''}`}>
+      } ${currentUser.role === 'student' ? 'mb-20 md:mb-0' : ''}`}>
         {children}
       </div>
     </div>

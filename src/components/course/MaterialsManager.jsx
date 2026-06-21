@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Button from '../ui/Button';
 import Icon from '../AppIcon';
-import MathText from '../MathText';
+import MarkdownText from '../MarkdownText';
 import MaterialComposer from './MaterialComposer';
 import { cn } from '../../utils/cn';
+import useMediaQuery from '../../hooks/useMediaQuery';
 import { newMaterialService } from '../../services/newMaterialService';
 import { formatBytes as fmtBytes } from '../../utils/formatters';
 
@@ -18,6 +19,15 @@ const TYPE_META = {
 const metaFor = (type) => TYPE_META[type] || { icon: 'File', label: type || 'File', color: 'text-muted-foreground', badge: 'bg-muted text-muted-foreground' };
 const FILE_TYPES = new Set(['PDF', 'PPT', 'VIDEO']);
 
+// Flag material added in the last week so students can spot what a teacher just
+// uploaded. Uses the material's `createdAt` (ISO 8601 from the API).
+const NEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const isRecentlyAdded = (iso) => {
+  if (!iso) return false;
+  const t = Date.parse(iso);
+  return !Number.isNaN(t) && Date.now() - t < NEW_WINDOW_MS;
+};
+
 /**
  * MaterialsManager — the shared add/list/view experience for a curriculum node's
  * study materials (files, notes, links). Used by both the topic-materials and
@@ -31,8 +41,11 @@ const FILE_TYPES = new Set(['PDF', 'PPT', 'VIDEO']);
  *  - ownerId  : id of the owning topic / chapter
  *  - readOnly : when true, render a view-only experience (no add/edit/delete/
  *               reorder) — used by the student Study Materials section.
+ *  - autoOpenFirst : when true (default), opening a node jumps straight to its
+ *               first material. Pass false on mobile so the student lands on the
+ *               material list and picks one (the viewer is a separate screen there).
  */
-const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
+const MaterialsManager = ({ scope, ownerId, readOnly = false, autoOpenFirst = true }) => {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -45,6 +58,11 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
 
   const [composer, setComposer] = useState(null); // { mode, editing }
   const viewerRef = useRef(null);
+
+  // Mirror the `lg:` breakpoint: below it the list and viewer are separate
+  // screens (a material opens full-width with a back button); at/above it they
+  // sit side-by-side as before.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Select a material and prepare the viewer. Files need a fresh presigned URL (they
   // expire), fetched on demand here. Notes/links render from the object directly.
@@ -76,8 +94,9 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
       setMaterials(list);
       setLoading(false);
       if (selectFirst) {
-        // Opening a (new) owner: jump straight to its first material.
-        if (list.length) openMaterial(list[0]);
+        // Opening a (new) owner: on desktop jump straight to its first material;
+        // on mobile stay on the list so the student chooses (viewer is its own screen).
+        if (autoOpenFirst && list.length) openMaterial(list[0]);
         else {
           setSelected(null);
           setViewerUrl(null);
@@ -87,7 +106,7 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
         setSelected((prev) => (prev ? list.find((m) => m.id === prev.id) || null : prev));
       }
     },
-    [scope, ownerId, openMaterial]
+    [scope, ownerId, openMaterial, autoOpenFirst]
   );
 
   // (Re)load whenever the owner changes — covers initial mount and sibling navigation
@@ -183,10 +202,10 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
         </div>
       )}
 
-      {/* Two-pane layout */}
+      {/* Two-pane on desktop; on mobile the list and viewer are separate screens. */}
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-13rem)]">
-        {/* Sidebar list */}
-        <aside className="lg:w-80 flex-shrink-0 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col">
+        {/* Sidebar list — hidden on mobile once a material is open. */}
+        <aside className={cn('lg:w-80 flex-shrink-0 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col', selected && 'hidden lg:flex')}>
           <div className="px-3 py-2 border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {materials.length} material{materials.length === 1 ? '' : 's'}
           </div>
@@ -214,7 +233,14 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
                           <Icon name={meta.icon} size={17} />
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-sm font-medium text-foreground truncate">{m.title}</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-sm font-medium text-foreground">{m.title}</span>
+                            {isRecentlyAdded(m.createdAt) && (
+                              <span className="flex-shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-foreground">
+                                New
+                              </span>
+                            )}
+                          </span>
                           <span className="block text-xs text-muted-foreground truncate">
                             {meta.label}
                             {FILE_TYPES.has(m.type) && m.sizeBytes != null && ` · ${fmtBytes(m.sizeBytes)}`}
@@ -245,8 +271,8 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
           )}
         </aside>
 
-        {/* Viewer pane */}
-        <section ref={viewerRef} className="flex-1 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+        {/* Viewer pane — hidden on mobile until a material is open. */}
+        <section ref={viewerRef} className={cn('flex-1 border border-border rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col min-h-[65vh] lg:min-h-[400px]', !selected && 'hidden lg:flex')}>
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
               <Icon name="MonitorPlay" size={48} className="mb-3 text-muted-foreground" />
@@ -257,7 +283,15 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
               {/* Viewer toolbar */}
               <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={metaFor(selected.type).color}>
+                  {/* Back to the material list — mobile only. */}
+                  <button
+                    onClick={() => { setSelected(null); setViewerUrl(null); setViewerError(''); }}
+                    className="lg:hidden -ml-1 flex-shrink-0 rounded p-1.5 text-primary hover:bg-primary/10"
+                    aria-label="Back to material list"
+                  >
+                    <Icon name="ChevronLeft" size={18} />
+                  </button>
+                  <span className={cn('flex-shrink-0', metaFor(selected.type).color)}>
                     <Icon name={metaFor(selected.type).icon} size={16} />
                   </span>
                   <span className="text-sm font-medium text-foreground truncate">{selected.title}</span>
@@ -276,7 +310,7 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
 
               {/* Viewer body */}
               <div className="flex-1 overflow-auto bg-muted/20">
-                <MaterialViewer material={selected} url={viewerUrl} loading={viewerLoading} error={viewerError} />
+                <MaterialViewer material={selected} url={viewerUrl} loading={viewerLoading} error={viewerError} isDesktop={isDesktop} />
               </div>
             </>
           )}
@@ -286,19 +320,32 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false }) => {
   );
 };
 
+// A centred "open this file" card — used on mobile for PDFs/slides, where an
+// inline embed is unreliable (iOS often renders a blank PDF iframe) and heavy
+// (the Office viewer). Opening in a new tab hands off to the device's native,
+// full-screen document viewer, which is the better phone reading experience.
+const DocumentCard = ({ icon, color, title, url, action, hint }) => (
+  <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+    <span className={cn('mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-muted', color)}>
+      <Icon name={icon} size={32} />
+    </span>
+    <p className="mb-1 max-w-xs break-words text-sm font-medium text-foreground">{title}</p>
+    {hint && <p className="mb-5 max-w-xs text-xs text-muted-foreground">{hint}</p>}
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <Button size="sm">
+        <Icon name="ExternalLink" size={15} className="mr-1.5" /> {action}
+      </Button>
+    </a>
+  </div>
+);
+
 // Renders the selected material in the viewer pane.
-const MaterialViewer = ({ material, url, loading, error }) => {
+const MaterialViewer = ({ material, url, loading, error, isDesktop = true }) => {
   if (material.type === 'NOTE') {
     return (
       <div className="p-6 max-w-3xl mx-auto">
         {material.description && <p className="text-sm text-muted-foreground mb-3">{material.description}</p>}
-        {material.contentFormat === 'LATEX' ? (
-          <div className="prose prose-sm sm:prose max-w-none text-foreground leading-relaxed">
-            <MathText text={material.content || ''} />
-          </div>
-        ) : (
-          <p className="text-base text-foreground whitespace-pre-wrap leading-relaxed">{material.content}</p>
-        )}
+        <MarkdownText className="leading-relaxed">{material.content || ''}</MarkdownText>
       </div>
     );
   }
@@ -336,7 +383,8 @@ const MaterialViewer = ({ material, url, loading, error }) => {
   if (material.type === 'VIDEO') {
     return (
       <div className="h-full flex items-center justify-center bg-black">
-        <video src={url} controls autoPlay={false} className="max-h-full max-w-full">
+        {/* playsInline keeps iOS from forcing the video fullscreen on play. */}
+        <video src={url} controls playsInline autoPlay={false} className="max-h-full max-w-full">
           Your browser does not support the video tag.
         </video>
       </div>
@@ -344,13 +392,40 @@ const MaterialViewer = ({ material, url, loading, error }) => {
   }
 
   if (material.type === 'PDF') {
+    // Inline PDF-in-iframe is unreliable on mobile (iOS Safari often shows a
+    // blank frame), so phones get an explicit "open" hand-off instead.
+    if (!isDesktop) {
+      return (
+        <DocumentCard
+          icon="FileText"
+          color="text-destructive"
+          title={material.title}
+          url={url}
+          action="Open PDF"
+          hint="Opens in your phone's PDF viewer, where you can read, zoom and save it."
+        />
+      );
+    }
     return <iframe title={material.title} src={url} className="w-full h-full min-h-[70vh] border-0" />;
   }
 
-  // PPT — browsers can't render PowerPoint inline. Use the Office Online viewer as a
-  // best-effort embed (it fetches the presigned URL server-side), with open/download
-  // fallbacks below.
+  // PPT — browsers can't render PowerPoint inline. On desktop use the Office Online
+  // viewer as a best-effort embed (it fetches the presigned URL server-side), with
+  // open/download fallbacks below. On mobile the embed is heavy and rarely usable,
+  // so skip straight to an open hand-off.
   if (material.type === 'PPT') {
+    if (!isDesktop) {
+      return (
+        <DocumentCard
+          icon="Presentation"
+          color="text-warning"
+          title={material.title}
+          url={url}
+          action="Open slides"
+          hint="Opens in your slides viewer or downloads to your device."
+        />
+      );
+    }
     const office = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
     return (
       <div className="h-full flex flex-col">
