@@ -6,6 +6,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { newTestService } from '../../services/newTestService';
 import { questionService } from '../../services/questionService';
+import { newInstituteService } from '../../services/newInstituteService';
 import { printTestPaper } from '../../utils/testPaperPdf';
 import TestFormModal from './components/TestFormModal';
 import QuestionPickerModal from './components/QuestionPickerModal';
@@ -107,6 +108,25 @@ const TestManagement = () => {
     }
   };
 
+  // Resolve the institute's display name to print on the paper. SUPER_ADMIN uses
+  // the institute currently selected in the switcher; INST_ADMIN/TEACHER look up
+  // their fixed institute by id (best-effort — a failure just omits the name).
+  const resolveInstituteName = async () => {
+    const fromSwitcher = superAdminContext?.selectedInstitute?.name;
+    if (fromSwitcher) return fromSwitcher;
+    const instituteId = currentUser?.instituteId;
+    if (!instituteId) return '';
+    try {
+      const { data } = await newInstituteService.getInstituteById(instituteId, {
+        skipAuthRedirect: true,
+      });
+      const inst = data?.institute || data?.data || data;
+      return inst?.name || '';
+    } catch {
+      return '';
+    }
+  };
+
   // Build an offline question paper and open the print → "Save as PDF" dialog.
   // The test list rows only carry a questionCount, so fetch the full test; and
   // because the test-detail payload may omit per-question options, enrich any
@@ -153,7 +173,8 @@ const TestManagement = () => {
         })
       );
 
-      await printTestPaper(full, questions);
+      const instituteName = await resolveInstituteName();
+      await printTestPaper(full, questions, { instituteName });
     } catch (e) {
       setError(e?.message || 'Failed to generate the test paper');
     } finally {

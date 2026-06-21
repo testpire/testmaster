@@ -126,11 +126,12 @@ const buildQuestionHtml = (q, number) => {
   );
 };
 
-const buildPaperHtml = (test, questions) => {
+const buildPaperHtml = (test, questions, instituteName) => {
   const title = escapeHtml(test?.title || 'Test Paper');
   const description = test?.description ? escapeHtml(test.description) : '';
   const totalMarks = test?.totalMarks != null ? test.totalMarks : null;
   const duration = test?.durationMinutes != null ? test.durationMinutes : null;
+  const institute = instituteName ? escapeHtml(instituteName) : '';
   const count = questions.length;
 
   const metaBits = [];
@@ -142,6 +143,7 @@ const buildPaperHtml = (test, questions) => {
 
   return (
     `<div class="tp-header">` +
+      (institute ? `<div class="tp-institute">${institute}</div>` : '') +
       `<h1 class="tp-title">${title}</h1>` +
       (description ? `<p class="tp-desc">${description}</p>` : '') +
       `<div class="tp-meta">${metaBits.join('')}</div>` +
@@ -169,6 +171,8 @@ const PRINT_CSS = `
 }
 /* Header spans the full page width (it sits ABOVE the multi-column list). */
 #${PRINT_CONTAINER_ID} .tp-header { text-align: center; margin-bottom: 8pt; }
+/* Institute name pinned to the top-left corner, above the centered title. */
+#${PRINT_CONTAINER_ID} .tp-institute { text-align: left; font-weight: 700; font-size: 11.5pt; margin: 0 0 4pt; }
 #${PRINT_CONTAINER_ID} .tp-title { font-size: 16pt; font-weight: 700; margin: 0 0 3pt; }
 #${PRINT_CONTAINER_ID} .tp-desc { font-size: 10.5pt; font-style: italic; margin: 0 0 5pt; }
 #${PRINT_CONTAINER_ID} .tp-meta { display: flex; justify-content: center; gap: 16pt; flex-wrap: wrap; font-size: 10pt; }
@@ -183,8 +187,15 @@ const PRINT_CSS = `
   column-count: 2; column-gap: 9mm; column-fill: auto;
   column-rule: 0.5pt solid #bbb;
 }
-#${PRINT_CONTAINER_ID} .tp-question { margin: 0 0 10pt; padding: 0; page-break-inside: avoid; break-inside: avoid; }
-#${PRINT_CONTAINER_ID} .tp-q-head { display: block; }
+/* Allow a tall question to split across a column/page rather than staying an
+   indivisible block: an item taller than a column is exactly what triggers the
+   Chromium multicol "blank first page / page skipped" bug. The head and each
+   option stay intact (see below), so only genuinely long questions break, and
+   only between their option rows. */
+#${PRINT_CONTAINER_ID} .tp-question { margin: 0 0 10pt; padding: 0; break-inside: auto; orphans: 2; widows: 2; }
+/* Keep the question number+text together, and glued to whatever follows it, so a
+   number never strands alone at the foot of a column. */
+#${PRINT_CONTAINER_ID} .tp-q-head { display: block; break-inside: avoid; break-after: avoid; }
 #${PRINT_CONTAINER_ID} .tp-q-num { font-weight: 700; margin-right: 5pt; }
 #${PRINT_CONTAINER_ID} .tp-q-text { }
 #${PRINT_CONTAINER_ID} .tp-marks { float: right; font-weight: 700; white-space: nowrap; margin-left: 6pt; font-size: 9.5pt; }
@@ -228,9 +239,11 @@ const waitForImages = (root, timeoutMs = 4000) => {
  * @param {object} test       Test metadata (title, description, totalMarks, durationMinutes).
  * @param {Array}  questions  Ordered questions, each with { text, textFormat, questionType,
  *                            marks, questionImagePath, options:[{ text, textFormat, optionImagePath }] }.
+ * @param {object} [opts]     { instituteName } printed top-left on the paper.
  */
-export const printTestPaper = async (test, questions) => {
+export const printTestPaper = async (test, questions, opts = {}) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const { instituteName = '' } = opts;
 
   // Clear any leftover region from a previous run.
   document.getElementById(PRINT_CONTAINER_ID)?.remove();
@@ -243,10 +256,13 @@ export const printTestPaper = async (test, questions) => {
 
   const container = document.createElement('div');
   container.id = PRINT_CONTAINER_ID;
-  container.innerHTML = buildPaperHtml(test, Array.isArray(questions) ? questions : []);
+  container.innerHTML = buildPaperHtml(test, Array.isArray(questions) ? questions : [], instituteName);
   document.body.appendChild(container);
 
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return; // idempotent: afterprint and the backstop may both fire
+    cleaned = true;
     container.remove();
     style.remove();
     window.removeEventListener('afterprint', cleanup);
@@ -257,8 +273,11 @@ export const printTestPaper = async (test, questions) => {
     await waitForImages(container);
     window.print();
   } finally {
-    // afterprint is unreliable across browsers / when the dialog is cancelled;
-    // remove on a delay as a backstop so the hidden region never lingers.
-    setTimeout(cleanup, 1000);
+    // `afterprint` is the primary trigger. The backstop only guards the case
+    // where it never fires (some browsers / cancelled dialog); it must be long
+    // enough that it can't wipe the print DOM while the dialog is still open and
+    // the paper hasn't been saved yet (which would yield a blank PDF). The region
+    // is display:none, so a lingering node is invisible and harmless meanwhile.
+    setTimeout(cleanup, 60000);
   }
 };
