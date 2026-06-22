@@ -11,3 +11,6 @@ vite.config.*s.*
 
 # Local env (contains secrets)
 .env.local
+
+# Local rebuild helper (not committed)
+rebuild.sh

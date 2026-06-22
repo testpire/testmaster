@@ -18,7 +18,7 @@ const AuthShell = ({ title, subtitle, children, footer }) => (
           <span className="w-11 h-11 rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20 flex items-center justify-center">
             <Icon name="GraduationCap" size={22} className="text-primary-foreground" />
           </span>
-          <span className="font-display text-2xl font-semibold tracking-tight">TestPire</span>
+          <span className="font-display text-2xl font-semibold tracking-tight">LearnX</span>
         </div>
 
         <div className="max-w-md">

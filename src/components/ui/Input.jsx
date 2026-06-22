@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "../../utils/cn";
 
 const Input = React.forwardRef(({
@@ -11,6 +12,7 @@ const Input = React.forwardRef(({
     id,
     ...props
 }, ref) => {
+    const [showPassword, setShowPassword] = useState(false);
     // Generate unique ID if not provided
     const inputId = id || `input-${Math.random()?.toString(36)?.substr(2, 9)}`;
 
@@ -49,6 +51,9 @@ const Input = React.forwardRef(({
         );
     }
 
+    const isPassword = type === "password";
+    const resolvedType = isPassword ? (showPassword ? "text" : "password") : type;
+
     // For regular inputs with wrapper structure
     return (
         <div className="space-y-2">
@@ -65,17 +70,34 @@ const Input = React.forwardRef(({
                 </label>
             )}
 
-            <input
-                type={type}
-                className={cn(
-                    baseInputClasses,
-                    error && "border-destructive focus-visible:ring-destructive",
-                    className
+            <div className={cn(isPassword ? "relative" : undefined)}>
+                <input
+                    type={resolvedType}
+                    className={cn(
+                        baseInputClasses,
+                        isPassword && "pr-10",
+                        error && "border-destructive focus-visible:ring-destructive",
+                        className
+                    )}
+                    ref={ref}
+                    id={inputId}
+                    {...props}
+                />
+                {isPassword && (
+                    <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus:outline-none disabled:opacity-50"
+                        disabled={props.disabled}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                        {showPassword
+                            ? <EyeOff size={16} strokeWidth={1.75} />
+                            : <Eye size={16} strokeWidth={1.75} />}
+                    </button>
                 )}
-                ref={ref}
-                id={inputId}
-                {...props}
-            />
+            </div>
 
             {description && !error && (
                 <p className="text-sm text-muted-foreground">

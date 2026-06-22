@@ -77,7 +77,7 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
-    document.title = 'Student Dashboard - TestPire';
+    document.title = 'Student Dashboard - LearnX';
   }, []);
 
   // Load real student data
