@@ -320,25 +320,6 @@ const MaterialsManager = ({ scope, ownerId, readOnly = false, autoOpenFirst = tr
   );
 };
 
-// A centred "open this file" card — used on mobile for PDFs/slides, where an
-// inline embed is unreliable (iOS often renders a blank PDF iframe) and heavy
-// (the Office viewer). Opening in a new tab hands off to the device's native,
-// full-screen document viewer, which is the better phone reading experience.
-const DocumentCard = ({ icon, color, title, url, action, hint }) => (
-  <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-    <span className={cn('mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-muted', color)}>
-      <Icon name={icon} size={32} />
-    </span>
-    <p className="mb-1 max-w-xs break-words text-sm font-medium text-foreground">{title}</p>
-    {hint && <p className="mb-5 max-w-xs text-xs text-muted-foreground">{hint}</p>}
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      <Button size="sm">
-        <Icon name="ExternalLink" size={15} className="mr-1.5" /> {action}
-      </Button>
-    </a>
-  </div>
-);
-
 // Renders the selected material in the viewer pane.
 const MaterialViewer = ({ material, url, loading, error, isDesktop = true }) => {
   if (material.type === 'NOTE') {
@@ -392,40 +373,31 @@ const MaterialViewer = ({ material, url, loading, error, isDesktop = true }) => 
   }
 
   if (material.type === 'PDF') {
-    // Inline PDF-in-iframe is unreliable on mobile (iOS Safari often shows a
-    // blank frame), so phones get an explicit "open" hand-off instead.
+    // A raw PDF-in-iframe renders blank on iOS Safari, so on mobile we embed the
+    // file through Google's viewer instead (it renders server-side and works
+    // cross-platform), with an open/download fallback for when it can't load.
     if (!isDesktop) {
+      const gview = `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(url)}`;
       return (
-        <DocumentCard
-          icon="FileText"
-          color="text-destructive"
-          title={material.title}
-          url={url}
-          action="Open PDF"
-          hint="Opens in your phone's PDF viewer, where you can read, zoom and save it."
-        />
+        <div className="h-full flex flex-col">
+          <iframe title={material.title} src={gview} className="w-full flex-1 min-h-[60vh] border-0" />
+          <div className="flex items-center justify-center gap-2 p-2 border-t border-border bg-card text-xs text-muted-foreground">
+            <span>PDF not showing?</span>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+              <Icon name="ExternalLink" size={13} /> Open / download
+            </a>
+          </div>
+        </div>
       );
     }
     return <iframe title={material.title} src={url} className="w-full h-full min-h-[70vh] border-0" />;
   }
 
-  // PPT — browsers can't render PowerPoint inline. On desktop use the Office Online
-  // viewer as a best-effort embed (it fetches the presigned URL server-side), with
-  // open/download fallbacks below. On mobile the embed is heavy and rarely usable,
-  // so skip straight to an open hand-off.
+  // PPT — browsers can't render PowerPoint inline, so we embed Microsoft's Office
+  // Online viewer (it fetches the presigned URL server-side, so it works the same
+  // on phones as on desktop). The footer below is an open/download fallback for the
+  // cases where the embed can't render — e.g. an unreachable or expired URL.
   if (material.type === 'PPT') {
-    if (!isDesktop) {
-      return (
-        <DocumentCard
-          icon="Presentation"
-          color="text-warning"
-          title={material.title}
-          url={url}
-          action="Open slides"
-          hint="Opens in your slides viewer or downloads to your device."
-        />
-      );
-    }
     const office = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
     return (
       <div className="h-full flex flex-col">
