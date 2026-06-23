@@ -3,6 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import MathText from '../../../components/MathText';
 import InlineTopicEditor from './InlineTopicEditor';
+import { formatDateTime } from '../../test-management/testConstants';
 
 const DIFFICULTY_VALUES = ['EASY', 'MEDIUM', 'HARD'];
 
@@ -78,6 +79,11 @@ const QuestionCard = ({
   const hintCount = Array.isArray(question.hints)
     ? question.hints.filter((h) => h && String(h).trim()).length
     : 0;
+
+  // When the question was added (QuestionResponseDto.createdAt, UTC ISO). createdBy
+  // is surfaced as a tooltip when present.
+  const createdAt = question.createdAt ?? question.created_at ?? null;
+  const createdBy = question.createdBy ?? question.created_by ?? '';
 
   // Effective values = the question's own value unless a pending (unsaved) edit
   // overrides it. The card never mutates the question itself; the parent owns the
@@ -439,6 +445,16 @@ const QuestionCard = ({
             <Icon name="Hash" size={12} />
             <span>ID: {safeQuestion.id}</span>
           </div>
+
+          {createdAt && (
+            <div
+              className="flex items-center space-x-1"
+              title={createdBy ? `Added by ${createdBy}` : undefined}
+            >
+              <Icon name="Calendar" size={12} />
+              <span>Added {formatDateTime(createdAt)}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-4">
