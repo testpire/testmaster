@@ -10,6 +10,36 @@ export const TEST_STATUS_BADGE = {
   CLOSED: 'bg-muted text-muted-foreground'
 };
 
+// Test type (CreateTestRequestDto.type). TEST = a graded test/exam; PRACTICE = a
+// Daily Practice Problem (DPP) set — unlimited attempts within the window with
+// answers revealed for self-study. Set at creation only (no `type` on update).
+export const TEST_TYPES = ['TEST', 'PRACTICE'];
+
+export const TEST_TYPE_LABEL = {
+  TEST: 'Test',
+  PRACTICE: 'Daily Practice'
+};
+
+// Longer label for selectors/empty states.
+export const TEST_TYPE_LABEL_LONG = {
+  TEST: 'Test / Exam',
+  PRACTICE: 'Daily Practice Problems (DPP)'
+};
+
+export const TEST_TYPE_BADGE = {
+  TEST: 'bg-primary/10 text-primary',
+  PRACTICE: 'bg-accent/15 text-accent'
+};
+
+export const TEST_TYPE_ICON = {
+  TEST: 'ClipboardList',
+  PRACTICE: 'Repeat'
+};
+
+// Normalize an API value to one of TEST_TYPES (defaults to TEST).
+export const normalizeTestType = (value) =>
+  String(value || '').toUpperCase() === 'PRACTICE' ? 'PRACTICE' : 'TEST';
+
 // Assignment targets (AssignTestRequestDto.targetType).
 export const TARGET_TYPES = ['COURSE', 'BATCH', 'STUDENT'];
 

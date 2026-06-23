@@ -30,6 +30,8 @@ const TestTaking = () => {
   const [answers, setAnswers] = useState(new Map());
   const [flagged, setFlagged] = useState(new Set()); // "marked for review"
   const [visited, setVisited] = useState(new Set()); // questions the student has opened
+  // For Daily Practice: how many of each question's hints have been revealed.
+  const [hintsShown, setHintsShown] = useState({}); // Map<questionId, count>
   const [current, setCurrent] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // seconds
 
@@ -130,6 +132,23 @@ const TestTaking = () => {
   }, [attempt]);
 
   const getQId = (q) => q.questionId ?? q.id;
+
+  // Daily Practice (DPP) mode — passed in via router state from My Tests, and read
+  // from the attempt payload as a fallback for the day the backend echoes `type`.
+  // In practice mode the student can reveal per-question hints for self-study.
+  const isPractice =
+    String(location.state?.testType || attempt?.type || attempt?.test?.type || '').toUpperCase() ===
+    'PRACTICE';
+
+  // Hints aren't yet part of AttemptQuestionResponseDto, so read defensively: this
+  // lights up automatically once the backend includes `hints` on attempt questions,
+  // and renders nothing (no dead control) until then.
+  const hintsOf = (q) =>
+    Array.isArray(q?.hints) ? q.hints.filter((h) => h && String(h).trim()) : [];
+
+  const revealNextHint = (id, total) =>
+    setHintsShown((prev) => ({ ...prev, [id]: Math.min(total, (prev[id] || 0) + 1) }));
+
   const isMulti = (q) =>
     (q.questionType || '').toLowerCase().includes('multi') ||
     !!q.multipleCorrect ||
@@ -548,6 +567,50 @@ const TestTaking = () => {
                     );
                   })}
                 </div>
+
+                {/* Progressive hints (Daily Practice only). Gated on hints being
+                    present in the payload, so nothing renders for graded tests or
+                    until the backend serves hints on the attempt. */}
+                {isPractice && (() => {
+                  const qHints = hintsOf(q);
+                  if (qHints.length === 0) return null;
+                  const shown = hintsShown[qid] || 0;
+                  return (
+                    <div className="mt-5 rounded-xl border border-warning/30 bg-warning/5 p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-warning inline-flex items-center gap-1.5">
+                          <Icon name="Lightbulb" size={15} /> Hints
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({shown}/{qHints.length})
+                          </span>
+                        </span>
+                        {shown < qHints.length && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => revealNextHint(qid, qHints.length)}
+                            iconName="Eye"
+                            iconPosition="left"
+                          >
+                            {shown === 0 ? 'Show a hint' : 'Next hint'}
+                          </Button>
+                        )}
+                      </div>
+                      {shown > 0 && (
+                        <ol className="mt-3 space-y-2">
+                          {qHints.slice(0, shown).map((h, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                              <span className="mt-0.5 inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning text-[11px] font-semibold px-1">
+                                {i + 1}
+                              </span>
+                              <MathText text={h} textFormat={q.textFormat} />
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Action controls */}
                 <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-border">

@@ -5,28 +5,53 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { newTestService } from '../../services/newTestService';
-import { formatDateTime, isWithinWindow } from '../test-management/testConstants';
+import {
+  formatDateTime,
+  isWithinWindow,
+  normalizeTestType,
+  TEST_TYPE_BADGE,
+  TEST_TYPE_LABEL,
+  TEST_TYPE_ICON
+} from '../test-management/testConstants';
 
 // Student's view of the tests assigned to them (via their course/batch/direct
-// assignment — resolved server-side). They can start a new attempt or resume an
-// in-progress one, and see the score of completed attempts.
+// assignment — resolved server-side). Two flavours share this page via tabs:
+//   • TEST     — a graded test/exam with a limited number of attempts.
+//   • PRACTICE — a Daily Practice Problem (DPP) set: unlimited attempts within the
+//                window, answers revealed for self-study.
+//
+// State comes from AvailableTestResponseDto: { testId, type, title, description,
+// totalMarks, durationMinutes, maxAttempts (null = unlimited), attemptsUsed,
+// availableFrom, availableUntil, inProgressAttemptId }. The button state is derived
+// purely from those canonical fields (resume an in-progress attempt, start/restart
+// within the attempt budget, or block when the window/budget is exhausted).
+
+const TABS = [
+  { key: 'ALL', label: 'All' },
+  { key: 'TEST', label: 'Tests' },
+  { key: 'PRACTICE', label: 'Practice' }
+];
+
 const StudentTests = () => {
   const navigate = useNavigate();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [startingId, setStartingId] = useState(null);
-  // Test the student has clicked "Start" on but not yet confirmed.
+  const [activeTab, setActiveTab] = useState('ALL');
+  // Test the student has clicked "Start" on but not yet confirmed (graded tests only).
   const [confirmTest, setConfirmTest] = useState(null);
 
   useEffect(() => {
     document.title = 'My Tests - TestMaster';
   }, []);
 
-  const load = async () => {
+  const load = async (tab) => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await newTestService.getAvailableTests();
+    // Use the documented ?type= filter when a specific tab is active.
+    const typeParam = tab === 'TEST' || tab === 'PRACTICE' ? tab : undefined;
+    const { data, error: err } = await newTestService.getAvailableTests(typeParam);
     if (err) {
       setError(err.message || 'Failed to load your tests');
       setTests([]);
@@ -37,16 +62,21 @@ const StudentTests = () => {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    load(activeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // The available-test payload isn't strongly typed; read fields defensively.
   const getTestId = (t) => t.testId ?? t.id;
-  const getAttemptId = (t) => t.attemptId ?? t.currentAttemptId ?? t.attempt?.id ?? null;
-  const getAttemptStatus = (t) =>
-    (t.attemptStatus || t.status || t.attempt?.status || '').toUpperCase();
-  const getScore = (t) => t.score ?? t.marksObtained ?? t.lastScore ?? t.attempt?.score ?? null;
+  const getType = (t) => normalizeTestType(t.type);
+  const getInProgressAttemptId = (t) =>
+    t.inProgressAttemptId ?? t.currentAttemptId ?? t.attempt?.id ?? null;
+  const getAttemptsUsed = (t) => Number(t.attemptsUsed ?? 0) || 0;
+  // maxAttempts null/undefined = unlimited (Infinity).
+  const getMaxAttempts = (t) => (t.maxAttempts == null ? Infinity : Number(t.maxAttempts));
+  const getAttemptsLeft = (t) => Math.max(0, getMaxAttempts(t) - getAttemptsUsed(t));
 
+  // Begin (or restart) an attempt and jump into the runner.
   const handleStart = async (t) => {
     const testId = getTestId(t);
     setStartingId(testId);
@@ -64,54 +94,42 @@ const StudentTests = () => {
       setError('Attempt started but no attempt id was returned.');
       return;
     }
-    // Hand the known duration to the runner as a fallback for the countdown clock,
-    // in case the attempt payload doesn't echo it back.
-    navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
+    setConfirmTest(null);
+    // Hand the runner the duration (countdown fallback) and the test type so it can
+    // turn on practice affordances (progressive hints, self-study messaging).
+    navigate(`/test-taking/${attemptId}`, {
+      state: { durationMinutes: t.durationMinutes, testType: getType(t) }
+    });
   };
 
+  // Practice (DPP) starts immediately — no timed-exam warning. Graded tests get the
+  // "are you ready?" confirmation first.
+  const beginTest = (t) => {
+    if (getType(t) === 'PRACTICE') handleStart(t);
+    else setConfirmTest(t);
+  };
+
+  const resumeAttempt = (t, attemptId) =>
+    navigate(`/test-taking/${attemptId}`, {
+      state: { durationMinutes: t.durationMinutes, testType: getType(t) }
+    });
+
   const renderState = (t) => {
-    const status = getAttemptStatus(t);
-    const score = getScore(t);
-    const totalMarks = t.totalMarks ?? t.maxMarks;
+    const testId = getTestId(t);
+    const isPractice = getType(t) === 'PRACTICE';
     const open = isWithinWindow(t.availableFrom, t.availableUntil);
+    const inProgressId = getInProgressAttemptId(t);
+    const attemptsUsed = getAttemptsUsed(t);
+    const attemptsLeft = getAttemptsLeft(t);
+    const starting = startingId === testId;
 
-    if (status === 'SUBMITTED' || status === 'COMPLETED' || status === 'GRADED') {
-      const attemptId = getAttemptId(t);
-      return (
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
-            <Icon name="CheckCircle2" size={16} /> Completed
-          </span>
-          {score != null && (
-            <span className="text-sm font-semibold text-foreground">
-              {score}{totalMarks != null ? ` / ${totalMarks}` : ''}
-            </span>
-          )}
-          {attemptId != null && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(`/test-result/${attemptId}`)}
-              iconName="Eye"
-              iconPosition="left"
-            >
-              View Result
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    if (status === 'IN_PROGRESS' || status === 'STARTED') {
+    // An unfinished attempt always takes priority — resume it.
+    if (inProgressId != null) {
       return (
         <Button
           variant="default"
           size="sm"
-          onClick={() => {
-            const attemptId = getAttemptId(t);
-            if (attemptId) navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
-            else handleStart(t);
-          }}
+          onClick={() => resumeAttempt(t, inProgressId)}
           iconName="Play"
           iconPosition="left"
         >
@@ -120,29 +138,121 @@ const StudentTests = () => {
       );
     }
 
+    // Graded test with the attempt budget exhausted — nothing left to start.
+    if (!isPractice && attemptsLeft <= 0 && attemptsUsed > 0) {
+      return (
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
+            <Icon name="CheckCircle2" size={16} /> Completed
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/my-results')}
+            iconName="Eye"
+            iconPosition="left"
+          >
+            View result
+          </Button>
+        </div>
+      );
+    }
+
+    const label = isPractice
+      ? attemptsUsed > 0
+        ? 'Practice again'
+        : 'Start practice'
+      : attemptsUsed > 0
+      ? 'Reattempt'
+      : 'Start';
+
     return (
-      <Button
-        variant="default"
-        size="sm"
-        disabled={!open || startingId === getTestId(t)}
-        onClick={() => setConfirmTest(t)}
-        iconName={startingId === getTestId(t) ? 'Loader2' : 'Play'}
-        iconPosition="left"
-        className={startingId === getTestId(t) ? 'animate-pulse' : ''}
-      >
-        {open ? 'Start' : 'Not Available'}
-      </Button>
+      <div className="flex items-center gap-2">
+        {attemptsUsed > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/my-results')}
+            className="text-muted-foreground"
+          >
+            Results
+          </Button>
+        )}
+        <Button
+          variant="default"
+          size="sm"
+          disabled={!open || starting}
+          onClick={() => beginTest(t)}
+          iconName={starting ? 'Loader2' : 'Play'}
+          iconPosition="left"
+          className={starting ? 'animate-pulse' : ''}
+        >
+          {open ? label : 'Not Available'}
+        </Button>
+      </div>
     );
   };
+
+  // Short "attempts" descriptor for the card meta row.
+  const attemptsLabel = (t) => {
+    const isPractice = getType(t) === 'PRACTICE';
+    const used = getAttemptsUsed(t);
+    if (isPractice) {
+      return used > 0 ? `${used} attempt${used === 1 ? '' : 's'} · unlimited` : 'Unlimited attempts';
+    }
+    const max = t.maxAttempts;
+    if (max == null) return used > 0 ? `${used} attempts` : null;
+    return `Attempt ${Math.min(used + (getAttemptsLeft(t) > 0 ? 1 : 0), max)} of ${max}`;
+  };
+
+  const tabEmptyCopy =
+    activeTab === 'PRACTICE'
+      ? {
+          title: 'No practice sets yet',
+          body: 'Daily Practice Problems your teacher assigns will appear here.'
+        }
+      : activeTab === 'TEST'
+      ? {
+          title: 'No tests assigned',
+          body: 'When your teacher assigns a test, it will show up here.'
+        }
+      : {
+          title: 'Nothing assigned yet',
+          body: 'Tests and practice sets your teacher assigns will show up here.'
+        };
 
   return (
     <PageLayout title="My Tests" activeRoute="/my-tests">
       <div className="p-4 lg:p-6 max-w-4xl mx-auto w-full">
-        <div className="mb-6">
-          <h1 className="font-display text-2xl lg:text-3xl font-semibold text-foreground tracking-tight">My tests</h1>
+        <div className="mb-5">
+          <h1 className="font-display text-2xl lg:text-3xl font-semibold text-foreground tracking-tight">
+            My tests
+          </h1>
           <p className="text-sm text-muted-foreground mt-1.5">
-            Tests assigned to you. Make sure you have a stable connection before starting.
+            Tests and daily practice assigned to you. Make sure you have a stable connection
+            before starting a timed test.
           </p>
+        </div>
+
+        {/* Type tabs */}
+        <div className="inline-flex rounded-xl border border-border bg-card p-1 mb-5">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {error && (
@@ -160,22 +270,32 @@ const StudentTests = () => {
             <div className="mx-auto w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
               <Icon name="ClipboardList" size={30} className="text-muted-foreground" />
             </div>
-            <h3 className="font-display text-lg font-semibold text-foreground mb-1">No tests assigned</h3>
-            <p className="text-muted-foreground text-sm">
-              When your teacher assigns a test, it will show up here.
-            </p>
+            <h3 className="font-display text-lg font-semibold text-foreground mb-1">
+              {tabEmptyCopy.title}
+            </h3>
+            <p className="text-muted-foreground text-sm">{tabEmptyCopy.body}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {tests.map((t) => {
               const testId = getTestId(t);
+              const tt = getType(t);
+              const attempts = attemptsLabel(t);
               return (
                 <div
                   key={testId}
                   className="bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-primary/30 transition-colors"
                 >
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground">{t.title || `Test #${testId}`}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{t.title || `Test #${testId}`}</h3>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${TEST_TYPE_BADGE[tt]}`}
+                      >
+                        <Icon name={TEST_TYPE_ICON[tt]} size={11} />
+                        {TEST_TYPE_LABEL[tt]}
+                      </span>
+                    </div>
                     {t.description && (
                       <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
                         {t.description}
@@ -195,6 +315,11 @@ const StudentTests = () => {
                       {(t.questionCount ?? t.questions?.length) != null && (
                         <span className="inline-flex items-center gap-1">
                           <Icon name="ListChecks" size={13} /> {t.questionCount ?? t.questions.length} questions
+                        </span>
+                      )}
+                      {attempts && (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="Repeat" size={13} /> {attempts}
                         </span>
                       )}
                       {t.availableUntil && (

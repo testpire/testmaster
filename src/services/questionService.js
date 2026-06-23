@@ -40,6 +40,13 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
     negativeMarks: parseFloat(q?.negativeMarks) || 0,
     textFormat: q?.textFormat || 'PLAIN',
     explanation: q?.explanation || '',
+    // Preserve tags (comma-separated string) and hints (string[]) on every re-send so
+    // an inline/partial edit never silently drops them, whether the backend PUT is a
+    // partial update or a full replace. `changes` may override either.
+    tags: changes.tags !== undefined ? changes.tags : (q?.tags ?? ''),
+    hints: Array.isArray(changes.hints)
+      ? changes.hints
+      : (Array.isArray(q?.hints) ? q.hints : []),
     ...(typeof resolvedDraftMode === 'boolean' && { draftMode: resolvedDraftMode }),
     ...(q?.instituteId != null && { instituteId: q.instituteId }),
     ...(q?.correctIntegerAnswer != null && { correctIntegerAnswer: q.correctIntegerAnswer }),
@@ -94,6 +101,11 @@ export const questionService = {
       }
       if (searchParams.topicId && searchParams.topicId !== '') {
         payload.criteria.topicId = parseInt(searchParams.topicId);
+      }
+      // Free-text tag filter (QuestionCriteriaDto.tags). The backend matches against
+      // the comma-separated tags stored on each question; send the trimmed string.
+      if (searchParams.tags && String(searchParams.tags).trim() !== '') {
+        payload.criteria.tags = String(searchParams.tags).trim();
       }
       // Draft vs published filter (drives the Question Bank tabs). Only sent when
       // an explicit boolean is provided — omitting it returns both, preserving the

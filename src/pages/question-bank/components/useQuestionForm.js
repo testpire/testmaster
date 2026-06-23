@@ -42,6 +42,12 @@ const makeBlankQuestion = () => ({
   negativeMarks: 1,
   textFormat: 'PLAIN',
   explanation: '',
+  // Free-form labels (array of strings); serialized to a comma-separated string on
+  // submit to match CreateQuestionRequestDto.tags.
+  tags: [],
+  // Ordered self-study hints (array of strings) — CreateQuestionRequestDto.hints.
+  // Shown progressively to students in Daily Practice Problems.
+  hints: [],
   options: makeBlankOptions(),
   correctIntegerAnswer: ''
 });
@@ -151,6 +157,14 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
         marks: editingQuestion?.marks || 4,
         negativeMarks: editingQuestion?.negativeMarks || editingQuestion?.negative_marks || 1,
         explanation: editingQuestion?.explanation || '',
+        // tags is a comma-separated string on the API; split into chips. hints is
+        // already a string[] — keep its entries (no trim so a deliberate space stays).
+        tags: typeof editingQuestion?.tags === 'string'
+          ? editingQuestion.tags.split(',').map((t) => t.trim()).filter(Boolean)
+          : (Array.isArray(editingQuestion?.tags) ? editingQuestion.tags : []),
+        hints: Array.isArray(editingQuestion?.hints)
+          ? editingQuestion.hints.filter((h) => h != null)
+          : [],
         options: editingQuestion?.options?.length > 0
           ? editingQuestion?.options?.map(opt => ({
               label: opt?.option_label || opt?.label,
@@ -457,6 +471,15 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
     textFormat: questionData?.textFormat || 'PLAIN',
     explanation: questionData?.explanation || '',
+    // Tags → comma-separated string (API contract); hints → trimmed, empty-dropped
+    // string[]. Both always sent so an edit that clears them persists the clear.
+    tags: (questionData?.tags || [])
+      .map((t) => String(t).trim())
+      .filter(Boolean)
+      .join(', '),
+    hints: (questionData?.hints || [])
+      .map((h) => String(h).trim())
+      .filter(Boolean),
     ...(typeof draftMode === 'boolean' && { draftMode }),
     ...(questionData?.questionType === 'mcq' && {
       options: questionData?.options?.map((opt, index) => ({
@@ -489,7 +512,10 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       questionType: prev.questionType,
       difficultyLevel: prev.difficultyLevel,
       marks: prev.marks,
-      negativeMarks: prev.negativeMarks
+      negativeMarks: prev.negativeMarks,
+      // Tags usually carry across a run of related questions (e.g. a DPP set), so
+      // keep them; hints are per-question, so they reset with the rest of the content.
+      tags: prev.tags
     }));
   };
 

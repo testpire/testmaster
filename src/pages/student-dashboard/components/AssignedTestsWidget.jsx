@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import { newTestService } from '../../../services/newTestService';
-import { formatDateTime, isWithinWindow } from '../../test-management/testConstants';
+import {
+  formatDateTime,
+  isWithinWindow,
+  normalizeTestType,
+  TEST_TYPE_BADGE,
+  TEST_TYPE_LABEL,
+  TEST_TYPE_ICON
+} from '../../test-management/testConstants';
 
 // Prominent "Assigned Tests" panel for the student dashboard. Surfaces the tests
 // a student needs to take right after login (they no longer have to discover the
@@ -18,10 +25,12 @@ import { formatDateTime, isWithinWindow } from '../../test-management/testConsta
 const MAX_VISIBLE = 4;
 
 const getTestId = (t) => t.testId ?? t.id;
-const getAttemptId = (t) => t.attemptId ?? t.currentAttemptId ?? t.attempt?.id ?? null;
-const getAttemptStatus = (t) =>
-  (t.attemptStatus || t.status || t.attempt?.status || '').toUpperCase();
-const getScore = (t) => t.score ?? t.marksObtained ?? t.lastScore ?? t.attempt?.score ?? null;
+const getType = (t) => normalizeTestType(t.type);
+const getInProgressAttemptId = (t) =>
+  t.inProgressAttemptId ?? t.currentAttemptId ?? t.attempt?.id ?? null;
+const getAttemptsUsed = (t) => Number(t.attemptsUsed ?? 0) || 0;
+const getMaxAttempts = (t) => (t.maxAttempts == null ? Infinity : Number(t.maxAttempts));
+const getAttemptsLeft = (t) => Math.max(0, getMaxAttempts(t) - getAttemptsUsed(t));
 
 const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: errorProp }) => {
   const navigate = useNavigate();
@@ -63,43 +72,31 @@ const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: er
     if (err) return;
     const attemptId = data?.attemptId ?? data?.id ?? data?.attempt?.id;
     if (!attemptId) return;
-    navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
+    navigate(`/test-taking/${attemptId}`, {
+      state: { durationMinutes: t.durationMinutes, testType: getType(t) }
+    });
   };
 
   const renderAction = (t) => {
-    const status = getAttemptStatus(t);
-    const score = getScore(t);
-    const totalMarks = t.totalMarks ?? t.maxMarks;
-    const open = isWithinWindow(t.availableFrom, t.availableUntil);
     const testId = getTestId(t);
+    const isPractice = getType(t) === 'PRACTICE';
+    const open = isWithinWindow(t.availableFrom, t.availableUntil);
+    const inProgressId = getInProgressAttemptId(t);
+    const attemptsUsed = getAttemptsUsed(t);
+    const attemptsLeft = getAttemptsLeft(t);
 
-    if (status === 'SUBMITTED' || status === 'COMPLETED' || status === 'GRADED') {
-      return (
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
-            <Icon name="CheckCircle2" size={16} /> Done
-          </span>
-          {score != null && (
-            <span className="text-sm font-semibold text-foreground nums-tabular">
-              {score}
-              {totalMarks != null ? ` / ${totalMarks}` : ''}
-            </span>
-          )}
-        </div>
-      );
-    }
-
-    if (status === 'IN_PROGRESS' || status === 'STARTED') {
+    // Resume an unfinished attempt.
+    if (inProgressId != null) {
       return (
         <Button
           variant="default"
           size="sm"
           className="flex-shrink-0"
-          onClick={() => {
-            const attemptId = getAttemptId(t);
-            if (attemptId) navigate(`/test-taking/${attemptId}`, { state: { durationMinutes: t.durationMinutes } });
-            else handleStart(t);
-          }}
+          onClick={() =>
+            navigate(`/test-taking/${inProgressId}`, {
+              state: { durationMinutes: t.durationMinutes, testType: getType(t) }
+            })
+          }
           iconName="Play"
           iconPosition="left"
         >
@@ -107,6 +104,23 @@ const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: er
         </Button>
       );
     }
+
+    // Graded test with no attempts left — done.
+    if (!isPractice && attemptsUsed > 0 && attemptsLeft <= 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-sm font-medium text-success flex-shrink-0">
+          <Icon name="CheckCircle2" size={16} /> Done
+        </span>
+      );
+    }
+
+    const label = isPractice
+      ? attemptsUsed > 0
+        ? 'Practice'
+        : 'Start'
+      : attemptsUsed > 0
+      ? 'Reattempt'
+      : 'Start';
 
     return (
       <Button
@@ -118,7 +132,7 @@ const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: er
         iconName={startingId === testId ? 'Loader2' : 'Play'}
         iconPosition="left"
       >
-        {open ? 'Start' : 'Not Open'}
+        {open ? label : 'Not Open'}
       </Button>
     );
   };
@@ -178,9 +192,23 @@ const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: er
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-border bg-background/40 hover:bg-muted/40 hover:border-primary/30 transition-colors"
               >
                 <div className="min-w-0">
-                  <h4 className="font-semibold text-foreground truncate">
-                    {t.title || `Test #${testId}`}
-                  </h4>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h4 className="font-semibold text-foreground truncate">
+                      {t.title || `Test #${testId}`}
+                    </h4>
+                    {(() => {
+                      const tt = getType(t);
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${TEST_TYPE_BADGE[tt]}`}
+                          title={TEST_TYPE_LABEL[tt]}
+                        >
+                          <Icon name={TEST_TYPE_ICON[tt]} size={10} />
+                          {TEST_TYPE_LABEL[tt]}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-muted-foreground">
                     {t.durationMinutes != null && (
                       <span className="inline-flex items-center gap-1">

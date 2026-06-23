@@ -68,6 +68,17 @@ const QuestionCard = ({
 
   const isLatex = String(safeQuestion.textFormat).toUpperCase() === 'LATEX';
 
+  // Tags come back comma-separated (QuestionResponseDto.tags); hints as a string[].
+  const tagList =
+    typeof question.tags === 'string'
+      ? question.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      : Array.isArray(question.tags)
+      ? question.tags
+      : [];
+  const hintCount = Array.isArray(question.hints)
+    ? question.hints.filter((h) => h && String(h).trim()).length
+    : 0;
+
   // Effective values = the question's own value unless a pending (unsaved) edit
   // overrides it. The card never mutates the question itself; the parent owns the
   // pending-edit map so a single "Save all" can replay every change.
@@ -387,6 +398,30 @@ const QuestionCard = ({
             }
             onRevert={() => onFieldChange?.(safeQuestion.id, { topicId: null, topicName: null })}
           />
+        </div>
+      )}
+
+      {/* Tags + hint indicator */}
+      {(tagList.length > 0 || hintCount > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {tagList.map((tag, i) => (
+            <span
+              key={`${tag}-${i}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium px-2 py-0.5"
+            >
+              <Icon name="Tag" size={11} />
+              {tag}
+            </span>
+          ))}
+          {hintCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-warning/15 text-warning text-[11px] font-medium px-2 py-0.5"
+              title={`${hintCount} hint${hintCount === 1 ? '' : 's'} for practice mode`}
+            >
+              <Icon name="Lightbulb" size={11} />
+              {hintCount} hint{hintCount === 1 ? '' : 's'}
+            </span>
+          )}
         </div>
       )}
 

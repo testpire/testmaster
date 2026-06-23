@@ -12,7 +12,16 @@ import TestFormModal from './components/TestFormModal';
 import QuestionPickerModal from './components/QuestionPickerModal';
 import AssignTestModal from './components/AssignTestModal';
 import TestResultsModal from './components/TestResultsModal';
-import { TEST_STATUS_BADGE, prettyEnum, formatDateTime } from './testConstants';
+import {
+  TEST_STATUS_BADGE,
+  prettyEnum,
+  formatDateTime,
+  TEST_TYPES,
+  TEST_TYPE_BADGE,
+  TEST_TYPE_LABEL,
+  TEST_TYPE_ICON,
+  normalizeTestType
+} from './testConstants';
 
 const TestManagement = () => {
   const { user, userProfile } = useAuth();
@@ -33,6 +42,7 @@ const TestManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [searchText, setSearchText] = useState('');
 
   // Modal state — each holds the test being acted on (or true for create).
@@ -71,6 +81,7 @@ const TestManagement = () => {
   const filtered = useMemo(() => {
     return tests.filter((t) => {
       if (statusFilter && (t.status || '').toUpperCase() !== statusFilter) return false;
+      if (typeFilter && normalizeTestType(t.type) !== typeFilter) return false;
       if (searchText.trim()) {
         const q = searchText.trim().toLowerCase();
         return (
@@ -80,7 +91,7 @@ const TestManagement = () => {
       }
       return true;
     });
-  }, [tests, statusFilter, searchText]);
+  }, [tests, statusFilter, typeFilter, searchText]);
 
   const handlePublish = async (test) => {
     if ((test.questionCount ?? (test.questions?.length || 0)) === 0) {
@@ -238,6 +249,18 @@ const TestManagement = () => {
               />
             </div>
             <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">All types</option>
+              {TEST_TYPES.map((tt) => (
+                <option key={tt} value={tt}>
+                  {TEST_TYPE_LABEL[tt]}
+                </option>
+              ))}
+            </select>
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className={inputCls}
@@ -304,9 +327,23 @@ const TestManagement = () => {
                     return (
                       <tr key={test.id} className="hover:bg-muted/20">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-foreground">{test.title || '—'}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground">{test.title || '—'}</span>
+                            {(() => {
+                              const tt = normalizeTestType(test.type);
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${TEST_TYPE_BADGE[tt]}`}
+                                  title={TEST_TYPE_LABEL[tt]}
+                                >
+                                  <Icon name={TEST_TYPE_ICON[tt]} size={11} />
+                                  {TEST_TYPE_LABEL[tt]}
+                                </span>
+                              );
+                            })()}
+                          </div>
                           {test.description && (
-                            <div className="text-xs text-muted-foreground line-clamp-1">
+                            <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                               {test.description}
                             </div>
                           )}

@@ -22,9 +22,10 @@ export const newTestService = {
   // ---------------------------------------------------------------------------
 
   // List all tests for the active institute (JWT / X-Institute-Id scoped).
-  async listTests() {
+  // Optional `type` ('TEST' | 'PRACTICE') filters server-side (GET /tests?type=).
+  async listTests(type) {
     try {
-      const { data, error, success } = await get('/tests');
+      const { data, error, success } = await get('/tests', type ? { params: { type } } : undefined);
       if (!success) return { data: [], error };
       return { data: unwrapList(data, 'tests'), error: null };
     } catch (error) {
@@ -42,10 +43,14 @@ export const newTestService = {
     }
   },
 
-  // Create a test. CreateTestRequestDto: title (required), description,
-  // durationMinutes, maxAttempts, passingMarks, negativeMarking, shuffleQuestions,
-  // showAnswers, availableFrom, availableUntil, instituteId (super-admin override;
-  // otherwise scoped from the JWT). totalMarks is computed server-side from questions.
+  // Create a test. CreateTestRequestDto: title (required), description, type
+  // ('TEST' | 'PRACTICE' — PRACTICE is a Daily Practice Problem set: unlimited
+  // attempts within the window with answers revealed for self-study),
+  // durationMinutes, maxAttempts (null = unlimited, used for PRACTICE), passingMarks,
+  // negativeMarking, shuffleQuestions, showAnswers, availableFrom, availableUntil,
+  // instituteId (super-admin override; otherwise scoped from the JWT). totalMarks is
+  // computed server-side from questions. NOTE: `type` is set at creation only —
+  // UpdateTestRequestDto has no `type`, so it can't be changed afterwards.
   async createTest(body) {
     try {
       const { data, error, success } = await post('/tests', body);
@@ -248,9 +253,16 @@ export const newTestService = {
   // ---------------------------------------------------------------------------
 
   // Tests assigned to the calling student (via their course/batch/direct assignment).
-  async getAvailableTests() {
+  // Optional `type` ('TEST' | 'PRACTICE') narrows to regular tests or Daily Practice
+  // Problems (GET /student/tests/available?type=). AvailableTestResponseDto carries
+  // { testId, type, title, description, totalMarks, durationMinutes, maxAttempts
+  // (null = unlimited), attemptsUsed, availableFrom, availableUntil, inProgressAttemptId }.
+  async getAvailableTests(type) {
     try {
-      const { data, error, success } = await get('/student/tests/available');
+      const { data, error, success } = await get(
+        '/student/tests/available',
+        type ? { params: { type } } : undefined
+      );
       if (!success) return { data: [], error };
       return { data: unwrapList(data, 'tests'), error: null };
     } catch (error) {

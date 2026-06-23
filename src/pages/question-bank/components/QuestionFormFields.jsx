@@ -116,6 +116,36 @@ const QuestionFormFields = ({ form }) => {
     handleOptionImageUpload, handleClearOptionImage
   } = form;
 
+  // Tags + hints live on questionData as arrays (see useQuestionForm). They're edited
+  // through handleInputChange like any other field — no dedicated hook handlers needed.
+  const tags = questionData?.tags || [];
+  const hints = questionData?.hints || [];
+  const [tagDraft, setTagDraft] = React.useState('');
+
+  const commitTag = (raw) => {
+    const parts = String(raw).split(',').map((t) => t.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    const next = [...tags];
+    parts.forEach((p) => {
+      if (!next.some((t) => t.toLowerCase() === p.toLowerCase())) next.push(p);
+    });
+    handleInputChange('tags', next);
+    setTagDraft('');
+  };
+  const removeTag = (i) => handleInputChange('tags', tags.filter((_, idx) => idx !== i));
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commitTag(tagDraft);
+    } else if (e.key === 'Backspace' && !tagDraft && tags.length) {
+      removeTag(tags.length - 1);
+    }
+  };
+
+  const setHint = (i, val) => handleInputChange('hints', hints.map((h, idx) => (idx === i ? val : h)));
+  const addHint = () => handleInputChange('hints', [...hints, '']);
+  const removeHint = (i) => handleInputChange('hints', hints.filter((_, idx) => idx !== i));
+
   return (
     <div className="space-y-6">
       {/* Error message */}
@@ -210,6 +240,44 @@ const QuestionFormFields = ({ form }) => {
           min="0"
           max="5"
         />
+      </div>
+
+      {/* Tags — free-form labels for grouping/searching questions (e.g. "kinematics",
+          "JEE-2023", "tricky"). Stored comma-separated; used to build Daily Practice sets. */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">
+          Tags <span className="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border border-input rounded-lg bg-card focus-within:ring-2 focus-within:ring-ring/70 focus-within:border-primary">
+          {tags.map((tag, i) => (
+            <span
+              key={`${tag}-${i}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(i)}
+                className="rounded-full hover:bg-primary/20 p-0.5 transition-colors"
+                title={`Remove ${tag}`}
+              >
+                <Icon name="X" size={12} />
+              </button>
+            </span>
+          ))}
+          <input
+            type="text"
+            value={tagDraft}
+            onChange={(e) => setTagDraft(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            onBlur={() => commitTag(tagDraft)}
+            placeholder={tags.length ? 'Add another…' : 'Type a tag and press Enter'}
+            className="flex-1 min-w-[8rem] bg-transparent text-sm text-foreground focus:outline-none py-0.5"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Press <kbd className="px-1 rounded border border-border bg-muted text-[10px]">Enter</kbd> or comma to add. Tags help you find questions and assemble Daily Practice sets.
+        </p>
       </div>
 
       {/* Question Text */}
@@ -427,6 +495,56 @@ const QuestionFormFields = ({ form }) => {
             />
           </div>
         )}
+      </div>
+
+      {/* Hints — ordered, progressive nudges revealed to students one at a time in
+          Daily Practice Problems (self-study). Optional; each empty hint is dropped on save. */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-foreground">
+            Hints <span className="text-muted-foreground font-normal">(optional)</span>
+          </label>
+          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <Icon name="Lightbulb" size={13} className="text-warning" />
+            Shown step-by-step in practice mode
+          </span>
+        </div>
+        {hints.length > 0 && (
+          <div className="space-y-2 mb-2">
+            {hints.map((hint, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="mt-2 inline-flex h-6 min-w-6 flex-shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning text-xs font-semibold px-1.5">
+                  {i + 1}
+                </span>
+                <textarea
+                  value={hint}
+                  onChange={(e) => setHint(i, e.target.value)}
+                  rows={2}
+                  className="flex-1 px-3 py-2 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-vertical"
+                  placeholder={`Hint ${i + 1} — a small nudge toward the solution`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeHint(i)}
+                  className="mt-1.5 p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                  title="Remove hint"
+                >
+                  <Icon name="Trash2" size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addHint}
+          iconName="Plus"
+          iconPosition="left"
+        >
+          {hints.length ? 'Add another hint' : 'Add a hint'}
+        </Button>
       </div>
 
       {/* Question Properties */}

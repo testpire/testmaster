@@ -271,6 +271,34 @@ const QuestionCard = ({ q, index }) => {
         })}
       </div>
 
+      {/* Hints — for Daily Practice self-study. Read defensively (hints aren't yet
+          part of AttemptQuestionResponseDto): renders only when the payload carries
+          them and the attempt's answers are revealed, mirroring the explanation gate. */}
+      {Array.isArray(q.hints) &&
+        q.hints.filter((h) => h && String(h).trim()).length > 0 &&
+        (optionsRevealed || correctnessRevealed) && (
+          <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3.5">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <Icon name="Lightbulb" size={14} className="text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Hints
+              </span>
+            </div>
+            <ol className="space-y-1.5">
+              {q.hints
+                .filter((h) => h && String(h).trim())
+                .map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                    <span className="mt-0.5 inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-semibold px-1">
+                      {i + 1}
+                    </span>
+                    <MathText text={h} textFormat={q.textFormat} />
+                  </li>
+                ))}
+            </ol>
+          </div>
+        )}
+
       {/* Explanation — rendered from the attempt's per-question `explanation` (served
           by the backend on AttemptQuestionResponseDto). Only shown when this attempt
           reveals its answer key (mirrors the per-option reveal above), so it never

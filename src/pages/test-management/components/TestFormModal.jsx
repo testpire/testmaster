@@ -4,7 +4,14 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import DateTimePicker from '../../../components/ui/DateTimePicker';
-import { toDatetimeLocal, toUtcIso } from '../testConstants';
+import {
+  toDatetimeLocal,
+  toUtcIso,
+  TEST_TYPES,
+  TEST_TYPE_LABEL_LONG,
+  TEST_TYPE_ICON,
+  normalizeTestType
+} from '../testConstants';
 
 // Create / edit a test's metadata. Per-question marks and the question set itself
 // are managed separately in the Question Picker; this modal only handles the test
@@ -18,6 +25,7 @@ const TestFormModal = ({
   defaultInstituteId = null
 }) => {
   const emptyForm = {
+    type: 'TEST',
     title: '',
     description: '',
     durationMinutes: 60,
@@ -37,11 +45,14 @@ const TestFormModal = ({
   useEffect(() => {
     if (!isOpen) return;
     if (editMode && existingTest) {
+      const editType = normalizeTestType(existingTest.type);
       setForm({
+        type: editType,
         title: existingTest.title || '',
         description: existingTest.description || '',
-        durationMinutes: existingTest.durationMinutes ?? 60,
-        maxAttempts: existingTest.maxAttempts ?? 1,
+        durationMinutes: existingTest.durationMinutes ?? '',
+        // A PRACTICE/DPP test has null maxAttempts (unlimited); show blank for it.
+        maxAttempts: existingTest.maxAttempts ?? (editType === 'PRACTICE' ? '' : 1),
         passingMarks: existingTest.passingMarks ?? '',
         negativeMarking: !!existingTest.negativeMarking,
         shuffleQuestions: !!existingTest.shuffleQuestions,
@@ -57,6 +68,21 @@ const TestFormModal = ({
   }, [isOpen, editMode, existingTest]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const isPractice = form.type === 'PRACTICE';
+
+  // Switching type adjusts the dependent fields: a DPP has unlimited attempts
+  // (maxAttempts blank → omitted) and reveals answers for self-study by default.
+  const handleTypeChange = (newType) => {
+    if (editMode) return; // type is immutable after creation
+    setForm((prev) => {
+      if (newType === prev.type) return prev;
+      if (newType === 'PRACTICE') {
+        return { ...prev, type: 'PRACTICE', maxAttempts: '', showAnswers: true };
+      }
+      return { ...prev, type: 'TEST', maxAttempts: prev.maxAttempts === '' ? 1 : prev.maxAttempts };
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,10 +105,13 @@ const TestFormModal = ({
       shuffleQuestions: form.shuffleQuestions,
       showAnswers: form.showAnswers
     };
+    // `type` is only on CreateTestRequestDto (immutable afterwards) — send on create only.
+    if (!editMode) payload.type = form.type;
     if (form.description.trim()) payload.description = form.description.trim();
     if (form.durationMinutes !== '' && form.durationMinutes != null)
       payload.durationMinutes = Number(form.durationMinutes);
-    if (form.maxAttempts !== '' && form.maxAttempts != null)
+    // PRACTICE/DPP = unlimited attempts → leave maxAttempts unset (null) server-side.
+    if (!isPractice && form.maxAttempts !== '' && form.maxAttempts != null)
       payload.maxAttempts = Number(form.maxAttempts);
     if (form.passingMarks !== '') payload.passingMarks = Number(form.passingMarks);
     if (form.availableFrom) payload.availableFrom = toUtcIso(form.availableFrom);
@@ -120,7 +149,13 @@ const TestFormModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editMode ? 'Edit Test' : 'Create Test'}
+      title={
+        editMode
+          ? isPractice
+            ? 'Edit Daily Practice'
+            : 'Edit Test'
+          : 'Create Test'
+      }
       size="lg"
     >
         <form onSubmit={handleSubmit}>
@@ -131,6 +166,52 @@ const TestFormModal = ({
                 <p className="text-destructive text-sm font-medium">{error}</p>
               </div>
             )}
+
+            {/* Test type — TEST (graded) vs PRACTICE/DPP (self-study). Chosen at
+                creation; immutable afterwards (UpdateTestRequestDto has no type). */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Type</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TEST_TYPES.map((tt) => {
+                  const active = form.type === tt;
+                  const locked = editMode && !active;
+                  return (
+                    <button
+                      key={tt}
+                      type="button"
+                      disabled={loading || locked}
+                      onClick={() => handleTypeChange(tt)}
+                      className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                        active
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40'
+                      } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <Icon
+                        name={TEST_TYPE_ICON[tt]}
+                        size={18}
+                        className={`mt-0.5 ${active ? 'text-primary' : 'text-muted-foreground'}`}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-foreground">
+                          {TEST_TYPE_LABEL_LONG[tt]}
+                        </span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          {tt === 'PRACTICE'
+                            ? 'Unlimited attempts, answers revealed for self-study'
+                            : 'Graded, limited attempts'}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {editMode && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  The type can&apos;t be changed after a test is created.
+                </p>
+              )}
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
@@ -169,20 +250,33 @@ const TestFormModal = ({
                   onChange={(e) => setField('durationMinutes', e.target.value)}
                   disabled={loading}
                   className={inputCls}
+                  placeholder={isPractice ? 'optional' : ''}
                 />
+                {isPractice && (
+                  <p className="text-xs text-muted-foreground mt-1">Leave blank for untimed practice.</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Max Attempts
                 </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.maxAttempts}
-                  onChange={(e) => setField('maxAttempts', e.target.value)}
-                  disabled={loading}
-                  className={inputCls}
-                />
+                {isPractice ? (
+                  <div
+                    className={`${inputCls} flex items-center gap-2 text-muted-foreground cursor-default`}
+                    title="Daily Practice allows unlimited attempts"
+                  >
+                    <Icon name="Infinity" size={16} /> Unlimited
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.maxAttempts}
+                    onChange={(e) => setField('maxAttempts', e.target.value)}
+                    disabled={loading}
+                    className={inputCls}
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">

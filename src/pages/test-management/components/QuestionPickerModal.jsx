@@ -42,9 +42,11 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     chapterId: '',
     topicId: '',
     difficulty: '',
+    tags: '',
     searchText: ''
   });
   const [searchInput, setSearchInput] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
 
   // selected: Map keyed by questionId → { questionId, marks, negativeMarks, sortOrder, text, questionImagePath, questionType, difficultyLevel, topicName }
   const [selected, setSelected] = useState(new Map());
@@ -63,8 +65,9 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   // them in the "Selected" panel.
   useEffect(() => {
     if (!isOpen) return;
-    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', searchText: '' });
+    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', tags: '', searchText: '' });
     setSearchInput('');
+    setTagsInput('');
     setChapters([]);
     setTopics([]);
     setError('');
@@ -107,14 +110,18 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     }
   };
 
-  // Debounce the free-text box into the active filter (which triggers a reload).
+  // Debounce the free-text boxes (search + tags) into the active filter (reloads).
   useEffect(() => {
     if (!isOpen) return undefined;
     const t = setTimeout(() => {
-      setFilters((f) => (f.searchText === searchInput ? f : { ...f, searchText: searchInput }));
+      setFilters((f) =>
+        f.searchText === searchInput && f.tags === tagsInput
+          ? f
+          : { ...f, searchText: searchInput, tags: tagsInput }
+      );
     }, 350);
     return () => clearTimeout(t);
-  }, [searchInput, isOpen]);
+  }, [searchInput, tagsInput, isOpen]);
 
   // Reload the question list whenever filters change (while open).
   useEffect(() => {
@@ -174,14 +181,15 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
   const handleDifficultyChange = (val) => setFilters((f) => ({ ...f, difficulty: val || '' }));
 
   const clearFilters = () => {
-    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', searchText: '' });
+    setFilters({ subjectId: '', chapterId: '', topicId: '', difficulty: '', tags: '', searchText: '' });
     setSearchInput('');
+    setTagsInput('');
     setChapters([]);
     setTopics([]);
   };
 
   const activeFilterCount = useMemo(
-    () => ['subjectId', 'chapterId', 'topicId', 'difficulty', 'searchText'].filter((k) => filters[k]).length,
+    () => ['subjectId', 'chapterId', 'topicId', 'difficulty', 'tags', 'searchText'].filter((k) => filters[k]).length,
     [filters]
   );
 
@@ -192,6 +200,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
     if (filters.chapterId) p.chapterId = filters.chapterId;
     if (filters.topicId) p.topicId = filters.topicId;
     if (filters.difficulty) p.difficulty = filters.difficulty;
+    if (filters.tags) p.tags = filters.tags;
     if (filters.searchText) p.searchText = filters.searchText;
     return p;
   };
@@ -481,6 +490,24 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
               />
             </div>
 
+            <div className="w-full sm:w-44">
+              <label className="text-sm font-medium text-foreground mb-2 block">Tags</label>
+              <div className="relative">
+                <Icon
+                  name="Tag"
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="e.g. kinematics"
+                  className={searchCls}
+                />
+              </div>
+            </div>
+
             {activeFilterCount > 0 && (
               <Button
                 type="button"
@@ -582,6 +609,24 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                         <span className="inline-flex items-center gap-1">
                           <Icon name="Star" size={12} /> {q.marks ?? 1} marks
                         </span>
+                        {typeof q.tags === 'string' &&
+                          q.tags
+                            .split(',')
+                            .map((t) => t.trim())
+                            .filter(Boolean)
+                            .map((tag, i) => (
+                              <span
+                                key={`${tag}-${i}`}
+                                className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5"
+                              >
+                                <Icon name="Tag" size={10} /> {tag}
+                              </span>
+                            ))}
+                        {Array.isArray(q.hints) && q.hints.length > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 text-warning text-[10px] font-medium px-1.5 py-0.5">
+                            <Icon name="Lightbulb" size={10} /> {q.hints.length} hint{q.hints.length === 1 ? '' : 's'}
+                          </span>
+                        )}
                       </div>
                       {q.questionImagePath && (
                         <img
