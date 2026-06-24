@@ -27,6 +27,8 @@ const TeacherManagement = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false });
   const loadingMoreRef = useRef(false);
+  // Grand total of teachers (from the search API's totalCount); null until loaded.
+  const [totalTeachers, setTotalTeachers] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -114,6 +116,7 @@ const TeacherManagement = () => {
       const list = Array.isArray(data) ? data : [];
       setTeachers((prev) => (page === 0 ? list : [...prev, ...list]));
       setPagination({ currentPage: pg?.currentPage ?? page, hasMore: !!pg?.hasMore });
+      if (typeof pg?.totalElements === 'number') setTotalTeachers(pg.totalElements);
     } catch (err) {
       console.error('Error loading teachers:', err);
       if (page === 0) {
@@ -209,7 +212,15 @@ const TeacherManagement = () => {
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="font-display font-semibold text-2xl text-foreground">Teacher Management</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="font-display font-semibold text-2xl text-foreground">Teacher Management</h1>
+                {totalTeachers != null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-semibold">
+                    <Icon name="GraduationCap" size={14} />
+                    {totalTeachers.toLocaleString()}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mt-1">
                 {currentUser.role === 'super-admin' ? 
                   (superAdminContext?.selectedInstitute ? 

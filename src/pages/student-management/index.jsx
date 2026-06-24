@@ -30,6 +30,9 @@ const StudentManagement = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pagination, setPagination] = useState({ currentPage: 0, hasMore: false });
   const loadingMoreRef = useRef(false);
+  // Grand total of students matching the current course/batch filter (from the
+  // search API's totalCount). null until the first load resolves.
+  const [totalStudents, setTotalStudents] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -170,6 +173,7 @@ const StudentManagement = () => {
       const list = Array.isArray(data) ? data : [];
       setStudents((prev) => (page === 0 ? list : [...prev, ...list]));
       setPagination({ currentPage: pg?.currentPage ?? page, hasMore: !!pg?.hasMore });
+      if (typeof pg?.totalElements === 'number') setTotalStudents(pg.totalElements);
     } catch (err) {
       console.error('Error loading students:', err);
       if (page === 0) {
@@ -282,7 +286,15 @@ const StudentManagement = () => {
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="font-display font-semibold text-2xl text-foreground">Student Management</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="font-display font-semibold text-2xl text-foreground">Student Management</h1>
+                {totalStudents != null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-semibold">
+                    <Icon name="Users" size={14} />
+                    {totalStudents.toLocaleString()}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mt-1">
                 {displayInstitute ?
                   `Manage students for ${displayInstitute.name}` :

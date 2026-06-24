@@ -406,18 +406,20 @@ export const newUserService = {
         // Handle double-nested response: data.data.students or data.students
         const nestedData = data.data || data;
         const students = nestedData.students || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
-        // This endpoint MISLABELS its pagination fields (verified against the live API):
-        // `totalCount` is the row count of THIS page (20, then 11) — NOT the grand total —
-        // and the real total comes back in `size` (e.g. 31). So we can't compute hasMore
-        // from totalCount/totalPages the way the questions endpoint allows. Drive infinite
-        // scroll off the robust rule "a full page came back ⇒ there may be more"; the
-        // endpoint paginates correctly (the last page is short), so this terminates.
+        // `totalCount` is the grand total of matching students (the standard field
+        // for this endpoint, confirmed against live data). Fall back defensively to
+        // the other common keys so a backend shape change can't zero out the count.
         const requestedSize = payload.pagination.size;
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
-        const hasMore = students.length >= requestedSize;
-        // Best-effort grand total for display: `size` holds it on this endpoint.
-        const totalElements = nestedData.size ?? nestedData.totalElements ?? nestedData.total ?? students.length;
-        const totalPages = Math.ceil(totalElements / requestedSize) || 1;
+        const totalElements = Number(
+          nestedData.totalCount ?? nestedData.totalElements ?? nestedData.total ?? nestedData.size ?? students.length
+        ) || 0;
+        const totalPages = totalElements ? Math.ceil(totalElements / requestedSize) : 1;
+        // More pages remain only until we've covered the grand total. Base this on the
+        // REQUESTED page (always known) rather than the response's page field (flaky on
+        // this endpoint), and guard with "a full page came back" so a missing/zero total
+        // can't loop forever.
+        const hasMore = students.length >= requestedSize && (payload.pagination.page + 1) * requestedSize < totalElements;
 
         return {
           data: students,
@@ -459,16 +461,17 @@ export const newUserService = {
         // Handle double-nested response: data.data.teachers or data.teachers
         const nestedData = data.data || data;
         const teachers = nestedData.teachers || nestedData.content || nestedData.users || (Array.isArray(nestedData) ? nestedData : []);
-        // Same mislabeled pagination as the students endpoint: `totalCount` is the
-        // count of THIS page (not the grand total), and the real total is in `size`.
-        // Drive hasMore off "a full page came back ⇒ there may be more"; the endpoint
-        // paginates correctly (short last page), so this terminates.
+        // `totalCount` is the grand total of teachers (the standard field, confirmed
+        // against live data). Keep `size` in the fallback chain — the dashboards
+        // historically read the total from it — so this can't regress those counts.
         const requestedSize = payload.pagination.size;
         const currentPage = nestedData.page !== undefined ? nestedData.page : nestedData.number !== undefined ? nestedData.number : pagination.page || 0;
-        const hasMore = teachers.length >= requestedSize;
-        // Best-effort grand total for display: `size` holds it on this endpoint.
-        const totalElements = nestedData.size ?? nestedData.totalElements ?? nestedData.total ?? teachers.length;
-        const totalPages = Math.ceil(totalElements / requestedSize) || 1;
+        const totalElements = Number(
+          nestedData.totalCount ?? nestedData.totalElements ?? nestedData.total ?? nestedData.size ?? teachers.length
+        ) || 0;
+        const totalPages = totalElements ? Math.ceil(totalElements / requestedSize) : 1;
+        // Base hasMore on the requested page (always known), not the flaky response page.
+        const hasMore = teachers.length >= requestedSize && (payload.pagination.page + 1) * requestedSize < totalElements;
 
         return {
           data: teachers,
