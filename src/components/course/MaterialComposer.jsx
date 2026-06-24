@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Button from '../ui/Button';
 import Icon from '../AppIcon';
-import MathText from '../MathText';
+import MarkdownText from '../MarkdownText';
 import { cn } from '../../utils/cn';
 import {
   newMaterialService,
@@ -211,10 +211,12 @@ const MaterialComposer = ({ scope, ownerId, mode, editing, defaultSortOrder = 0,
             placeholder={contentFormat === 'LATEX' ? 'Use $…$ for inline math, $$…$$ for block.' : 'Write the note…'}
             className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-card text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-y"
           />
-          {contentFormat === 'LATEX' && content.trim() && (
+          {content.trim() && (
             <div className="mt-2 p-2 border border-border rounded-md bg-card">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Preview</p>
-              <div className="text-sm text-foreground"><MathText text={content} /></div>
+              {/* Preview through the same renderer students see, so what previews is
+                  exactly what is saved (no MathText-vs-MarkdownText drift). */}
+              <MarkdownText className="text-sm" textFormat={contentFormat}>{content}</MarkdownText>
             </div>
           )}
         </div>

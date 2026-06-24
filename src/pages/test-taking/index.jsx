@@ -57,12 +57,29 @@ const TestTaking = () => {
       }
       setAttempt(data);
 
-      // Seed previously-saved answers.
+      // Seed previously-saved answers so a reload restores the student's selections.
+      // The attempt payload carries each saved answer *inside its question* as
+      // `selectedOptionIds` (array of option ids; null/absent = unanswered) — the
+      // documented and live-verified contract. An older/alternate shape exposed a
+      // flat `answers[]` array, so fold that in as a fallback without clobbering the
+      // question-embedded selections. Empty selections are left out of the map so the
+      // answered tally and palette stay accurate (mirrors selectOption/clearResponse).
       const seed = new Map();
+      const seedAnswer = (qid, opts) => {
+        if (qid == null) return;
+        const arr = Array.isArray(opts) ? opts.filter((o) => o != null) : [];
+        if (arr.length > 0) seed.set(qid, arr);
+      };
+      const seedQuestions = data.questions || data.test?.questions || [];
+      (Array.isArray(seedQuestions) ? seedQuestions : []).forEach((sq) => {
+        const opts =
+          sq.selectedOptionIds || sq.optionIds || (sq.selectedOptionId != null ? [sq.selectedOptionId] : []);
+        seedAnswer(sq.questionId ?? sq.id, opts);
+      });
       (data.answers || []).forEach((a) => {
         const qid = a.questionId ?? a.question?.id;
-        const opts = a.selectedOptionIds || a.optionIds || (a.selectedOptionId ? [a.selectedOptionId] : []);
-        if (qid != null) seed.set(qid, Array.isArray(opts) ? opts : []);
+        if (qid == null || seed.has(qid)) return; // question-embedded selection wins
+        seedAnswer(qid, a.selectedOptionIds || a.optionIds || (a.selectedOptionId != null ? [a.selectedOptionId] : []));
       });
       setAnswers(seed);
 

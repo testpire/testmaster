@@ -326,7 +326,7 @@ const MaterialViewer = ({ material, url, loading, error, isDesktop = true }) => 
     return (
       <div className="p-6 max-w-3xl mx-auto">
         {material.description && <p className="text-sm text-muted-foreground mb-3">{material.description}</p>}
-        <MarkdownText className="leading-relaxed">{material.content || ''}</MarkdownText>
+        <MarkdownText className="leading-relaxed" textFormat={material.contentFormat}>{material.content || ''}</MarkdownText>
       </div>
     );
   }

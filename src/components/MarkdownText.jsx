@@ -6,6 +6,7 @@ import remarkBreaks from 'remark-breaks';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { cn } from '../utils/cn';
+import MathText, { hasLatex } from './MathText';
 
 // Renders study-material NOTE content as GitHub-flavoured Markdown with inline /
 // block math ($...$ and $$...$$ via KaTeX). react-markdown does NOT render raw
@@ -58,12 +59,31 @@ const components = {
   td: ({ node, ...props }) => <td className="border border-border px-2 py-1 align-top" {...props} />,
 };
 
-const MarkdownText = ({ children, className }) => (
-  <div className={cn('text-base text-foreground', className)}>
-    <Markdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>
-      {children || ''}
-    </Markdown>
-  </div>
-);
+// Inline / block math here uses remark-math, which only recognises $…$ and $$…$$
+// spans. Questions (via MathText) additionally render *bare* LaTeX written with no
+// $-delimiters at all (e.g. a note authored as `\frac{a}{b}` because the author set
+// the LaTeX format toggle, the way they do for questions). When a note is explicitly
+// flagged LaTeX, contains backslash commands, and carries no $ delimiter, fall back
+// to MathText so the whole note renders as math — giving notes parity with questions.
+// $-delimited notes (the documented form) fall through to the markdown+math pipeline
+// below, which also preserves headings/lists/tables.
+const MarkdownText = ({ children, className, textFormat }) => {
+  const value = children == null ? '' : String(children);
+  const fmt = textFormat == null ? '' : String(textFormat).toUpperCase();
+
+  if (fmt === 'LATEX' && hasLatex(value) && !value.includes('$')) {
+    return (
+      <MathText as="div" className={cn('text-base text-foreground', className)} text={value} textFormat="LATEX" />
+    );
+  }
+
+  return (
+    <div className={cn('text-base text-foreground', className)}>
+      <Markdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>
+        {value}
+      </Markdown>
+    </div>
+  );
+};
 
 export default MarkdownText;
