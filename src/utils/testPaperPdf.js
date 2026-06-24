@@ -13,7 +13,7 @@
 
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { hasLatex } from '../components/MathText';
+import { hasLatex, hasMarkdownTable, isMarkdownTableDelimiter } from '../components/MathText';
 import { resolveImagePath } from '../pages/test-management/testConstants';
 
 // Same delimiters MathText uses: $$...$$ (block) matched before $...$ (inline).
@@ -78,6 +78,69 @@ const renderRichText = (text, textFormat) => {
   return out;
 };
 
+// Split a markdown table row into trimmed cell strings, dropping the outer pipes.
+const splitTableCells = (row) => {
+  let s = String(row).trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|')) s = s.slice(0, -1);
+  return s.split('|').map((c) => c.trim());
+};
+
+// Turn the lines of a GFM table block (header, `|---|` delimiter, body rows) into
+// an HTML <table>. Each cell goes through renderRichText so $…$ math inside a cell
+// still renders. The delimiter row only carries alignment, so rows[1] is dropped.
+const buildTableHtml = (tableLines, fmt) => {
+  const rows = tableLines.map((l) => l.trim()).filter(Boolean);
+  if (rows.length < 2) return '';
+  const header = splitTableCells(rows[0]);
+  const body = rows.slice(2).map(splitTableCells);
+  const thead = `<thead><tr>${header.map((c) => `<th>${renderRichText(c, fmt)}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody>${body
+    .map((r) => `<tr>${r.map((c) => `<td>${renderRichText(c, fmt)}</td>`).join('')}</tr>`)
+    .join('')}</tbody>`;
+  return `<table class="tp-table">${thead}${tbody}</table>`;
+};
+
+// Like renderRichText, but first carves out any GFM markdown table(s) into block
+// <table>s, rendering the surrounding prose with the math-aware renderRichText.
+// Used for the question stem so a "Match List-I with List-II" table prints as a
+// real grid instead of literal pipe characters.
+const renderRichTextWithTables = (text, fmt) => {
+  const value = text == null ? '' : String(text);
+  if (!hasMarkdownTable(value)) return renderRichText(value, fmt);
+
+  const lines = value.split('\n');
+  let out = '';
+  let prose = [];
+  const flushProse = () => {
+    if (prose.length) {
+      out += renderRichText(prose.join('\n'), fmt);
+      prose = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; ) {
+    const isTableStart =
+      lines[i].includes('|') && i + 1 < lines.length && isMarkdownTableDelimiter(lines[i + 1]);
+    if (isTableStart) {
+      flushProse();
+      const block = [lines[i], lines[i + 1]];
+      i += 2;
+      // Consume contiguous body rows (any non-blank line carrying a pipe).
+      while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|')) {
+        block.push(lines[i]);
+        i += 1;
+      }
+      out += buildTableHtml(block, fmt);
+    } else {
+      prose.push(lines[i]);
+      i += 1;
+    }
+  }
+  flushProse();
+  return out;
+};
+
 const optionLabel = (i) => String.fromCharCode(65 + i); // 0 -> A
 
 const buildQuestionHtml = (q, number) => {
@@ -118,7 +181,7 @@ const buildQuestionHtml = (q, number) => {
         // text to wrap to its left rather than drop below it.
         marksLabel +
         `<span class="tp-q-num">${number}.</span>` +
-        `<span class="tp-q-text">${renderRichText(q.text, fmt)}</span>` +
+        `<span class="tp-q-text">${renderRichTextWithTables(q.text, fmt)}</span>` +
       `</div>` +
       imgHtml +
       bodyHtml +
@@ -201,6 +264,11 @@ const PRINT_CSS = `
 #${PRINT_CONTAINER_ID} .tp-marks { float: right; font-weight: 700; white-space: nowrap; margin-left: 6pt; font-size: 9.5pt; }
 /* Display math can't wrap; cap it to the column width so it never overflows. */
 #${PRINT_CONTAINER_ID} .tp-block-math { display: block; text-align: center; margin: 5pt 0; max-width: 100%; overflow-x: hidden; }
+/* Match / comparison tables in a question stem. Width 100% keeps them inside the
+   narrow newspaper column; break-inside:avoid stops a table splitting mid-grid. */
+#${PRINT_CONTAINER_ID} .tp-table { border-collapse: collapse; width: 100%; margin: 4pt 0; font-size: 9.5pt; break-inside: avoid; }
+#${PRINT_CONTAINER_ID} .tp-table th, #${PRINT_CONTAINER_ID} .tp-table td { border: 0.5pt solid #000; padding: 2pt 4pt; text-align: left; vertical-align: top; }
+#${PRINT_CONTAINER_ID} .tp-table th { font-weight: 700; background: #efefef; }
 #${PRINT_CONTAINER_ID} .tp-options { list-style: none; margin: 4pt 0 0; padding: 0 0 0 14pt; }
 #${PRINT_CONTAINER_ID} .tp-option { display: flex; align-items: baseline; gap: 5pt; margin: 0 0 2pt; page-break-inside: avoid; break-inside: avoid; }
 #${PRINT_CONTAINER_ID} .tp-opt-label { font-weight: 700; }

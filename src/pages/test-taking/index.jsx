@@ -6,6 +6,7 @@ import TestSecurityWrapper from '../../components/ui/TestSecurityWrapper';
 import { newTestService } from '../../services/newTestService';
 import { resolveImagePath } from '../test-management/testConstants';
 import MathText from '../../components/MathText';
+import QuestionContent from '../../components/QuestionContent';
 
 // Student exam runner — a standard online-test experience: a live countdown that
 // warns as time runs low and auto-submits on expiry, subject/section switching,
@@ -411,9 +412,9 @@ const TestTaking = () => {
                 const chosen = answers.get(qid) || [];
                 return (
                   <div key={qid} className="bg-card border border-border rounded-xl p-4">
-                    <p className="text-sm font-medium text-foreground mb-2">
-                      {i + 1}. <MathText text={q.text} textFormat={q.textFormat} />
-                    </p>
+                    <div className="text-sm font-medium text-foreground mb-2">
+                      {i + 1}. <QuestionContent text={q.text} textFormat={q.textFormat} />
+                    </div>
                     <div className="space-y-1">
                       {(q.options || []).map((o) => {
                         const isChosen = chosen.includes(o.id);
@@ -534,7 +535,7 @@ const TestTaking = () => {
                   </button>
                 </div>
 
-                <MathText as="p" className="text-foreground mb-3" text={q.text} textFormat={q.textFormat} />
+                <QuestionContent as="p" className="text-foreground mb-3" text={q.text} textFormat={q.textFormat} />
                 {q.questionImagePath && (
                   <img
                     src={resolveImagePath(q.questionImagePath)}

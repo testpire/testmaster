@@ -29,6 +29,32 @@ export const hasLatex = (text) => {
 export const detectTextFormat = (...texts) =>
   texts.some((t) => hasLatex(t)) ? 'LATEX' : 'PLAIN';
 
+// True when a line is a GitHub-flavoured-markdown table delimiter row, e.g.
+// `|---|---|` or `| :--- | ---: |`. The delimiter row is what makes remark-gfm
+// recognise a table, so it's the reliable signal: it's made up only of pipes,
+// dashes, colons and spaces, must contain a dash, and carries at least two pipes
+// (so a stray `a|b` prose line or a lone `-----` rule never qualifies).
+export const isMarkdownTableDelimiter = (line) => {
+  const t = (line == null ? '' : String(line)).trim();
+  if (!t.includes('|') || !t.includes('-')) return false;
+  if (!/^\|?[\s:|-]+\|?$/.test(t)) return false;
+  return (t.match(/\|/g) || []).length >= 2;
+};
+
+// True when the text contains a GFM table: a header line with a pipe immediately
+// followed by a delimiter row. Lets question content fall through to the
+// markdown+math pipeline (which renders real tables) instead of MathText, which
+// would print the pipes verbatim. No existing question contains such a row, so
+// turning this on can't change how already-authored questions render.
+export const hasMarkdownTable = (text) => {
+  if (!text || typeof text !== 'string') return false;
+  const lines = text.split('\n');
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i - 1].includes('|') && isMarkdownTableDelimiter(lines[i])) return true;
+  }
+  return false;
+};
+
 const renderMath = (expr, displayMode) => {
   try {
     return katex.renderToString(expr, {

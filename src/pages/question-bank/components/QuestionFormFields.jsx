@@ -3,7 +3,8 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
-import MathText from '../../../components/MathText';
+import MathText, { hasLatex, hasMarkdownTable } from '../../../components/MathText';
+import QuestionContent from '../../../components/QuestionContent';
 
 // Lazy so MathLive's bundle is fetched only when an author opens the equation
 // editor — never on the question list or the student exam runner.
@@ -19,6 +20,21 @@ const InsertEquationButton = ({ onClick, className }) => (
   >
     <Icon name="Sigma" size={14} />
     <span>Insert equation</span>
+  </button>
+);
+
+// Drops a two-column markdown table scaffold into the field — the standard way to
+// write a "Match List-I with List-II" stem. Edit the cells; the preview renders
+// it as a real table.
+const InsertTableButton = ({ onClick, className }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${className || ''}`}
+    title="Insert a match/comparison table"
+  >
+    <Icon name="Table" size={14} />
+    <span>Insert table</span>
   </button>
 );
 
@@ -110,7 +126,7 @@ const QuestionFormFields = ({ form }) => {
     formatManual, setFormatManual,
     editorOpen, setEditorOpen,
     questionData,
-    recordCaret, openEquationEditor, insertLatexAtCursor,
+    recordCaret, openEquationEditor, insertLatexAtCursor, insertTableAtCursor,
     handleInputChange, handleOptionChange, handleCorrectAnswerChange,
     handleQuestionImageUpload, handleClearQuestionImage,
     handleOptionImageUpload, handleClearOptionImage
@@ -287,6 +303,7 @@ const QuestionFormFields = ({ form }) => {
             Question Text *
           </label>
           <div className="flex items-center gap-2">
+            <InsertTableButton onClick={() => insertTableAtCursor('questionText')} />
             <InsertEquationButton onClick={() => openEquationEditor('questionText')} />
             <span className="text-xs text-muted-foreground">Format:</span>
             <div className="inline-flex rounded-md border border-border overflow-hidden">
@@ -323,15 +340,16 @@ const QuestionFormFields = ({ form }) => {
             : formatManual
             ? 'Plain text mode.'
             : 'Format auto-detected from your input — switch manually if needed.'}
+          {' '}Use <span className="font-medium">Insert table</span> for match-the-following / two-column questions — edit the cells, keep the <code className="px-1 rounded bg-muted text-[10px]">| --- |</code> row.
         </p>
-        {(questionData?.textFormat || 'PLAIN') === 'LATEX' && questionData?.questionText?.trim() && (
+        {(hasLatex(questionData?.questionText) || hasMarkdownTable(questionData?.questionText)) && questionData?.questionText?.trim() && (
           <div className="mt-2 p-3 rounded-lg border border-border bg-muted/30">
             <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
-            <MathText
+            <QuestionContent
               as="div"
               className="text-sm text-foreground"
               text={questionData?.questionText}
-              textFormat="LATEX"
+              textFormat={questionData?.textFormat}
             />
           </div>
         )}
@@ -473,7 +491,10 @@ const QuestionFormFields = ({ form }) => {
           <label className="block text-sm font-medium text-foreground">
             Explanation (Optional)
           </label>
-          <InsertEquationButton onClick={() => openEquationEditor('explanation')} />
+          <div className="flex items-center gap-2">
+            <InsertTableButton onClick={() => insertTableAtCursor('explanation')} />
+            <InsertEquationButton onClick={() => openEquationEditor('explanation')} />
+          </div>
         </div>
         <textarea
           value={questionData?.explanation}
@@ -484,14 +505,14 @@ const QuestionFormFields = ({ form }) => {
           className="w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary resize-vertical"
           placeholder="Provide a detailed explanation of the solution..."
         />
-        {(questionData?.textFormat || 'PLAIN') === 'LATEX' && questionData?.explanation?.trim() && (
+        {(hasLatex(questionData?.explanation) || hasMarkdownTable(questionData?.explanation)) && questionData?.explanation?.trim() && (
           <div className="mt-2 p-3 rounded-lg border border-border bg-muted/30">
             <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
-            <MathText
+            <QuestionContent
               as="div"
               className="text-sm text-foreground"
               text={questionData?.explanation}
-              textFormat="LATEX"
+              textFormat={questionData?.textFormat}
             />
           </div>
         )}

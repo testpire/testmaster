@@ -98,10 +98,10 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     setEditorOpen(true);
   };
 
-  // Splice `$latex$` into the targeted field at the saved caret (functional
-  // update so it reads the freshest text).
-  const insertLatexAtCursor = (latex) => {
-    const snippet = `$${latex}$`;
+  // Splice an arbitrary snippet into the targeted field at the saved caret
+  // (functional update so it reads the freshest text). Shared by the equation
+  // and table inserters.
+  const spliceIntoActiveField = (snippet) => {
     const { field, caret } = activeFieldRef.current || { field: 'questionText', caret: null };
     const splice = (text) => {
       const current = text || '';
@@ -120,6 +120,31 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       }
       return prev;
     });
+  };
+
+  const insertLatexAtCursor = (latex) => spliceIntoActiveField(`$${latex}$`);
+
+  // Match-list / two-column markdown table scaffold. Blank lines around it keep
+  // remark-gfm from gluing the header row onto adjacent prose, and the trailing
+  // "Choose the correct answer" line is the standard closer for match questions.
+  const MATCH_TABLE_TEMPLATE =
+    '\n\n| List-I | List-II |\n' +
+    '| --- | --- |\n' +
+    '| (A)  | (I)  |\n' +
+    '| (B)  | (II)  |\n' +
+    '| (C)  | (III)  |\n' +
+    '| (D)  | (IV)  |\n\n' +
+    'Choose the correct answer from the options given below:\n';
+
+  // A table is block content, so it only belongs in the question text or the
+  // explanation (never an option). The caller names the target field; we keep the
+  // live caret only when it's already in that field, otherwise append at the end.
+  const insertTableAtCursor = (targetField = 'questionText') => {
+    const field = targetField === 'explanation' ? 'explanation' : 'questionText';
+    if (activeFieldRef.current?.field !== field) {
+      activeFieldRef.current = { field, caret: null };
+    }
+    spliceIntoActiveField(MATCH_TABLE_TEMPLATE);
   };
 
   // Populate form when editing; reset to blank when opening for a new question.
@@ -529,7 +554,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     editorOpen, setEditorOpen,
     questionData, setQuestionData,
     // handlers
-    recordCaret, openEquationEditor, insertLatexAtCursor,
+    recordCaret, openEquationEditor, insertLatexAtCursor, insertTableAtCursor,
     handleInputChange, handleOptionChange, handleCorrectAnswerChange,
     handleQuestionImageUpload, handleClearQuestionImage,
     handleOptionImageUpload, handleClearOptionImage,

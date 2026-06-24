@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import MathText from '../../../components/MathText';
+import MathText, { hasMarkdownTable } from '../../../components/MathText';
+import QuestionContent from '../../../components/QuestionContent';
 import InlineTopicEditor from './InlineTopicEditor';
 import { formatDateTime } from '../../test-management/testConstants';
 
@@ -68,6 +69,9 @@ const QuestionCard = ({
   const isDraft = question.draftMode === true;
 
   const isLatex = String(safeQuestion.textFormat).toUpperCase() === 'LATEX';
+  // Rich content (LaTeX or a markdown table) renders in full: truncating it would
+  // slice through $…$ delimiters or a table's rows and break the rendering.
+  const isRich = isLatex || hasMarkdownTable(safeQuestion.text);
 
   // Tags come back comma-separated (QuestionResponseDto.tags); hints as a string[].
   const tagList =
@@ -291,10 +295,8 @@ const QuestionCard = ({
       <div className="mb-3">
         <div className="text-sm text-foreground leading-relaxed">
           {safeQuestion.text ? (
-            isLatex ? (
-              // Truncating LaTeX would slice through $...$ delimiters and break
-              // rendering, so render the full expression for LaTeX questions.
-              <MathText text={safeQuestion.text} textFormat="LATEX" />
+            isRich ? (
+              <QuestionContent text={safeQuestion.text} textFormat={safeQuestion.textFormat} />
             ) : (
               <>
                 {showFullQuestion ? safeQuestion.text : truncateText(safeQuestion.text)}
