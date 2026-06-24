@@ -112,12 +112,29 @@ export const InstituteProvider = ({ children }) => {
     }
   }, [initialized, isSuperAdmin, user, fetchInstitutes]);
 
+  // Merge updated fields into a cached institute (and the active selection when
+  // it matches), so a change made elsewhere — e.g. uploading a logo from the
+  // header — reflects immediately and survives switching away and back without
+  // a refetch. Only `id` is persisted to localStorage, so patching other fields
+  // needs no storage write.
+  const patchInstitute = useCallback((instituteId, patch) => {
+    if (instituteId == null || !patch) return;
+    const idStr = String(instituteId);
+    setAllInstitutes((prev) =>
+      prev.map((inst) => (String(inst.id) === idStr ? { ...inst, ...patch } : inst))
+    );
+    setActiveInstituteState((prev) =>
+      prev && String(prev.id) === idStr ? { ...prev, ...patch } : prev
+    );
+  }, []);
+
   const value = {
     allInstitutes,
     activeInstitute,
     institutesLoading,
     setActiveInstitute,
     fetchInstitutes,
+    patchInstitute,
   };
 
   return (

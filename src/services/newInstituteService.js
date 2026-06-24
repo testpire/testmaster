@@ -258,11 +258,54 @@ export const newInstituteService = {
   async getInstituteInfo() {
     try {
       const { data, error, success } = await get('/student/institute-info');
-      
+
       if (success && data) {
         return { data, error: null };
       }
-      
+
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Upload (or replace) the institute logo. Admins only — the backend enforces
+  // the permission; the frontend just hides the affordance for other roles.
+  // Sends multipart/form-data (field `file`) to POST /institutes/{id}/logo and
+  // returns the updated institute (including the freshly-signed `logoUrl`).
+  async uploadLogo(instituteId, file, config = {}) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const { data, error, success } = await post(`/institutes/${instituteId}/logo`, formData, {
+        ...config,
+        headers: { ...(config.headers || {}), 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (success && data) {
+        // POST returns { message, success, data: {...institute} }
+        const institute = data.data || data.institute || data;
+        return { data: institute, error: null };
+      }
+
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Remove the institute logo (admins only, backend-enforced). Returns the
+  // updated institute with `logoUrl` cleared on success.
+  async deleteLogo(instituteId, config = {}) {
+    try {
+      const { data, error, success } = await del(`/institutes/${instituteId}/logo`, config);
+
+      if (success) {
+        const institute = data?.data || data?.institute || data || null;
+        return { data: institute, error: null };
+      }
+
       return { data: null, error };
     } catch (error) {
       return { data: null, error };

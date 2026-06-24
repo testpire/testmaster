@@ -5,7 +5,8 @@ import { useInstitute } from '../../contexts/InstituteContext';
 import Icon from '../AppIcon';
 import Button from './Button';
 import Select from './Select';
-import { TestPireLogo } from './TestMasterLogo';
+import InstituteLogoModal from './InstituteLogoModal';
+import { ADMIN_ROLES } from '../../utils/roleBasedRouting';
 import { newInstituteService } from '../../services/newInstituteService';
 import { newTestService } from '../../services/newTestService';
 import { formatDateTime } from '../../pages/test-management/testConstants';
@@ -38,6 +39,7 @@ const NavigationHeader = ({
     activeInstitute: ctxActiveInstitute,
     institutesLoading: ctxInstitutesLoading,
     setActiveInstitute: ctxSetActiveInstitute,
+    patchInstitute: ctxPatchInstitute,
   } = useInstitute();
 
   // The institute switcher is a super-admin concern. Show it on every page for
@@ -48,6 +50,9 @@ const NavigationHeader = ({
   const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || effectiveRole === 'SUPERADMIN';
   const isStudent = effectiveRole === 'STUDENT';
   const showInstituteDropdown = isSuperAdmin || showInstituteDropdownProp;
+  // Admins (super-admin + institute-admin) may change the institute logo; every
+  // other role views it read-only. The backend enforces this too.
+  const canEditLogo = ADMIN_ROLES.includes(effectiveRole);
 
   // Resolve effective values: context wins when the dropdown is shown (SUPER_ADMIN),
   // otherwise fall back to the props passed by callers.
@@ -66,16 +71,21 @@ const NavigationHeader = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [instituteName, setInstituteName] = useState('');
+  // Institute logo shown top-left (tenant brand mark). Seeded from the resolved
+  // institute below and updated in place after an admin uploads/removes it.
+  const [logoUrl, setLogoUrl] = useState('');
+  const [showLogoModal, setShowLogoModal] = useState(false);
   // Student-only: tests assigned to the student that they haven't attempted yet.
   // Fetched once on mount; non-students keep an empty list (blank dropdown).
   const [testNotifications, setTestNotifications] = useState([]);
 
-  // For non-super-admin roles, resolve the user's fixed institute name to show
-  // top-left. Uses skipAuthRedirect so a forbidden read can't force a logout.
+  // For non-super-admin roles, resolve the user's fixed institute (name + logo)
+  // to show top-left. Uses skipAuthRedirect so a forbidden read can't force a logout.
   const instituteId = userProfile?.instituteId || user?.instituteId;
   useEffect(() => {
     if (showInstituteDropdown || !instituteId) {
       setInstituteName('');
+      setLogoUrl('');
       return;
     }
     let mounted = true;
@@ -83,11 +93,21 @@ const NavigationHeader = ({
       .getInstituteById(instituteId, { skipAuthRedirect: true })
       .then(({ data }) => {
         const inst = data?.institute || data?.data || data;
-        if (mounted && inst?.name) setInstituteName(inst.name);
+        if (!mounted || !inst) return;
+        if (inst.name) setInstituteName(inst.name);
+        setLogoUrl(inst.logoUrl || '');
       })
       .catch(() => {});
     return () => { mounted = false; };
   }, [showInstituteDropdown, instituteId]);
+
+  // For SUPER_ADMIN, the logo tracks the active institute from the switcher, so
+  // it updates as they switch institutes (no extra fetch — the cached list
+  // already carries logoUrl).
+  useEffect(() => {
+    if (!showInstituteDropdown) return;
+    setLogoUrl(selectedInstitute?.logoUrl || '');
+  }, [showInstituteDropdown, selectedInstitute?.id, selectedInstitute?.logoUrl]);
 
   // Notifications for students: surface newly assigned tests they haven't started.
   // A test is "new" when there's no attempt yet (empty or NOT_STARTED status).
@@ -181,7 +201,24 @@ const NavigationHeader = ({
   const displayRole = currentUser?.role || userProfile?.role || userRole;
   const displayAvatar = currentUser?.avatar || userProfile?.avatar_url || userAvatar;
 
+  // The institute whose logo the header shows/edits: the active one for a
+  // SUPER_ADMIN, otherwise the user's own institute.
+  const logoInstituteId = showInstituteDropdown ? selectedInstitute?.id : instituteId;
+  const logoInstituteName = showInstituteDropdown ? selectedInstitute?.name : instituteName;
+  const canManageLogo = canEditLogo && logoInstituteId != null;
+
+  // Reflect an upload/removal immediately, and keep the super-admin's cached
+  // institute in sync so switching away and back shows the right logo.
+  const handleLogoSaved = (updated) => {
+    const newLogo = updated?.logoUrl || '';
+    setLogoUrl(newLogo);
+    if (showInstituteDropdown && logoInstituteId != null) {
+      ctxPatchInstitute?.(logoInstituteId, { logoUrl: newLogo });
+    }
+  };
+
   return (
+    <>
     <header className="fixed top-0 left-0 right-0 h-16 bg-card/85 backdrop-blur-md border-b border-border z-[1001]">
       <div className="flex items-center justify-between h-full px-4">
         {/* Left Section - Logo and Menu Toggle */}
@@ -211,8 +248,48 @@ const NavigationHeader = ({
             </Button>
           )}
           
-          {/* Brand mark — anchors identity on every page/role */}
-          <TestPireLogo size="small" showText={false} className="shrink-0" />
+          {/* Institute logo — tenant brand mark, top-left (shown on mobile too).
+              Admins can click to manage it; every other role views it read-only. */}
+          {logoUrl ? (
+            canManageLogo ? (
+              <button
+                type="button"
+                onClick={() => setShowLogoModal(true)}
+                title="Change institute logo"
+                aria-label="Change institute logo"
+                className="group relative shrink-0 inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <img
+                  src={logoUrl}
+                  alt={`${logoInstituteName || 'Institute'} logo`}
+                  className="h-9 w-auto max-w-[120px] sm:max-w-[160px] object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+                <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-foreground/40 rounded-lg">
+                  <Icon name="Pencil" size={14} className="text-background" />
+                </span>
+              </button>
+            ) : (
+              <img
+                src={logoUrl}
+                alt={`${logoInstituteName || 'Institute'} logo`}
+                className="shrink-0 h-9 w-auto max-w-[120px] sm:max-w-[160px] object-contain"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )
+          ) : (
+            canManageLogo && (
+              <button
+                type="button"
+                onClick={() => setShowLogoModal(true)}
+                title="Add institute logo"
+                className="shrink-0 h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors text-xs font-medium"
+              >
+                <Icon name="ImagePlus" size={16} />
+                <span className="hidden sm:inline">Add logo</span>
+              </button>
+            )
+          )}
 
           {/* Institute Dropdown (Super Admin) or Institute name (Other roles) */}
           <div className="flex items-center space-x-2">
@@ -374,6 +451,21 @@ const NavigationHeader = ({
         />
       )}
     </header>
+
+    {/* Logo manager — rendered OUTSIDE the <header> on purpose: the header's
+        backdrop-blur establishes a containing block for fixed descendants, which
+        would otherwise trap this modal's full-screen overlay inside the 64px bar. */}
+    {canManageLogo && (
+      <InstituteLogoModal
+        isOpen={showLogoModal}
+        onClose={() => setShowLogoModal(false)}
+        instituteId={logoInstituteId}
+        instituteName={logoInstituteName}
+        currentLogoUrl={logoUrl}
+        onSaved={handleLogoSaved}
+      />
+    )}
+    </>
   );
 };
 
