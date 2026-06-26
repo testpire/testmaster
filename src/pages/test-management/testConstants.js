@@ -147,6 +147,18 @@ export const formatDateTime = (value) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+// Date-only render (e.g. for a creation date) with the same UTC-normalization as
+// formatDateTime — a zone-less string is treated as UTC so the day doesn't shift.
+export const formatDate = (value) => {
+  if (!value) return '—';
+  let s = String(value);
+  const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!hasZone) s = s.replace(' ', 'T') + 'Z';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
 // Is the test currently inside its availability window?
 export const isWithinWindow = (from, until) => {
   // Avoid Date.now() drift concerns — compare ISO strings lexicographically is

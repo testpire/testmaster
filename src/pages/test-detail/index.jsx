@@ -16,7 +16,6 @@ import QuestionPickerModal from '../test-management/components/QuestionPickerMod
 import AssignTestModal from '../test-management/components/AssignTestModal';
 import TestResultsModal from '../test-management/components/TestResultsModal';
 import {
-  TEST_STATUS_BADGE,
   TEST_TYPE_BADGE,
   TEST_TYPE_LABEL,
   TEST_TYPE_ICON,
@@ -27,6 +26,7 @@ import {
   normalizeTestType,
   getTestAvailability,
   prettyEnum,
+  formatDate,
   formatDateTime,
   resolveImagePath
 } from '../test-management/testConstants';
@@ -284,9 +284,6 @@ const TestDetail = () => {
                 <Icon name={TEST_TYPE_ICON[testType]} size={11} />
                 {TEST_TYPE_LABEL[testType]}
               </span>
-              <span className={cn('inline-block px-2 py-0.5 rounded-full text-[11px] font-medium', TEST_STATUS_BADGE[status] || 'bg-muted text-muted-foreground')}>
-                {prettyEnum(test.status) || '—'}
-              </span>
               <span
                 className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium', TEST_AVAILABILITY_BADGE[availability.state])}
                 title={availability.detail}
@@ -449,6 +446,7 @@ const TestDetail = () => {
                     <Field label="Passing marks" value={test.passingMarks != null && test.passingMarks !== '' ? test.passingMarks : null} />
                     <Field label="Negative marking" value={test.negativeMarking ? 'On' : 'Off'} />
                     <Field label="Shuffle questions" value={test.shuffleQuestions ? 'On' : 'Off'} />
+                    <Field label="Created" value={test.createdAt ? formatDate(test.createdAt) : null} />
                   </dl>
                 </Card>
 

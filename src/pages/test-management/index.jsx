@@ -8,9 +8,8 @@ import Button from '../../components/ui/Button';
 import { newTestService } from '../../services/newTestService';
 import TestFormModal from './components/TestFormModal';
 import {
-  TEST_STATUS_BADGE,
   TEST_AVAILABILITY_BADGE,
-  prettyEnum,
+  formatDate,
   formatDateTime,
   getTestAvailability,
   TEST_TYPES,
@@ -19,6 +18,18 @@ import {
   TEST_TYPE_ICON,
   normalizeTestType
 } from './testConstants';
+
+// List filter by computed availability (replaces the redundant Draft/Published
+// status filter — "Open" covers both a windowed-open and an always-open test).
+const AVAILABILITY_FILTERS = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'OPEN', label: 'Open' },
+  { value: 'EXPIRED', label: 'Expired' }
+];
+const matchesAvailabilityFilter = (state, filter) => {
+  if (filter === 'OPEN') return state === 'OPEN' || state === 'ALWAYS_OPEN';
+  return state === filter;
+};
 
 const TestManagement = () => {
   const { user, userProfile } = useAuth();
@@ -39,7 +50,7 @@ const TestManagement = () => {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [searchText, setSearchText] = useState('');
 
@@ -73,7 +84,7 @@ const TestManagement = () => {
 
   const filtered = useMemo(() => {
     return tests.filter((t) => {
-      if (statusFilter && (t.status || '').toUpperCase() !== statusFilter) return false;
+      if (availabilityFilter && !matchesAvailabilityFilter(getTestAvailability(t).state, availabilityFilter)) return false;
       if (typeFilter && normalizeTestType(t.type) !== typeFilter) return false;
       if (searchText.trim()) {
         const q = searchText.trim().toLowerCase();
@@ -84,7 +95,7 @@ const TestManagement = () => {
       }
       return true;
     });
-  }, [tests, statusFilter, typeFilter, searchText]);
+  }, [tests, availabilityFilter, typeFilter, searchText]);
 
   const openTest = (test) => navigate(`/test-management/${test.id}`);
 
@@ -114,7 +125,7 @@ const TestManagement = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 {loading && tests.length === 0
                   ? 'Loading tests...'
-                  : `${filtered.length} test${filtered.length === 1 ? '' : 's'} · click a test to open it`}
+                  : `${filtered.length} test${filtered.length === 1 ? '' : 's'}`}
               </p>
             </div>
             <Button
@@ -156,13 +167,16 @@ const TestManagement = () => {
               ))}
             </select>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value)}
               className={inputCls}
             >
-              <option value="">All statuses</option>
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
+              <option value="">All</option>
+              {AVAILABILITY_FILTERS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -206,17 +220,16 @@ const TestManagement = () => {
                 <thead className="bg-muted/40 text-left text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Availability</th>
                     <th className="px-4 py-3 font-medium">Questions</th>
                     <th className="px-4 py-3 font-medium">Total Marks</th>
                     <th className="px-4 py-3 font-medium">Duration</th>
+                    <th className="px-4 py-3 font-medium">Created</th>
                     <th className="px-4 py-3 font-medium w-8" aria-label="Open" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filtered.map((test) => {
-                    const status = (test.status || '').toUpperCase();
                     const qCount = test.questionCount ?? (test.questions?.length || 0);
                     const availability = getTestAvailability(test);
                     return (
@@ -249,15 +262,6 @@ const TestManagement = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                              TEST_STATUS_BADGE[status] || 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {prettyEnum(test.status) || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${TEST_AVAILABILITY_BADGE[availability.state]}`}
                             title={availability.detail}
                           >
@@ -274,6 +278,9 @@ const TestManagement = () => {
                         <td className="px-4 py-3 text-muted-foreground">{test.totalMarks ?? 0}</td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {test.durationMinutes ? `${test.durationMinutes} min` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                          {formatDate(test.createdAt)}
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground">
                           <Icon name="ChevronRight" size={16} />
