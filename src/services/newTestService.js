@@ -118,6 +118,20 @@ export const newTestService = {
     }
   },
 
+  // Publish a test's results/solutions to students — what makes any ON_PUBLISH
+  // reveal setting go live (stamps resultsPublishedAt). Staff-only, idempotent, and
+  // distinct from publishTest() (which makes the test *takeable*; this makes results
+  // *visible*). Returns the refreshed test when the backend echoes it.
+  async publishResults(testId) {
+    try {
+      const { data, error, success } = await post(`/tests/${testId}/publish-results`, {});
+      if (!success) return { data: null, error };
+      return { data: unwrapOne(data) ?? true, error: null };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to publish results' } };
+    }
+  },
+
   // Results: { testId, testTitle, totalMarks, passingMarks, studentCount, results[] }.
   async getResults(testId) {
     try {
@@ -311,7 +325,11 @@ export const newTestService = {
   },
 
   // Persist a single answer (SubmitAnswerRequestDto): { questionId, selectedOptionIds[] }.
-  // Called as the student answers so progress survives a closed tab.
+  // Called as the student answers so progress survives a closed tab. The response
+  // `data` is an AnswerFeedbackResponseDto: for a PRACTICE test with
+  // solutionReveal=DURING_ATTEMPT it carries { feedbackAvailable: true, correct,
+  // marksAwarded, correctOptionIds, explanation, textFormat } for instant feedback;
+  // otherwise feedbackAvailable is false and the reveal fields are null (ignore them).
   async saveAnswer(attemptId, answer) {
     try {
       const { data, error, success } = await put(`/student/tests/attempts/${attemptId}/answers`, answer);

@@ -4,13 +4,17 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import DateTimePicker from '../../../components/ui/DateTimePicker';
+import Select from '../../../components/ui/Select';
 import {
   toDatetimeLocal,
   toUtcIso,
   TEST_TYPES,
   TEST_TYPE_LABEL_LONG,
   TEST_TYPE_ICON,
-  normalizeTestType
+  normalizeTestType,
+  scoreRevealOptions,
+  solutionRevealOptions,
+  defaultReveals
 } from '../testConstants';
 
 // Create / edit a test's metadata. Per-question marks and the question set itself
@@ -33,7 +37,12 @@ const TestFormModal = ({
     passingMarks: '',
     negativeMarking: false,
     shuffleQuestions: false,
-    showAnswers: false,
+    // Result/solution reveal (RevealTrigger). Seeded with the TEST defaults; the
+    // PRACTICE defaults are applied when the type switches (handleTypeChange).
+    scoreReveal: 'IMMEDIATE',
+    solutionReveal: 'NEVER',
+    scoreRevealAt: '',
+    solutionRevealAt: '',
     availableFrom: '',
     availableUntil: ''
   };
@@ -46,6 +55,7 @@ const TestFormModal = ({
     if (!isOpen) return;
     if (editMode && existingTest) {
       const editType = normalizeTestType(existingTest.type);
+      const d = defaultReveals(editType);
       setForm({
         type: editType,
         title: existingTest.title || '',
@@ -56,7 +66,13 @@ const TestFormModal = ({
         passingMarks: existingTest.passingMarks ?? '',
         negativeMarking: !!existingTest.negativeMarking,
         shuffleQuestions: !!existingTest.shuffleQuestions,
-        showAnswers: !!existingTest.showAnswers,
+        // Prefer the new reveal fields; fall back to the legacy showAnswers boolean,
+        // then the type defaults, so an older test still hydrates sensibly.
+        scoreReveal: existingTest.scoreReveal || d.scoreReveal,
+        solutionReveal:
+          existingTest.solutionReveal || (existingTest.showAnswers ? 'IMMEDIATE' : d.solutionReveal),
+        scoreRevealAt: toDatetimeLocal(existingTest.scoreRevealAt),
+        solutionRevealAt: toDatetimeLocal(existingTest.solutionRevealAt),
         availableFrom: toDatetimeLocal(existingTest.availableFrom),
         availableUntil: toDatetimeLocal(existingTest.availableUntil)
       });
@@ -72,15 +88,21 @@ const TestFormModal = ({
   const isPractice = form.type === 'PRACTICE';
 
   // Switching type adjusts the dependent fields: a DPP has unlimited attempts
-  // (maxAttempts blank → omitted) and reveals answers for self-study by default.
+  // (maxAttempts blank → omitted) and reveals solutions instantly while practising.
   const handleTypeChange = (newType) => {
     if (editMode) return; // type is immutable after creation
     setForm((prev) => {
       if (newType === prev.type) return prev;
       if (newType === 'PRACTICE') {
-        return { ...prev, type: 'PRACTICE', maxAttempts: '', showAnswers: true };
+        return { ...prev, type: 'PRACTICE', maxAttempts: '', solutionReveal: 'DURING_ATTEMPT' };
       }
-      return { ...prev, type: 'TEST', maxAttempts: prev.maxAttempts === '' ? 1 : prev.maxAttempts };
+      // Switching to a graded TEST: DURING_ATTEMPT isn't valid for it → fall back.
+      return {
+        ...prev,
+        type: 'TEST',
+        maxAttempts: prev.maxAttempts === '' ? 1 : prev.maxAttempts,
+        solutionReveal: prev.solutionReveal === 'DURING_ATTEMPT' ? 'NEVER' : prev.solutionReveal
+      };
     });
   };
 
@@ -97,14 +119,31 @@ const TestFormModal = ({
       setError('"Available until" must be after "Available from"');
       return;
     }
+    // Reveal-trigger rules (the backend enforces these too).
+    if (form.scoreReveal === 'SCHEDULED' && !form.scoreRevealAt) {
+      setError('Pick the date & time when students can see their score');
+      return;
+    }
+    if (form.solutionReveal === 'SCHEDULED' && !form.solutionRevealAt) {
+      setError('Pick the date & time when students can see the answers');
+      return;
+    }
+    if (form.solutionReveal === 'DURING_ATTEMPT' && !isPractice) {
+      setError('“Instantly while practising” is only available for Daily Practice');
+      return;
+    }
 
     // Build payload — send numeric fields as numbers, omit blank optionals.
     const payload = {
       title: form.title.trim(),
       negativeMarking: form.negativeMarking,
       shuffleQuestions: form.shuffleQuestions,
-      showAnswers: form.showAnswers
+      // New reveal model (supersedes the deprecated showAnswers boolean).
+      scoreReveal: form.scoreReveal,
+      solutionReveal: form.solutionReveal
     };
+    if (form.scoreReveal === 'SCHEDULED') payload.scoreRevealAt = toUtcIso(form.scoreRevealAt);
+    if (form.solutionReveal === 'SCHEDULED') payload.solutionRevealAt = toUtcIso(form.solutionRevealAt);
     // `type` is only on CreateTestRequestDto (immutable afterwards) — send on create only.
     if (!editMode) payload.type = form.type;
     if (form.description.trim()) payload.description = form.description.trim();
@@ -341,16 +380,72 @@ const TestFormModal = ({
                 />
                 Shuffle question order per student
               </label>
-              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.showAnswers}
-                  onChange={(e) => setField('showAnswers', e.target.checked)}
-                  disabled={loading}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
-                />
-                Show correct answers to students after submission
-              </label>
+            </div>
+
+            {/* Result visibility — two independent reveal axes. Score covers the
+                marks/pass-fail/correctness; Answers covers the correct options +
+                explanation. Each can be immediate, on-publish, scheduled or never. */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Icon name="Eye" size={16} className="text-muted-foreground" />
+                <h4 className="text-sm font-semibold text-foreground">Result visibility</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Select
+                    label="When can students see their score?"
+                    options={scoreRevealOptions()}
+                    value={form.scoreReveal}
+                    onChange={(v) => setField('scoreReveal', v)}
+                    disabled={loading}
+                  />
+                  {form.scoreReveal === 'SCHEDULED' && (
+                    <div className="mt-2">
+                      <DateTimePicker
+                        mode="datetime"
+                        value={form.scoreRevealAt}
+                        onChange={(v) => setField('scoreRevealAt', v)}
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+                  {form.scoreReveal === 'ON_PUBLISH' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      You&apos;ll reveal scores with “Publish results” on the results page.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Select
+                    label="When can students see the answers?"
+                    description="Correct options + explanation"
+                    options={solutionRevealOptions(isPractice)}
+                    value={form.solutionReveal}
+                    onChange={(v) => setField('solutionReveal', v)}
+                    disabled={loading}
+                  />
+                  {form.solutionReveal === 'SCHEDULED' && (
+                    <div className="mt-2">
+                      <DateTimePicker
+                        mode="datetime"
+                        value={form.solutionRevealAt}
+                        onChange={(v) => setField('solutionRevealAt', v)}
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+                  {form.solutionReveal === 'ON_PUBLISH' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      You&apos;ll reveal answers with “Publish results”.
+                    </p>
+                  )}
+                  {form.solutionReveal === 'DURING_ATTEMPT' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Students see whether each answer is right the moment they pick it.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

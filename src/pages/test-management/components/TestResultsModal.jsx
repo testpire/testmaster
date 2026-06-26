@@ -19,6 +19,11 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
 
+  // Publish-results state. Only relevant when a reveal axis is ON_PUBLISH — clicking
+  // publish is what makes those results/solutions visible to students.
+  const [publishing, setPublishing] = useState(false);
+  const [publishedAt, setPublishedAt] = useState(test?.resultsPublishedAt ?? null);
+
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
@@ -44,6 +49,32 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
       setDetailError('');
     }
   }, [isOpen]);
+
+  // Re-sync the published stamp from the test each time the modal opens.
+  useEffect(() => {
+    if (isOpen) setPublishedAt(test?.resultsPublishedAt ?? null);
+  }, [isOpen, test?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // This test gates its score and/or answers behind a manual publish.
+  const usesPublish = test?.scoreReveal === 'ON_PUBLISH' || test?.solutionReveal === 'ON_PUBLISH';
+  const onPublishLabel =
+    test?.scoreReveal === 'ON_PUBLISH' && test?.solutionReveal === 'ON_PUBLISH'
+      ? 'scores and answers'
+      : test?.scoreReveal === 'ON_PUBLISH'
+      ? 'scores'
+      : 'answers';
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    setError('');
+    const { error: err } = await newTestService.publishResults(test.id);
+    setPublishing(false);
+    if (err) {
+      setError(err.message || 'Failed to publish results');
+      return;
+    }
+    setPublishedAt(new Date().toISOString());
+  };
 
   const getAttemptId = (r) =>
     r?.attemptId ?? r?.attempt?.id ?? r?.latestAttemptId ?? r?.lastAttemptId ?? null;
@@ -204,6 +235,41 @@ const TestResultsModal = ({ isOpen, onClose, test }) => {
             </div>
           ) : (
             <>
+              {/* Publish-results control — shown only when a reveal axis is ON_PUBLISH. */}
+              {usesPublish && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+                  <div className="flex items-start gap-2 text-sm text-foreground">
+                    <Icon name="Megaphone" size={18} className="mt-0.5 flex-shrink-0 text-primary" />
+                    <span>
+                      {publishedAt ? (
+                        <>
+                          {onPublishLabel.charAt(0).toUpperCase() + onPublishLabel.slice(1)} were published to
+                          students on <strong>{formatDateTime(publishedAt)}</strong>.
+                        </>
+                      ) : (
+                        <>
+                          This test&apos;s {onPublishLabel} stay hidden until you publish — students can&apos;t
+                          see them yet.
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {!publishedAt && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handlePublish}
+                      loading={publishing}
+                      disabled={publishing}
+                      iconName="Send"
+                      iconPosition="left"
+                    >
+                      Publish results to students
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Summary cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <Stat label="Attempted" value={stats.attempted} />

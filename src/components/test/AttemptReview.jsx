@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import Icon from '../AppIcon';
 import MathText from '../MathText';
 import QuestionContent from '../QuestionContent';
-import { formatDateTime, resolveImagePath } from '../../pages/test-management/testConstants';
+import { formatDateTime, resolveImagePath, isFutureIso } from '../../pages/test-management/testConstants';
 
 // Shared, presentational breakdown of a single GRADED test attempt. Used by both
 // the student's result view (their own attempt) and staff drilling into a
@@ -56,6 +56,22 @@ const AttemptReview = ({ attempt, studentName }) => {
     [questions]
   );
 
+  // Attempt-level reveal flags (new API: scoreRevealed / solutionRevealed). Prefer
+  // them when present; otherwise fall back to inferring from the per-question payload
+  // so older responses still render correctly.
+  const scoreRevealed =
+    typeof attempt.scoreRevealed === 'boolean'
+      ? attempt.scoreRevealed
+      : score != null || correctnessRevealed || questions.some((q) => q.marksAwarded != null);
+  const solutionRevealed =
+    typeof attempt.solutionRevealed === 'boolean'
+      ? attempt.solutionRevealed
+      : questions.some((q) => Array.isArray(q.correctOptionIds));
+
+  // Student viewing their own attempt (staff drill-downs pass studentName). Only the
+  // student sees the "pending" messaging — staff see the raw gated data as served.
+  const isStudentView = !studentName;
+
   // Per-question outcome summary.
   const tally = useMemo(() => {
     let correct = 0;
@@ -77,6 +93,15 @@ const AttemptReview = ({ attempt, studentName }) => {
 
   return (
     <div className="space-y-5">
+      {isStudentView && (
+        <RevealNotice
+          scoreRevealed={scoreRevealed}
+          solutionRevealed={solutionRevealed}
+          scoreRevealAt={attempt.scoreRevealAt}
+          solutionRevealAt={attempt.solutionRevealAt}
+        />
+      )}
+
       {/* Summary header */}
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -159,6 +184,36 @@ const AttemptReview = ({ attempt, studentName }) => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// Student-facing notice for results that aren't visible yet. A scheduled reveal has
+// a future *RevealAt and shows the unlock time; an ON_PUBLISH reveal has no time and
+// shows "your instructor will publish". For SOLUTIONS we only message a *scheduled*
+// reveal — a null time can equally mean NEVER (the default for a graded test), so we
+// stay silent rather than promise answers that may never come.
+const RevealNotice = ({ scoreRevealed, solutionRevealed, scoreRevealAt, solutionRevealAt }) => {
+  const notes = [];
+  if (!scoreRevealed) {
+    notes.push(
+      isFutureIso(scoreRevealAt)
+        ? `Your score will be available on ${formatDateTime(scoreRevealAt)}.`
+        : 'Your score will be available once your instructor publishes results.'
+    );
+  }
+  if (!solutionRevealed && isFutureIso(solutionRevealAt)) {
+    notes.push(`The answer key will be available on ${formatDateTime(solutionRevealAt)}.`);
+  }
+  if (notes.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-1.5">
+      {notes.map((text, i) => (
+        <div key={i} className="flex items-center gap-2 text-sm text-foreground">
+          <Icon name="Clock" size={16} className="flex-shrink-0 text-primary" />
+          <span>{text}</span>
+        </div>
+      ))}
     </div>
   );
 };

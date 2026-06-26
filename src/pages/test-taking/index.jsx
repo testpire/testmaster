@@ -4,7 +4,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import TestSecurityWrapper from '../../components/ui/TestSecurityWrapper';
 import { newTestService } from '../../services/newTestService';
-import { resolveImagePath } from '../test-management/testConstants';
+import { resolveImagePath, formatDateTime, isFutureIso } from '../test-management/testConstants';
 import MathText from '../../components/MathText';
 import QuestionContent from '../../components/QuestionContent';
 
@@ -33,6 +33,9 @@ const TestTaking = () => {
   const [visited, setVisited] = useState(new Set()); // questions the student has opened
   // For Daily Practice: how many of each question's hints have been revealed.
   const [hintsShown, setHintsShown] = useState({}); // Map<questionId, count>
+  // Instant per-question feedback (PRACTICE + solutionReveal=DURING_ATTEMPT). Keyed
+  // by questionId from the saveAnswer response (AnswerFeedbackResponseDto).
+  const [feedback, setFeedback] = useState(new Map());
   const [current, setCurrent] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // seconds
 
@@ -287,8 +290,16 @@ const TestTaking = () => {
       // (a deselected single-choice question is "not answered", not answered-blank).
       if (updated.length === 0) next.delete(qid);
       else next.set(qid, updated);
-      // Fire-and-forget autosave so a dropped connection at submit doesn't lose work.
-      newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: updated });
+      // Autosave (so a dropped connection at submit doesn't lose work) and, for Daily
+      // Practice with instant solutions, surface the returned per-question feedback.
+      newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: updated }).then(({ data }) => {
+        setFeedback((prev) => {
+          const fnext = new Map(prev);
+          if (updated.length > 0 && data && data.feedbackAvailable) fnext.set(qid, data);
+          else fnext.delete(qid);
+          return fnext;
+        });
+      });
       return next;
     });
   };
@@ -300,6 +311,12 @@ const TestTaking = () => {
       const next = new Map(prev);
       next.delete(qid);
       newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: [] });
+      return next;
+    });
+    setFeedback((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Map(prev);
+      next.delete(qid);
       return next;
     });
   };
@@ -354,40 +371,59 @@ const TestTaking = () => {
 
   // ---- result screen ----------------------------------------------------------
   if (result) {
+    // Score visibility follows the test's scoreReveal: the submit/attempt payload
+    // carries scoreRevealed (+ score, only when revealed). Default to revealed when
+    // the flag is absent (older backend / IMMEDIATE) so existing tests still show.
+    const scoreRevealed = result.scoreRevealed !== false;
     const score = result.score ?? result.marksObtained ?? result.totalScore ?? null;
-    const totalMarks = result.totalMarks ?? attempt?.totalMarks ?? attempt?.test?.totalMarks ?? null;
+    const totalMarks = result.maxScore ?? result.totalMarks ?? attempt?.totalMarks ?? attempt?.test?.totalMarks ?? null;
     const passed = typeof result.passed === 'boolean' ? result.passed : null;
-    const showAnswers = attempt?.showAnswers ?? attempt?.test?.showAnswers ?? false;
-    const reviewQuestions = result.questions || (showAnswers ? questions : []);
+    const showScore = scoreRevealed && score != null;
+    const pendingMsg = scoreRevealed
+      ? null
+      : isFutureIso(result.scoreRevealAt)
+      ? `Your score will be available on ${formatDateTime(result.scoreRevealAt)}.`
+      : 'Your score will be available once your instructor publishes results.';
+    const headerIcon = !scoreRevealed ? 'Clock' : passed === false ? 'XCircle' : 'CheckCircle2';
+    const headerTone = !scoreRevealed
+      ? { bg: 'bg-primary/10', fg: 'text-primary' }
+      : passed === false
+      ? { bg: 'bg-destructive/10', fg: 'text-destructive' }
+      : { bg: 'bg-success/10', fg: 'text-success' };
 
     return (
       <div className="min-h-screen bg-background p-4 lg:p-6">
         <div className="max-w-2xl mx-auto">
           <div className="bg-card border border-border rounded-2xl p-8 text-center mb-6 shadow-sm">
-            <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center ${passed === false ? 'bg-destructive/10' : 'bg-success/10'}`}>
-              <Icon
-                name={passed === false ? 'XCircle' : 'CheckCircle2'}
-                size={32}
-                className={passed === false ? 'text-destructive' : 'text-success'}
-              />
+            <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center ${headerTone.bg}`}>
+              <Icon name={headerIcon} size={32} className={headerTone.fg} />
             </div>
             <h1 className="font-display text-3xl font-semibold text-foreground mb-1">Test submitted</h1>
             <p className="text-muted-foreground mb-4">Your responses have been recorded.</p>
-            {score != null && (
-              <div className="font-display text-4xl font-semibold text-foreground nums-tabular">
-                {score}
-                {totalMarks != null && <span className="text-lg text-muted-foreground font-sans"> / {totalMarks}</span>}
+
+            {showScore ? (
+              <>
+                <div className="font-display text-4xl font-semibold text-foreground nums-tabular">
+                  {score}
+                  {totalMarks != null && <span className="text-lg text-muted-foreground font-sans"> / {totalMarks}</span>}
+                </div>
+                {passed != null && (
+                  <span
+                    className={`inline-block mt-3 px-3 py-1 rounded-full text-sm font-medium ${
+                      passed ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'
+                    }`}
+                  >
+                    {passed ? 'Passed' : 'Did not pass'}
+                  </span>
+                )}
+              </>
+            ) : (
+              <div className="mx-auto max-w-sm rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground inline-flex items-center gap-2">
+                <Icon name="Clock" size={16} className="flex-shrink-0 text-primary" />
+                <span>{pendingMsg}</span>
               </div>
             )}
-            {passed != null && (
-              <span
-                className={`inline-block mt-3 px-3 py-1 rounded-full text-sm font-medium ${
-                  passed ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'
-                }`}
-              >
-                {passed ? 'Passed' : 'Did not pass'}
-              </span>
-            )}
+
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button variant="default" onClick={() => navigate('/my-tests')} iconName="ArrowLeft" iconPosition="left">
                 Back to My Tests
@@ -402,46 +438,6 @@ const TestTaking = () => {
               </Button>
             </div>
           </div>
-
-          {/* Optional answer review when the test allows it and correct flags are present */}
-          {showAnswers && reviewQuestions.length > 0 && reviewQuestions.some((q) => (q.options || []).some((o) => 'correct' in o)) && (
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">Review</h2>
-              {reviewQuestions.map((q, i) => {
-                const qid = getQId(q);
-                const chosen = answers.get(qid) || [];
-                return (
-                  <div key={qid} className="bg-card border border-border rounded-xl p-4">
-                    <div className="text-sm font-medium text-foreground mb-2">
-                      {i + 1}. <QuestionContent text={q.text} textFormat={q.textFormat} />
-                    </div>
-                    <div className="space-y-1">
-                      {(q.options || []).map((o) => {
-                        const isChosen = chosen.includes(o.id);
-                        const isCorrect = o.correct === true;
-                        return (
-                          <div
-                            key={o.id}
-                            className={`text-sm px-3 py-1.5 rounded-lg border ${
-                              isCorrect
-                                ? 'border-success/40 bg-success/10 text-success'
-                                : isChosen
-                                ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                                : 'border-border text-muted-foreground'
-                            }`}
-                          >
-                            {isCorrect && <Icon name="Check" size={13} className="inline mr-1" />}
-                            {isChosen && !isCorrect && <Icon name="X" size={13} className="inline mr-1" />}
-                            <MathText text={o.text} textFormat={q.textFormat} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -451,6 +447,9 @@ const TestTaking = () => {
   const q = questions[current];
   const qid = q ? getQId(q) : null;
   const chosen = qid != null ? answers.get(qid) || [] : [];
+  // Instant feedback for the current question (Daily Practice DURING_ATTEMPT only).
+  const fb = qid != null ? feedback.get(qid) : null;
+  const fbCorrectSet = fb?.feedbackAvailable && Array.isArray(fb.correctOptionIds) ? new Set(fb.correctOptionIds) : null;
   const title = attempt?.testTitle || attempt?.title || attempt?.test?.title || 'Test';
   const answeredCount = answers.size;
   // 1-based position of the current question within its subject (for display).
@@ -548,14 +547,23 @@ const TestTaking = () => {
                 <div className="space-y-2">
                   {(q.options || []).map((o) => {
                     const selected = chosen.includes(o.id);
+                    // With instant feedback shown, tint the correct option green and a
+                    // wrong picked option red (Khan/DPP style); otherwise plain selection.
+                    const fbCorrect = fbCorrectSet?.has(o.id);
+                    const fbWrongChosen = fbCorrectSet && selected && !fbCorrect;
+                    const optionCls = fbCorrect
+                      ? 'border-success/50 bg-success/10'
+                      : fbWrongChosen
+                      ? 'border-destructive/50 bg-destructive/10'
+                      : selected
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-muted/30';
                     return (
                       <button
                         key={o.id}
                         type="button"
                         onClick={() => selectOption(q, o.id)}
-                        className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${
-                          selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30'
-                        }`}
+                        className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${optionCls}`}
                       >
                         <Icon
                           name={
@@ -585,6 +593,42 @@ const TestTaking = () => {
                     );
                   })}
                 </div>
+
+                {/* Instant feedback (Daily Practice with solutionReveal=DURING_ATTEMPT).
+                    Rendered from the saveAnswer response; the student may still change
+                    their answer afterwards (v1), which refreshes this. */}
+                {fb?.feedbackAvailable && (
+                  <div
+                    className={`mt-4 rounded-xl border p-4 ${
+                      fb.correct ? 'border-success/40 bg-success/10' : 'border-destructive/40 bg-destructive/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon
+                        name={fb.correct ? 'CheckCircle2' : 'XCircle'}
+                        size={16}
+                        className={fb.correct ? 'text-success' : 'text-destructive'}
+                      />
+                      <span className={`text-sm font-semibold ${fb.correct ? 'text-success' : 'text-destructive'}`}>
+                        {fb.correct ? 'Correct' : 'Incorrect'}
+                      </span>
+                      {fb.marksAwarded != null && (
+                        <span className="ml-auto text-xs font-medium text-muted-foreground tabular-nums">
+                          {Number(fb.marksAwarded) > 0 ? '+' : ''}
+                          {fb.marksAwarded} marks
+                        </span>
+                      )}
+                    </div>
+                    {fb.explanation && String(fb.explanation).trim() && (
+                      <QuestionContent
+                        as="div"
+                        className="mt-2 text-sm text-foreground leading-relaxed whitespace-pre-wrap"
+                        text={fb.explanation}
+                        textFormat={fb.textFormat}
+                      />
+                    )}
+                  </div>
+                )}
 
                 {/* Progressive hints (Daily Practice only). Gated on hints being
                     present in the payload, so nothing renders for graded tests or

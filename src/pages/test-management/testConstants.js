@@ -40,6 +40,51 @@ export const TEST_TYPE_ICON = {
 export const normalizeTestType = (value) =>
   String(value || '').toUpperCase() === 'PRACTICE' ? 'PRACTICE' : 'TEST';
 
+// ---- Result / solution reveal (RevealTrigger) ------------------------------
+// A test has two independent reveal axes, each a RevealTrigger evaluated
+// server-side at read time:
+//   • scoreReveal    — gates the overall score, pass/fail, and per-question
+//                      marks/correctness. Cannot be DURING_ATTEMPT.
+//   • solutionReveal — gates the answer key (correct option ids + explanation).
+//                      DURING_ATTEMPT is valid only on a PRACTICE test.
+// The legacy boolean `showAnswers` (true→solution IMMEDIATE, false→NEVER) is
+// superseded by these two fields; we no longer send it.
+export const REVEAL_TRIGGERS = ['IMMEDIATE', 'ON_PUBLISH', 'SCHEDULED', 'NEVER', 'DURING_ATTEMPT'];
+
+export const REVEAL_TRIGGER_LABEL = {
+  IMMEDIATE: 'Immediately after submitting',
+  ON_PUBLISH: 'When I publish results',
+  SCHEDULED: 'At a scheduled time',
+  NEVER: 'Never',
+  DURING_ATTEMPT: 'Instantly while practising',
+};
+
+// Dropdown options. Score excludes DURING_ATTEMPT; solution offers it for PRACTICE only.
+export const scoreRevealOptions = () =>
+  ['IMMEDIATE', 'ON_PUBLISH', 'SCHEDULED', 'NEVER'].map((v) => ({ value: v, label: REVEAL_TRIGGER_LABEL[v] }));
+
+export const solutionRevealOptions = (isPractice) =>
+  [...(isPractice ? ['DURING_ATTEMPT'] : []), 'IMMEDIATE', 'ON_PUBLISH', 'SCHEDULED', 'NEVER'].map((v) => ({
+    value: v,
+    label: REVEAL_TRIGGER_LABEL[v],
+  }));
+
+// Backend defaults per test type — used to seed the form and as a hydration fallback.
+export const defaultReveals = (type) =>
+  normalizeTestType(type) === 'PRACTICE'
+    ? { scoreReveal: 'IMMEDIATE', solutionReveal: 'DURING_ATTEMPT' }
+    : { scoreReveal: 'IMMEDIATE', solutionReveal: 'NEVER' };
+
+// Is an ISO timestamp in the future? Treats a zone-less string as UTC (matching
+// formatDateTime / the backend), so a pending scheduled reveal reads correctly.
+export const isFutureIso = (value) => {
+  if (!value) return false;
+  let s = String(value);
+  if (!/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) s = s.replace(' ', 'T') + 'Z';
+  const t = new Date(s).getTime();
+  return !Number.isNaN(t) && t > new Date().getTime();
+};
+
 // Assignment targets (AssignTestRequestDto.targetType).
 export const TARGET_TYPES = ['COURSE', 'BATCH', 'STUDENT'];
 
