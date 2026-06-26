@@ -45,6 +45,12 @@ const TestTaking = () => {
 
   const deadlineRef = useRef(null); // epoch ms when the attempt must end
   const submittedRef = useRef(false); // guard against double auto/manual submit
+  // Debounced autosave: one pending timer per questionId so rapid option changes
+  // only produce a single network write (the final selection), preventing the
+  // out-of-order-response race that caused "wrong option shown on reload".
+  const autosaveTimers = useRef({});
+  // Mirror of answers state for the debounced save closure to read at fire time.
+  const answersRef = useRef(new Map());
 
   // ---- load attempt -----------------------------------------------------------
   useEffect(() => {
@@ -237,6 +243,9 @@ const TestTaking = () => {
     });
   }, [current, questions]);
 
+  // Keep answersRef current so debounced save closures always read the latest state.
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
   // ---- submit + countdown -----------------------------------------------------
   const doSubmit = useCallback(
     async (auto = false) => {
@@ -273,6 +282,27 @@ const TestTaking = () => {
   }, [result, timeRemaining == null, doSubmit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- answering --------------------------------------------------------------
+  // Schedule a debounced autosave for questionId qid. If called again for the same
+  // qid before the timer fires, the old timer is cancelled and a new one starts —
+  // so only the *final* selection within the debounce window is ever sent to the
+  // backend. This eliminates the out-of-order network race: when a student rapidly
+  // changes an answer, two concurrent PUT /answers requests can complete in reverse
+  // order and the stale first answer overwrites the correct second one on the server.
+  const scheduleAutosave = (qid) => {
+    clearTimeout(autosaveTimers.current[qid]);
+    autosaveTimers.current[qid] = setTimeout(async () => {
+      delete autosaveTimers.current[qid];
+      const opts = answersRef.current.get(qid) || [];
+      const { data } = await newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: opts });
+      setFeedback((prev) => {
+        const n = new Map(prev);
+        if (opts.length > 0 && data && data.feedbackAvailable) n.set(qid, data);
+        else n.delete(qid);
+        return n;
+      });
+    }, 300);
+  };
+
   const selectOption = (q, optionId) => {
     const qid = getQId(q);
     setAnswers((prev) => {
@@ -290,18 +320,9 @@ const TestTaking = () => {
       // (a deselected single-choice question is "not answered", not answered-blank).
       if (updated.length === 0) next.delete(qid);
       else next.set(qid, updated);
-      // Autosave (so a dropped connection at submit doesn't lose work) and, for Daily
-      // Practice with instant solutions, surface the returned per-question feedback.
-      newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: updated }).then(({ data }) => {
-        setFeedback((prev) => {
-          const fnext = new Map(prev);
-          if (updated.length > 0 && data && data.feedbackAvailable) fnext.set(qid, data);
-          else fnext.delete(qid);
-          return fnext;
-        });
-      });
       return next;
     });
+    scheduleAutosave(qid);
   };
 
   const clearResponse = (q) => {
@@ -310,7 +331,6 @@ const TestTaking = () => {
       if (!prev.has(qid)) return prev;
       const next = new Map(prev);
       next.delete(qid);
-      newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: [] });
       return next;
     });
     setFeedback((prev) => {
@@ -319,6 +339,7 @@ const TestTaking = () => {
       next.delete(qid);
       return next;
     });
+    scheduleAutosave(qid);
   };
 
   const toggleFlag = (qid) => {

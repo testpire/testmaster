@@ -7,6 +7,7 @@ import { courseService } from '../../services/courseService';
 import { newBatchService } from '../../services/newBatchService';
 import { CLASS_OPTIONS } from '../../utils/classOptions';
 import { getDashboardRoute } from '../../utils/roleBasedRouting';
+import { isValidEmail, isValidPhone } from '../../utils/validation';
 import StudentEnrollmentFields from '../../components/enrollment/StudentEnrollmentFields';
 import PageLayout from '../../components/layout/PageLayout';
 import Input from '../../components/ui/Input';
@@ -146,6 +147,9 @@ const UserForm = () => {
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [error, setError] = useState('');
+  // Per-field validation messages (email/username/phone format). Surfaced inline
+  // under each input so format constraints are caught before a backend 400.
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Redirect away if there's no context to render against.
   useEffect(() => {
@@ -287,6 +291,25 @@ const UserForm = () => {
       return;
     }
 
+    // Format validation (email/username/phone). Catch these client-side so the
+    // user sees the constraint inline instead of as a backend 400.
+    const fieldsToValidate = ['email', 'phone'];
+    if (!hideAccountFields) fieldsToValidate.push('username');
+    if (formData.role === 'STUDENT') {
+      fieldsToValidate.push('parentEmail', 'parentPhone', 'emergencyContact');
+    }
+    const nextFieldErrors = {};
+    fieldsToValidate.forEach((field) => {
+      const message = validateField(field, formData[field]);
+      if (message) nextFieldErrors[field] = message;
+    });
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setError('Please fix the highlighted fields before submitting.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const userData = {
         firstName: formData.firstName,
@@ -388,7 +411,41 @@ const UserForm = () => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(''); // Clear error when user starts typing
+    if (error) setError(''); // Clear form-level error when user starts typing
+    // Clear this field's inline error as the user edits it.
+    setFieldErrors(prev => (prev[field] ? { ...prev, [field]: '' } : prev));
+  };
+
+  // Returns a format-error message for a field, or '' if it's valid. Empty
+  // optional fields are always valid here — required-ness is enforced separately.
+  const validateField = (field, rawValue) => {
+    const value = (rawValue ?? '').toString().trim();
+    switch (field) {
+      case 'email':
+        if (!value) return 'Email is required';
+        if (!isValidEmail(value)) return 'Enter a valid email address';
+        return '';
+      case 'username':
+        // Optional, but the backend stores the username as an email, so a
+        // non-blank value must be email-format.
+        if (value && !isValidEmail(value)) return 'Username must be a valid email';
+        return '';
+      case 'parentEmail':
+        if (value && !isValidEmail(value)) return 'Enter a valid email address';
+        return '';
+      case 'phone':
+      case 'parentPhone':
+      case 'emergencyContact':
+        if (value && !isValidPhone(value)) return 'Enter a valid phone number';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  const handleBlur = (field) => {
+    const message = validateField(field, formData[field]);
+    setFieldErrors(prev => ({ ...prev, [field]: message }));
   };
 
   const generatePassword = () => {
@@ -446,6 +503,7 @@ const UserForm = () => {
           <form
             id={FORM_ID}
             onSubmit={handleSubmit}
+            noValidate
             className="[&>section+section]:mt-6 [&>section+section]:border-t [&>section+section]:border-border [&>section+section]:pt-6"
           >
             {/* ---- Basic information (all roles) ---- */}
@@ -477,6 +535,8 @@ const UserForm = () => {
                   required
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  error={fieldErrors.email}
                   placeholder="email@example.com"
                   description="Updates the user's sign-in email in Cognito."
                   disabled={loading}
@@ -489,15 +549,19 @@ const UserForm = () => {
                     required
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
+                    onBlur={() => handleBlur('email')}
+                    error={fieldErrors.email}
                     placeholder="email@example.com"
                     disabled={loading}
                   />
                   <Input
                     label="Username"
-                    description="Leave blank to use email"
+                    description="Optional — must be a valid email; leave blank to use the email above"
                     value={formData.username}
                     onChange={(e) => handleInputChange('username', e.target.value)}
-                    placeholder="Optional"
+                    onBlur={() => handleBlur('username')}
+                    error={fieldErrors.username}
+                    placeholder="name@example.com"
                     disabled={loading}
                   />
                 </TwoCol>
@@ -509,7 +573,10 @@ const UserForm = () => {
                   label="Phone Number"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="Phone number"
+                  onBlur={() => handleBlur('phone')}
+                  error={fieldErrors.phone}
+                  placeholder="e.g. +1 555 123 4567"
+                  description="Digits, spaces, + and - only"
                   disabled={loading}
                 />
 
@@ -695,7 +762,9 @@ const UserForm = () => {
                       label="Parent Phone"
                       value={formData.parentPhone}
                       onChange={(e) => handleInputChange('parentPhone', e.target.value)}
-                      placeholder="Parent phone number"
+                      onBlur={() => handleBlur('parentPhone')}
+                      error={fieldErrors.parentPhone}
+                      placeholder="e.g. +1 555 123 4567"
                       disabled={loading}
                     />
                   </TwoCol>
@@ -704,6 +773,8 @@ const UserForm = () => {
                     label="Parent Email"
                     value={formData.parentEmail}
                     onChange={(e) => handleInputChange('parentEmail', e.target.value)}
+                    onBlur={() => handleBlur('parentEmail')}
+                    error={fieldErrors.parentEmail}
                     placeholder="parent@email.com"
                     disabled={loading}
                   />
@@ -752,7 +823,9 @@ const UserForm = () => {
                     label="Emergency Contact"
                     value={formData.emergencyContact}
                     onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                    placeholder="Emergency contact number"
+                    onBlur={() => handleBlur('emergencyContact')}
+                    error={fieldErrors.emergencyContact}
+                    placeholder="e.g. +1 555 123 4567"
                     disabled={loading}
                   />
                 </Section>
