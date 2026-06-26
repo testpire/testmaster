@@ -338,6 +338,35 @@ const UserForm = () => {
       let result;
       if (editMode && existingUser) {
         result = await newUserService.updateUser(existingUser.id, userData);
+
+        // The role-specific update endpoints (PUT /students|teachers/{id}) don't carry
+        // email — it lives on the core user record. If the admin changed it, persist it
+        // through the user endpoint (the same path the super-admin dashboard uses).
+        const newEmail = formData.email.trim();
+        const emailChanged =
+          !result.error &&
+          (userRole === 'STUDENT' || userRole === 'TEACHER') &&
+          newEmail &&
+          newEmail.toLowerCase() !== (existingUser.email || '').trim().toLowerCase();
+
+        if (emailChanged) {
+          const emailResult = await newUserService.updateUserProfile(existingUser.id, {
+            email: newEmail,
+            username: formData.username || existingUser.username || newEmail,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            role: userRole,
+            instituteId: formData.instituteId,
+          });
+          if (emailResult.error) {
+            setError(
+              (emailResult.error.message || 'The email could not be updated') +
+                ' — other changes were saved.'
+            );
+            setLoading(false);
+            return;
+          }
+        }
       } else {
         result = await newUserService.createUserProfile(userData);
       }
@@ -373,8 +402,10 @@ const UserForm = () => {
     userRole === 'INST_ADMIN' ? 'Institute Admin' :
     'Student';
 
-  // Email / username / password are only editable while creating a teacher or
-  // student (they're immutable account credentials once provisioned).
+  // When editing a teacher/student, username + password are immutable account
+  // credentials (set at creation) so we hide them. Email stays editable — it's a
+  // fallback for fixing a wrong/lost sign-in address — and is persisted via the
+  // user endpoint after the role-specific save (see handleSubmit).
   const hideAccountFields = (userRole === 'TEACHER' || userRole === 'STUDENT') && editMode;
 
   const submitVariant =
@@ -437,7 +468,20 @@ const UserForm = () => {
                 />
               </TwoCol>
 
-              {!hideAccountFields && (
+              {hideAccountFields ? (
+                /* Editing a student/teacher: email stays editable (admin fallback for a
+                   wrong/lost address) but username and password remain immutable. */
+                <Input
+                  type="email"
+                  label="Email Address"
+                  required
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="email@example.com"
+                  description="Updates the user's sign-in email in Cognito."
+                  disabled={loading}
+                />
+              ) : (
                 <TwoCol>
                   <Input
                     type="email"

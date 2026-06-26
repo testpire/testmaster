@@ -11,6 +11,7 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Icon from '../../components/AppIcon';
 import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
+import SetPasswordModal from '../../components/ui/SetPasswordModal';
 
 const StudentManagement = () => {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ const StudentManagement = () => {
   const [totalStudents, setTotalStudents] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  // Student whose password the admin is setting (drives SetPasswordModal); null = closed.
+  const [passwordTarget, setPasswordTarget] = useState(null);
 
   // Course / batch filter state
   const [courses, setCourses] = useState([]);
@@ -502,6 +505,18 @@ const StudentManagement = () => {
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setPasswordTarget(student);
+                              }}
+                              className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
+                              title="Set password"
+                            >
+                              <Icon name="KeyRound" size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleDeleteStudent(student.id);
                               }}
                               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
@@ -549,6 +564,22 @@ const StudentManagement = () => {
             </div>
           )}
         </div>
+
+      <SetPasswordModal
+        isOpen={!!passwordTarget}
+        user={passwordTarget}
+        onClose={() => setPasswordTarget(null)}
+        onSuccess={(permanent) => {
+          const name = `${passwordTarget?.firstName || ''} ${passwordTarget?.lastName || ''}`.trim()
+            || passwordTarget?.username || 'student';
+          setPasswordTarget(null);
+          alert(
+            permanent
+              ? `Password set for ${name}. They can sign in with it right away.`
+              : `Temporary password set for ${name}. They'll be asked to change it at next login.`
+          );
+        }}
+      />
     </PageLayout>
   );
 };

@@ -33,7 +33,7 @@ const QuestionCard = ({
   // Publish / draft wiring.
   onPublish,
   publishing = false,
-  // Multi-select (used for bulk publish on the Draft tab).
+  // Multi-select (used for bulk status changes on both tabs).
   selectable = false,
   selected = false,
   onToggleSelect
@@ -133,14 +133,14 @@ const QuestionCard = ({
       {/* Question Header */}
       <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Selection checkbox (bulk publish) */}
+          {/* Selection checkbox (bulk status change) */}
           {selectable && (
             <input
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.(safeQuestion.id)}
               className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-              title="Select for bulk publish"
+              title="Select for bulk action"
             />
           )}
 

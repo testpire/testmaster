@@ -100,7 +100,7 @@ const QuestionBank = () => {
   // Totals shown on the tabs, scoped to the current filters so they match the list.
   const [counts, setCounts] = useState({ published: 0, draft: 0 });
 
-  // Bulk-publish selection (Draft tab only) + in-flight publish tracking.
+  // Bulk status-change selection (both tabs) + in-flight publish tracking.
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [publishingId, setPublishingId] = useState(null);
   const [bulkPublishing, setBulkPublishing] = useState(false);
@@ -558,29 +558,36 @@ const QuestionBank = () => {
     shiftCounts(publish ? 1 : -1, publish ? -1 : 1);
   };
 
-  // Bulk publish the selected drafts (Draft tab only). Sequential so failures are
-  // isolated; failed ids stay selected for a retry.
-  const handleBulkPublish = async () => {
+  // Bulk-flip the selected questions to the opposite of the current tab's state:
+  // Draft tab → publish, Published tab → move back to draft. Sequential so failures
+  // are isolated; failed ids stay selected for a retry.
+  const handleBulkStatusChange = async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0 || bulkPublishing) return;
     setBulkPublishing(true);
     setError(null);
 
+    const toDraft = !isDraftTab; // Published tab unpublishes; Draft tab publishes.
     const failed = [];
     const succeeded = [];
     for (const id of ids) {
-      const result = await questionService.setQuestionDraftMode(id, false); // publish
+      const result = await questionService.setQuestionDraftMode(id, toDraft);
       if (result?.error) failed.push(id);
       else succeeded.push(id);
     }
 
     if (succeeded.length > 0) {
       dropFromList(succeeded, succeeded.length);
-      shiftCounts(succeeded.length, -succeeded.length);
+      // toDraft: -published/+draft. publish: +published/-draft.
+      shiftCounts(
+        toDraft ? -succeeded.length : succeeded.length,
+        toDraft ? succeeded.length : -succeeded.length
+      );
     }
     setSelectedIds(new Set(failed)); // keep only failures selected for retry
     if (failed.length > 0) {
-      setError(`${failed.length} question(s) couldn't be published. Try again.`);
+      const verb = toDraft ? 'moved to draft' : 'published';
+      setError(`${failed.length} question(s) couldn't be ${verb}. Try again.`);
     }
     setBulkPublishing(false);
   };
@@ -907,30 +914,34 @@ const QuestionBank = () => {
               </div>
             )}
 
-        {/* Bulk-publish action strip (Draft tab) */}
-        {isDraftTab && !loading && selectedQuestions.length > 0 && (
-          <div className="bg-warning/10 border-b border-warning/30 px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-warning cursor-pointer select-none">
+        {/* Bulk status-change action strip — Draft tab publishes, Published tab moves to draft */}
+        {!loading && selectedQuestions.length > 0 && (
+          <div className="bg-muted/40 border-b border-border px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-warning/40 text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
               />
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
             </label>
             <Button
-              variant="success"
+              variant={isDraftTab ? 'success' : 'warning'}
               size="sm"
-              onClick={handleBulkPublish}
+              onClick={handleBulkStatusChange}
               disabled={selectedIds.size === 0 || bulkPublishing}
-              iconName={bulkPublishing ? 'Loader2' : 'CheckCircle'}
+              iconName={bulkPublishing ? 'Loader2' : isDraftTab ? 'CheckCircle' : 'FileText'}
               iconPosition="left"
               className={`text-sm ${bulkPublishing ? 'animate-pulse' : ''}`}
             >
               {bulkPublishing
-                ? 'Publishing…'
-                : `Publish selected${selectedIds.size ? ` (${selectedIds.size})` : ''}`}
+                ? isDraftTab
+                  ? 'Publishing…'
+                  : 'Moving…'
+                : `${isDraftTab ? 'Publish selected' : 'Move to draft'}${
+                    selectedIds.size ? ` (${selectedIds.size})` : ''
+                  }`}
             </Button>
           </div>
         )}
@@ -1022,7 +1033,7 @@ const QuestionBank = () => {
                       String(publishingId) === String(question?.id) ||
                       (bulkPublishing && selectedIds.has(question?.id))
                     }
-                    selectable={isDraftTab}
+                    selectable
                     selected={selectedIds.has(question?.id)}
                     onToggleSelect={toggleSelect}
                   />

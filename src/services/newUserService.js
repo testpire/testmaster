@@ -69,6 +69,30 @@ export const newUserService = {
     }
   },
 
+  // Admin: directly set a user's Cognito password — fallback for when Cognito's
+  // invite/reset email never arrives. permanent=true makes the password
+  // immediately usable (hard reset); permanent=false forces the user to change it
+  // at next login (Cognito FORCE_CHANGE_PASSWORD → NEW_PASSWORD_REQUIRED, which the
+  // app's set-password flow already handles). Endpoint is keyed by user id, not role.
+  async setUserPassword(userId, newPassword, permanent = false) {
+    try {
+      const { data, error, success } = await post(`/users/${userId}/set-password`, {
+        newPassword,
+        permanent,
+      });
+
+      // Response is ApiResponseDtoVoid — data may be null even on success, so key
+      // the result on `success`, not on a truthy payload.
+      if (success) {
+        return { data: data ?? null, error: null };
+      }
+
+      return { data: null, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
   // Update teacher using TeacherController
   async updateTeacher(teacherId, teacherData) {
     try {

@@ -8,6 +8,7 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import InfiniteScrollSentinel from '../../components/ui/InfiniteScrollSentinel';
+import SetPasswordModal from '../../components/ui/SetPasswordModal';
 
 const TeacherManagement = () => {
   const { user, userProfile } = useAuth();
@@ -31,6 +32,8 @@ const TeacherManagement = () => {
   const [totalTeachers, setTotalTeachers] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  // Teacher whose password the admin is setting (drives SetPasswordModal); null = closed.
+  const [passwordTarget, setPasswordTarget] = useState(null);
 
   // Institute data for filtering
   const [instituteData, setInstituteData] = useState({
@@ -352,6 +355,15 @@ const TeacherManagement = () => {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => setPasswordTarget(teacher)}
+                              className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
+                              title="Set password"
+                            >
+                              <Icon name="KeyRound" size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleDeleteTeacher(teacher.id)}
                               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                               title="Delete teacher"
@@ -393,6 +405,22 @@ const TeacherManagement = () => {
             </div>
           )}
         </div>
+
+      <SetPasswordModal
+        isOpen={!!passwordTarget}
+        user={passwordTarget}
+        onClose={() => setPasswordTarget(null)}
+        onSuccess={(permanent) => {
+          const name = `${passwordTarget?.firstName || ''} ${passwordTarget?.lastName || ''}`.trim()
+            || passwordTarget?.username || 'teacher';
+          setPasswordTarget(null);
+          alert(
+            permanent
+              ? `Password set for ${name}. They can sign in with it right away.`
+              : `Temporary password set for ${name}. They'll be asked to change it at next login.`
+          );
+        }}
+      />
     </PageLayout>
   );
 };
