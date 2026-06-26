@@ -12,14 +12,21 @@ import {
   TARGET_TYPE_LABEL,
   TARGET_TYPE_ICON,
   formatDateTime,
-  toUtcIso
+  toUtcIso,
+  getTestAvailability,
+  isNotTakeable
 } from '../testConstants';
 
 // Assign a test to a COURSE, BATCH or STUDENT and manage existing assignments.
 // Assignment is resolved server-side: a COURSE assignment reaches every batch and
 // student in it; a BATCH assignment reaches every student in it. Each assignment
-// can carry its own availability window.
-const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
+// can carry its own availability window — but that window can only *narrow* within
+// the test's own window, never widen it (see the guard banner below).
+//
+// `onReopenWindow` (optional) is invoked by the "Reopen / extend test window" CTA in
+// the guard banner — the parent closes this modal and opens the test's edit form so
+// the user can fix the test-level window that's blocking the assignment.
+const AssignTestModal = ({ isOpen, onClose, onChanged, test, onReopenWindow }) => {
   const [assignments, setAssignments] = useState([]);
   const [courses, setCourses] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -133,7 +140,12 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
 
   const inputCls =
     'w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/70 focus:border-primary';
-  const isDraft = (test?.status || '').toUpperCase() === 'DRAFT';
+
+  // The test's own availability gate. When it isn't currently takeable (draft, not
+  // yet open, or expired), an assignment — however well-timed its own window — won't
+  // let anyone take the test. Warn loudly so the assign action isn't a silent no-op.
+  const availability = getTestAvailability(test);
+  const blockedByTestWindow = isNotTakeable(availability.state);
 
   return (
     <Modal
@@ -156,12 +168,51 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
             </div>
           )}
 
-          {isDraft && (
-            <div className="p-3 bg-warning/15 border border-warning/40 rounded-lg flex items-start gap-2">
-              <Icon name="AlertTriangle" size={16} className="text-warning mt-0.5" />
-              <p className="text-warning text-sm">
-                This test is still a <strong>draft</strong>. Publish it so assigned students can take it.
-              </p>
+          {blockedByTestWindow && (
+            <div
+              className={`p-3 rounded-lg border flex items-start gap-2 ${
+                availability.state === 'EXPIRED'
+                  ? 'bg-destructive/10 border-destructive/30'
+                  : 'bg-warning/15 border-warning/40'
+              }`}
+            >
+              <Icon
+                name="AlertTriangle"
+                size={16}
+                className={`mt-0.5 ${availability.state === 'EXPIRED' ? 'text-destructive' : 'text-warning'}`}
+              />
+              <div className="min-w-0 space-y-2">
+                <p className={`text-sm ${availability.state === 'EXPIRED' ? 'text-destructive' : 'text-warning'}`}>
+                  {availability.state === 'DRAFT' ? (
+                    <>
+                      This test is still a <strong>draft</strong>. Assigning it won&apos;t let anyone
+                      take it until you publish it.
+                    </>
+                  ) : availability.state === 'SCHEDULED' ? (
+                    <>
+                      This test&apos;s own window hasn&apos;t opened yet ({availability.detail.replace(/ —.*/, '')}).
+                      Assignments can only narrow <em>within</em> that window — no one can take it before it opens.
+                    </>
+                  ) : (
+                    <>
+                      This test&apos;s own window <strong>expired</strong> ({formatDateTime(test?.availableUntil)}).
+                      Assigning it won&apos;t let anyone take it until you reopen the test window.
+                    </>
+                  )}
+                </p>
+                {availability.state !== 'DRAFT' && onReopenWindow && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onReopenWindow}
+                    iconName="CalendarClock"
+                    iconPosition="left"
+                  >
+                    Reopen / extend test window
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
@@ -257,26 +308,38 @@ const AssignTestModal = ({ isOpen, onClose, onChanged, test }) => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Available From <span className="text-muted-foreground">(optional)</span>
-                </label>
-                <DateTimePicker
-                  mode="datetime"
-                  value={form.availableFrom}
-                  onChange={(v) => setField('availableFrom', v)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Available Until <span className="text-muted-foreground">(optional)</span>
-                </label>
-                <DateTimePicker
-                  mode="datetime"
-                  value={form.availableUntil}
-                  onChange={(v) => setField('availableUntil', v)}
-                />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Limit this assignment to a time window{' '}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-2 flex items-start gap-1">
+                <Icon name="Info" size={12} className="mt-0.5 flex-shrink-0" />
+                Narrows <em>within</em> the test&apos;s own window
+                {(test?.availableFrom || test?.availableUntil) && (
+                  <span>
+                    {' '}({formatDateTime(test?.availableFrom)} → {formatDateTime(test?.availableUntil)})
+                  </span>
+                )}
+                . Leave blank to use the test&apos;s window.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">From</label>
+                  <DateTimePicker
+                    mode="datetime"
+                    value={form.availableFrom}
+                    onChange={(v) => setField('availableFrom', v)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Until</label>
+                  <DateTimePicker
+                    mode="datetime"
+                    value={form.availableUntil}
+                    onChange={(v) => setField('availableUntil', v)}
+                  />
+                </div>
               </div>
             </div>
 

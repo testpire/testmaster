@@ -13,6 +13,7 @@ import SuperAdminDashboard from './pages/super-admin-dashboard';
 import QuestionBank from './pages/question-bank';
 import AddQuestions from './pages/add-questions';
 import TestManagement from './pages/test-management';
+import TestDetail from './pages/test-detail';
 import StudentTests from './pages/student-tests';
 import StudentResults from './pages/student-results';
 import TestResult from './pages/test-result';
@@ -78,6 +79,7 @@ const Routes = () => {
 
           {/* Test authoring — shared between SUPER_ADMIN, INST_ADMIN and TEACHER */}
           <Route path="/test-management" element={<ProtectedTestManagementRoutes><TestManagement /></ProtectedTestManagementRoutes>} />
+          <Route path="/test-management/:testId" element={<ProtectedTestManagementRoutes><TestDetail /></ProtectedTestManagementRoutes>} />
 
           {/* Institute Admin and other roles (role-guarded) */}
           <Route path="/inst-admin-dashboard" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'INST_ADMIN', 'INSTITUTE_ADMIN', 'ADMIN']}><InstituteAdminDashboard /></ProtectedRoute>} />

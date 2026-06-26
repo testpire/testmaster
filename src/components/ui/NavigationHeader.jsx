@@ -78,6 +78,8 @@ const NavigationHeader = ({
   // Student-only: tests assigned to the student that they haven't attempted yet.
   // Fetched once on mount; non-students keep an empty list (blank dropdown).
   const [testNotifications, setTestNotifications] = useState([]);
+  // IDs dismissed by the student this session (persisted to localStorage per user).
+  const [dismissedIds, setDismissedIds] = useState(new Set());
 
   // For non-super-admin roles, resolve the user's fixed institute (name + logo)
   // to show top-left. Uses skipAuthRedirect so a forbidden read can't force a logout.
@@ -139,7 +141,36 @@ const NavigationHeader = ({
     return () => { mounted = false; };
   }, [isStudent]);
 
-  const notificationCount = isStudent ? testNotifications.length : notifications;
+  // Load per-user dismissed IDs from localStorage when user identity resolves.
+  const userId = userProfile?.id || user?.id || '';
+  useEffect(() => {
+    if (!userId || !isStudent) return;
+    try {
+      const raw = localStorage.getItem(`notif_dismissed_${userId}`);
+      if (raw) setDismissedIds(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, [userId, isStudent]);
+
+  const persistDismissed = (ids) => {
+    if (!userId) return;
+    try { localStorage.setItem(`notif_dismissed_${userId}`, JSON.stringify([...ids])); } catch {}
+  };
+
+  const dismissNotification = (id) => {
+    const next = new Set(dismissedIds);
+    next.add(id);
+    setDismissedIds(next);
+    persistDismissed(next);
+  };
+
+  const dismissAll = () => {
+    const next = new Set(testNotifications.map((n) => n.id));
+    setDismissedIds(next);
+    persistDismissed(next);
+  };
+
+  const visibleNotifications = testNotifications.filter((n) => !dismissedIds.has(n.id));
+  const notificationCount = isStudent ? visibleNotifications.length : notifications;
 
   const handleUserMenuToggle = () => {
     setShowUserMenu(!showUserMenu);
@@ -179,9 +210,14 @@ const NavigationHeader = ({
   };
 
   const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'super-admin':
+    switch ((role || '').toString().toLowerCase().replace(/-/g, '_')) {
+      case 'super_admin':
+      case 'superadmin':
         return 'Super Admin';
+      case 'inst_admin':
+      case 'institute_admin':
+      case 'admin':
+        return 'Admin';
       case 'teacher':
         return 'Teacher';
       case 'student':
@@ -350,16 +386,28 @@ const NavigationHeader = ({
             {/* Notifications Dropdown */}
             {showNotifications && (
               <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1rem)] bg-popover border border-border rounded-lg shadow-lg z-[1010]">
-                <div className="p-4 border-b border-border">
+                <div className="p-4 border-b border-border flex items-center justify-between">
                   <h3 className="font-medium text-popover-foreground">Notifications</h3>
+                  {visibleNotifications.length > 0 && (
+                    <button
+                      onClick={dismissAll}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {testNotifications.length > 0 ? (
+                  {visibleNotifications.length > 0 ? (
                     <div className="p-4 space-y-3">
-                      {testNotifications.map((n) => (
+                      {visibleNotifications.map((n) => (
                         <button
                           key={n.id}
-                          onClick={() => { setShowNotifications(false); navigate('/my-tests'); }}
+                          onClick={() => {
+                            dismissNotification(n.id);
+                            setShowNotifications(false);
+                            navigate('/my-tests');
+                          }}
                           className="w-full flex items-start space-x-3 text-left hover:bg-muted -mx-2 px-2 py-1 rounded transition-colors"
                         >
                           <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>

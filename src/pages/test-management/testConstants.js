@@ -156,3 +156,76 @@ export const isWithinWindow = (from, until) => {
   if (until && new Date(until) < now) return false;
   return true;
 };
+
+// Parse an API timestamp the same way formatDateTime / isFutureIso do: a zone-less
+// string is treated as UTC (the backend stores UTC), so comparisons against `now`
+// don't drift by the viewer's offset. Returns a Date or null.
+const parseApiDate = (value) => {
+  if (!value) return null;
+  let s = String(value);
+  if (!/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) s = s.replace(' ', 'T') + 'Z';
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// The single source of truth for "can a student take this test right now", combining
+// the publish status with the test-level availability window. This is the gate an
+// assignment window can only *narrow*, never widen — so an EXPIRED/SCHEDULED/DRAFT
+// test stays unreachable no matter what window an assignment carries. The detail page
+// surfaces it as a pill and the Assign flow guards against the not-takeable states.
+//   DRAFT       — not published yet; invisible to students regardless of window.
+//   SCHEDULED   — published, but availableFrom is still in the future.
+//   OPEN        — published and inside the window (or no window set).
+//   EXPIRED     — published, but availableUntil has passed.
+//   ALWAYS_OPEN — published with no window at all (a kind of OPEN; flagged for copy).
+// Returns { state, label, detail } — `detail` is a short human sentence for tooltips/banners.
+export const getTestAvailability = (test) => {
+  const status = (test?.status || '').toUpperCase();
+  if (status !== 'PUBLISHED') {
+    return {
+      state: 'DRAFT',
+      label: 'Draft',
+      detail: 'Not published yet — students can’t see or take it. Publish to make it takeable.',
+    };
+  }
+
+  const from = parseApiDate(test?.availableFrom);
+  const until = parseApiDate(test?.availableUntil);
+  const now = new Date();
+
+  if (from && from > now) {
+    return {
+      state: 'SCHEDULED',
+      label: 'Scheduled',
+      detail: `Opens ${formatDateTime(test.availableFrom)} — not takeable until then.`,
+    };
+  }
+  if (until && until < now) {
+    return {
+      state: 'EXPIRED',
+      label: 'Expired',
+      detail: `Closed ${formatDateTime(test.availableUntil)} — students can no longer take it.`,
+    };
+  }
+  if (!from && !until) {
+    return { state: 'ALWAYS_OPEN', label: 'Open', detail: 'Open with no time limit.' };
+  }
+  return {
+    state: 'OPEN',
+    label: 'Open now',
+    detail: until ? `Open — closes ${formatDateTime(test.availableUntil)}.` : 'Open now.',
+  };
+};
+
+// True when the test is *not* currently takeable — the states the Assign flow warns on.
+export const isNotTakeable = (state) =>
+  state === 'DRAFT' || state === 'SCHEDULED' || state === 'EXPIRED';
+
+// Badge palette for the availability states (mirrors TEST_STATUS_BADGE tones).
+export const TEST_AVAILABILITY_BADGE = {
+  OPEN: 'bg-success/15 text-success',
+  ALWAYS_OPEN: 'bg-success/15 text-success',
+  SCHEDULED: 'bg-warning/15 text-warning',
+  EXPIRED: 'bg-destructive/10 text-destructive',
+  DRAFT: 'bg-warning/15 text-warning',
+};

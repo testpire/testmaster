@@ -1,5 +1,6 @@
 import { get, post, put, del } from '../lib/apiClient';
 import { unwrapOne, unwrapList } from '../utils/responseHelpers';
+import { hasLatex } from '../components/MathText';
 
 // Test service — backs the full test lifecycle against the TestPire REST API:
 //   • Staff (Test Management + Test Assignment): create/curate/publish tests, assign
@@ -220,7 +221,19 @@ export const newTestService = {
         { skipAuthRedirect: true }
       );
       if (!success) return { data: null, error };
-      return { data: unwrapOne(data), error: null };
+      const attempt = unwrapOne(data);
+      // The staff endpoint may omit textFormat or return 'PLAIN' on question objects
+      // even when options contain LaTeX ($…$). Back-fill it via auto-detection so the
+      // admin's Attempt Detail renders math identically to the student's result page.
+      if (attempt?.questions) {
+        attempt.questions = attempt.questions.map((q) => {
+          if (q.textFormat && q.textFormat !== 'PLAIN') return q;
+          const anyLatex =
+            hasLatex(q.text) || (q.options || []).some((o) => hasLatex(o.text));
+          return anyLatex ? { ...q, textFormat: 'LATEX' } : q;
+        });
+      }
+      return { data: attempt, error: null };
     } catch (error) {
       return { data: null, error: { message: error?.message || 'Failed to load attempt' } };
     }
