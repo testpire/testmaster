@@ -45,23 +45,46 @@ const StudentResults = () => {
       setLoading(true);
       setError(null);
 
-      // Prefer the dedicated attempts list; fall back to the assigned-tests feed
-      // while that endpoint is still being built.
-      const attemptsRes = await newTestService.getMyAttempts();
+      // The attempts list is the authoritative result history but does NOT carry a
+      // `type` field, so we can't tell a graded test from a practice (DPP) set from it
+      // alone. The available-tests feed *does* carry `type` (keyed by testId), so we
+      // fetch both in parallel and stamp each attempt with its test's type.
+      //
+      // Limitation: `available` only lists currently-open tests, so a *closed* practice
+      // set won't be in the map and falls back to TEST. The real fix is for the backend
+      // to include `type` on the attempts-list response — then the map is unnecessary.
+      const [attemptsRes, availRes] = await Promise.all([
+        newTestService.getMyAttempts(),
+        newTestService.getAvailableTests()
+      ]);
       if (!active) return;
+
+      const typeById = {};
+      if (Array.isArray(availRes.data)) {
+        for (const a of availRes.data) {
+          const id = a.testId ?? a.id;
+          if (id != null && a.type) typeById[String(id)] = normalizeTestType(a.type);
+        }
+      }
+      // Resolve each row's type: trust an explicit `type` if present, else the map.
+      const annotate = (rows) =>
+        rows.map((r) =>
+          r.type ? r : { ...r, type: typeById[String(r.testId ?? r.id)] }
+        );
+
+      // Prefer the dedicated attempts list; fall back to the assigned-tests feed
+      // (which is the same `available` payload we already fetched for the type map).
       if (!attemptsRes.error && Array.isArray(attemptsRes.data) && attemptsRes.data.length > 0) {
-        setTests(attemptsRes.data);
+        setTests(annotate(attemptsRes.data));
         setLoading(false);
         return;
       }
 
-      const { data, error: err } = await newTestService.getAvailableTests();
-      if (!active) return;
-      if (err) {
-        setError(err.message || 'Failed to load your results');
+      if (availRes.error) {
+        setError(availRes.error.message || 'Failed to load your results');
         setTests([]);
       } else {
-        setTests(Array.isArray(data) ? data : []);
+        setTests(Array.isArray(availRes.data) ? availRes.data : []);
       }
       setLoading(false);
     })();
@@ -168,7 +191,7 @@ const StudentResults = () => {
               const tt = getType(t);
               return (
                 <button
-                  key={getTestId(t)}
+                  key={attemptId}
                   onClick={() => navigate(`/test-result/${attemptId}`)}
                   className="w-full text-left bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-primary/30 hover:bg-muted/20 transition-colors"
                 >
