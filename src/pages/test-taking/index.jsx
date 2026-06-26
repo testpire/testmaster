@@ -3,7 +3,14 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import TestSecurityWrapper from '../../components/ui/TestSecurityWrapper';
+import AttemptUnavailable from '../../components/test/AttemptUnavailable';
 import { newTestService } from '../../services/newTestService';
+import {
+  getAttemptStatus,
+  isAttemptTerminal,
+  isUsableAttempt,
+  isTransientAttemptError,
+} from '../../utils/attemptStatus';
 import { resolveImagePath, formatDateTime, isFutureIso } from '../test-management/testConstants';
 import MathText from '../../components/MathText';
 import QuestionContent from '../../components/QuestionContent';
@@ -26,6 +33,9 @@ const TestTaking = () => {
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // The URL :attemptId isn't trusted — when it's invalid or not this student's,
+  // we show a clean "not available" screen and bounce to /my-tests.
+  const [unavailable, setUnavailable] = useState(false);
 
   // answers: Map<questionId, number[]> (selected option ids)
   const [answers, setAnswers] = useState(new Map());
@@ -60,11 +70,30 @@ const TestTaking = () => {
       setError(null);
       const { data, error: err } = await newTestService.getAttempt(attemptId);
       if (!active) return;
-      if (err || !data) {
-        setError(err?.message || 'Failed to load the test attempt');
+
+      // Gate all rendering on a usable payload. The backend scopes attempts to
+      // the JWT user and returns HTTP 400 for a missing/unowned id (no data
+      // leak), so separate a transient failure (network / 5xx — worth retrying)
+      // from "not yours / doesn't exist" (a clean redirect, never the raw
+      // "Attempt not found with ID: …" message).
+      if (err || !isUsableAttempt(data)) {
+        if (isTransientAttemptError(err)) {
+          setError(err?.message || 'Something went wrong loading this test. Please try again.');
+        } else {
+          setUnavailable(true);
+        }
         setLoading(false);
         return;
       }
+
+      // A valid attempt that's already finished isn't takeable — send it to the
+      // result page. This only fires when *loading* a terminal attempt; an
+      // in-session submit shows the inline result screen via doSubmit instead.
+      if (isAttemptTerminal(getAttemptStatus(data))) {
+        navigate(`/test-result/${attemptId}`, { replace: true });
+        return; // keep the spinner up until the route changes
+      }
+
       setAttempt(data);
 
       // Seed previously-saved answers so a reload restores the student's selections.
@@ -92,14 +121,6 @@ const TestTaking = () => {
         seedAnswer(qid, a.selectedOptionIds || a.optionIds || (a.selectedOptionId != null ? [a.selectedOptionId] : []));
       });
       setAnswers(seed);
-
-      // If already submitted, jump straight to the result view.
-      const status = (data.status || data.attemptStatus || '').toUpperCase();
-      if (status === 'SUBMITTED' || status === 'COMPLETED' || status === 'GRADED') {
-        setResult(data);
-        setLoading(false);
-        return;
-      }
 
       // Establish the countdown deadline. The attempt payload isn't strongly typed,
       // so try every plausible field for an explicit remaining time, then an explicit
@@ -151,6 +172,14 @@ const TestTaking = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
+
+  // When the attempt isn't available to this student, show the explanation
+  // briefly, then send them back to their tests list (also reachable by button).
+  useEffect(() => {
+    if (!unavailable) return;
+    const t = setTimeout(() => navigate('/my-tests', { replace: true }), 3000);
+    return () => clearTimeout(t);
+  }, [unavailable, navigate]);
 
   const questions = useMemo(() => {
     if (!attempt) return [];
@@ -375,6 +404,16 @@ const TestTaking = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
       </div>
+    );
+  }
+
+  if (unavailable) {
+    return (
+      <AttemptUnavailable
+        className="min-h-screen bg-background"
+        backLabel="Back to My Tests"
+        onBack={() => navigate('/my-tests', { replace: true })}
+      />
     );
   }
 
