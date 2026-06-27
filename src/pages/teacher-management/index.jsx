@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
+import useMyPermissions from '../../hooks/useMyPermissions';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
 import PageLayout from '../../components/layout/PageLayout';
@@ -13,7 +14,8 @@ import SetPasswordModal from '../../components/ui/SetPasswordModal';
 const TeacherManagement = () => {
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
-  
+  const { can } = useMyPermissions();
+
   // Try to get SuperAdmin context (will be null if not in super admin routes)
   let superAdminContext = null;
   try {
@@ -343,33 +345,39 @@ const TeacherManagement = () => {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditTeacher(teacher)}
-                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                              title="Edit teacher"
-                            >
-                              <Icon name="Edit" size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setPasswordTarget(teacher)}
-                              className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
-                              title="Set password"
-                            >
-                              <Icon name="KeyRound" size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteTeacher(teacher.id)}
-                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                              title="Delete teacher"
-                            >
-                              <Icon name="Trash2" size={16} />
-                            </Button>
+                            {can('TEACHER_UPDATE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditTeacher(teacher)}
+                                className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                title="Edit teacher"
+                              >
+                                <Icon name="Edit" size={16} />
+                              </Button>
+                            )}
+                            {can('TEACHER_UPDATE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setPasswordTarget(teacher)}
+                                className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
+                                title="Set password"
+                              >
+                                <Icon name="KeyRound" size={16} />
+                              </Button>
+                            )}
+                            {can('TEACHER_DELETE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteTeacher(teacher.id)}
+                                className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete teacher"
+                              >
+                                <Icon name="Trash2" size={16} />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

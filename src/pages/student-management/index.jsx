@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSuperAdmin } from '../../contexts/SuperAdminContext';
+import useMyPermissions from '../../hooks/useMyPermissions';
 import { newUserService } from '../../services/newUserService';
 import { newInstituteService } from '../../services/newInstituteService';
 import { courseService } from '../../services/courseService';
@@ -16,6 +17,7 @@ import SetPasswordModal from '../../components/ui/SetPasswordModal';
 const StudentManagement = () => {
   const navigate = useNavigate();
   const { user, userProfile } = useAuth();
+  const { can } = useMyPermissions();
 
   // Try to get SuperAdmin context for institute-change refetch
   let superAdminContext = null;
@@ -488,42 +490,48 @@ const StudentManagement = () => {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditStudent(student);
-                              }}
-                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                              title="Edit student"
-                            >
-                              <Icon name="Edit" size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPasswordTarget(student);
-                              }}
-                              className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
-                              title="Set password"
-                            >
-                              <Icon name="KeyRound" size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteStudent(student.id);
-                              }}
-                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                              title="Delete student"
-                            >
-                              <Icon name="Trash2" size={16} />
-                            </Button>
+                            {can('STUDENT_UPDATE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditStudent(student);
+                                }}
+                                className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                title="Edit student"
+                              >
+                                <Icon name="Edit" size={16} />
+                              </Button>
+                            )}
+                            {can('STUDENT_UPDATE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPasswordTarget(student);
+                                }}
+                                className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary"
+                                title="Set password"
+                              >
+                                <Icon name="KeyRound" size={16} />
+                              </Button>
+                            )}
+                            {can('STUDENT_DELETE') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteStudent(student.id);
+                                }}
+                                className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete student"
+                              >
+                                <Icon name="Trash2" size={16} />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
