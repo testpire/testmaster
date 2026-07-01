@@ -192,9 +192,17 @@ const TeacherDashboard = () => {
               </div>
 
               <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                <Button variant="outline" size="sm" onClick={fetchTeacherData}>
-                  <Icon name="RefreshCw" size={16} />
-                  <span className="hidden sm:inline">Refresh </span>Data
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchTeacherData}
+                  disabled={stats.loading}
+                  iconName={stats.loading ? 'Loader2' : 'RefreshCw'}
+                  className={stats.loading ? '[&_svg]:animate-spin' : ''}
+                  aria-label="Refresh data"
+                  title="Refresh data"
+                >
+                  <span className="hidden sm:inline">Refresh data</span>
                 </Button>
               </div>
             </div>

@@ -248,8 +248,17 @@ const InstituteAdminDashboard = () => {
               </div>
               
               <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                <Button variant="outline" size="sm" onClick={fetchInstituteData} aria-label="Refresh data" title="Refresh data">
-                  <Icon name="RefreshCw" size={16} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchInstituteData}
+                  disabled={instituteData.loading}
+                  iconName={instituteData.loading ? 'Loader2' : 'RefreshCw'}
+                  className={instituteData.loading ? '[&_svg]:animate-spin' : ''}
+                  aria-label="Refresh data"
+                  title="Refresh data"
+                >
+                  <span className="hidden sm:inline">Refresh data</span>
                 </Button>
               </div>
             </div>
