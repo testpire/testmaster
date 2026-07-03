@@ -312,7 +312,13 @@ export const questionService = {
     }
   },
 
-  async bulkUploadQuestions(file) {
+  // Bulk-upload a CSV of questions. `endpoint` selects the parser on the backend:
+  //   '/questions/bulk-upload'          → standard MCQ questions (default)
+  //   '/questions/bulk-upload/numeric'  → numeric/integer-answer questions
+  // Each supported format is declared in question-bank/questionUploadTypes.js;
+  // callers pass that type's `endpoint`. Defaulting to the MCQ endpoint keeps
+  // existing callers behaving exactly as before.
+  async bulkUploadQuestions(file, endpoint = '/questions/bulk-upload') {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -324,7 +330,7 @@ export const questionService = {
       const headers = { 'Content-Type': 'multipart/form-data' };
       if (scopedId != null) headers['X-Institute-Id'] = String(scopedId);
 
-      const response = await post('/questions/bulk-upload', formData, { headers });
+      const response = await post(endpoint, formData, { headers });
       
       return { 
         data: response?.data || { message: 'File uploaded successfully' }, 
