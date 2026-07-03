@@ -259,6 +259,22 @@ export const questionService = {
     return await courseService.getTopics(chapterId, pagination);
   },
 
+  // Return one real topic { code, name } from the current institute, used to
+  // pre-fill bulk-upload sample CSVs with a Topic code that actually resolves
+  // (the CSV's "Topic ID" column is matched against a topic *code*, not an id).
+  // Returns null when the institute has no topics or the fetch fails, so callers
+  // can fall back to a placeholder.
+  async getSampleTopic() {
+    try {
+      const { data } = await courseService.getTopics(null, { page: 0, size: 50 });
+      const topics = Array.isArray(data) ? data : [];
+      const match = topics.find((t) => t?.code);
+      return match ? { code: match.code, name: match.name } : null;
+    } catch (error) {
+      return null;
+    }
+  },
+
   // A question only carries topicId/topicName (no subject/chapter), so resolving
   // its full Subject→Chapter→Topic path means walking up: topic -> chapterId,
   // chapter -> subjectId. Used to prefill the inline topic editor.

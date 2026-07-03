@@ -19,21 +19,21 @@ const escapeCell = (value) => {
 const toCsv = (headers, rows) =>
   [headers, ...rows].map((row) => row.map(escapeCell).join(',')).join('\r\n');
 
-// A placeholder used in the sample rows for values the user MUST replace with
-// their own before uploading. Deliberately not a real id so an un-edited sample
-// fails loudly (topic-not-found) instead of silently importing into the wrong
-// place.
-export const TOPIC_ID_PLACEHOLDER = 'REPLACE_WITH_YOUR_TOPIC_ID';
+// Fallback for the Topic ID column when we couldn't fetch a real topic code from
+// the user's institute (e.g. the institute has no topics yet). The backend
+// resolves this column as a topic *code* (not a numeric id), so an unknown value
+// fails loudly ("Topic code ... does not exist") rather than importing anywhere.
+export const TOPIC_CODE_FALLBACK = 'REPLACE_WITH_YOUR_TOPIC_CODE';
 
 // Columns every row must be checked/edited for before upload, whatever the type.
 const COMMON_EDIT_COLUMNS = [
   {
     name: 'Question Id',
-    note: 'Your own reference id for each row. Must be unique within the file.',
+    note: 'Your own reference id for each row. Must be unique for each question',
   },
   {
     name: 'Topic ID',
-    note: 'The id of the topic these questions belong to in YOUR institute. The sample uses a placeholder — replace it.',
+    note: 'A Topic code that exists for your institute',
   },
 ];
 
@@ -49,22 +49,25 @@ const MCQ_HEADERS = [
   'Option4 Text', 'Option4 Image URL', 'Option4 IsCorrect',
 ];
 
-const MCQ_ROWS = [
+// Rows are built around a topic code so the sample can be pre-filled with a real,
+// existing topic from the user's institute (otherwise the un-edited sample fails
+// on upload with "Topic code ... does not exist").
+const buildMcqRows = (topic) => [
   [
     'Q1', 'What is the SI unit of force?', '', 'EASY', 'MCQ', '1', '0',
-    'Force is measured in newtons (N).', TOPIC_ID_PLACEHOLDER, 'PLAIN',
+    'Force is measured in newtons (N).', topic, 'PLAIN',
     'Physics', "Recall Newton's second law F=ma",
     'Newton', '', 'true', 'Joule', '', 'false', 'Pascal', '', 'false', 'Watt', '', 'false',
   ],
   [
     'Q2', 'If mass $m = 2$ kg and velocity $v = 3$ m/s, the kinetic energy $KE = (1/2)mv^2$ equals:',
-    '', 'MEDIUM', 'MCQ', '2', '0', 'KE = (1/2)(2)(3^2) = 9 J', TOPIC_ID_PLACEHOLDER, 'LATEX',
+    '', 'MEDIUM', 'MCQ', '2', '0', 'KE = (1/2)(2)(3^2) = 9 J', topic, 'LATEX',
     'Mechanics', 'Substitute m and v into the formula',
     '$9$ J', '', 'true', '$6$ J', '', 'false', '$12$ J', '', 'false', '$3$ J', '', 'false',
   ],
   [
     'Q3', 'Which law governs the electrostatic force between two point charges?',
-    '', 'HARD', 'MCQ', '4', '1', "Coulomb's law: F = k q1 q2 / r^2.", TOPIC_ID_PLACEHOLDER, 'PLAIN',
+    '', 'HARD', 'MCQ', '4', '1', "Coulomb's law: F = k q1 q2 / r^2.", topic, 'PLAIN',
     'Electrostatics', '',
     "Coulomb's Law", '', 'true', "Ohm's Law", '', 'false', "Lenz's Law", '', 'false', "Faraday's Law", '', 'false',
   ],
@@ -79,20 +82,20 @@ const NUMERIC_HEADERS = [
   'Correct Answer', 'Answer Tolerance',
 ];
 
-const NUMERIC_ROWS = [
+const buildNumericRows = (topic) => [
   [
     'N1', 'How many moles are present in 12 g of carbon-12?', '', 'EASY', 'INTEGER',
-    '4', '1', '12 g of carbon-12 is by definition exactly 1 mole.', TOPIC_ID_PLACEHOLDER, 'PLAIN',
+    '4', '1', '12 g of carbon-12 is by definition exactly 1 mole.', topic, 'PLAIN',
     'Chemistry', 'Use n = mass / molar mass', '1', '0',
   ],
   [
     'N2', 'A particle starts from rest and accelerates at 2 m/s^2. What distance (in metres) does it cover in 3 s?',
-    '', 'EASY', 'INTEGER', '4', '1', 's = ut + (1/2)at^2 = 9 m.', TOPIC_ID_PLACEHOLDER, 'PLAIN',
+    '', 'EASY', 'INTEGER', '4', '1', 's = ut + (1/2)at^2 = 9 m.', topic, 'PLAIN',
     'Mechanics', 'Use s = ut + (1/2)at^2|Initial velocity u = 0', '9', '0',
   ],
   [
     'N3', 'The pH of a $10^{-3}$ M HCl solution is:', '', 'MEDIUM', 'NUMERIC',
-    '4', '1', 'pH = -log(10^-3) = 3.', TOPIC_ID_PLACEHOLDER, 'LATEX',
+    '4', '1', 'pH = -log(10^-3) = 3.', topic, 'LATEX',
     'Chemistry', 'pH = -log[H+]', '3', '0.05',
   ],
 ];
@@ -117,7 +120,7 @@ export const UPLOAD_TYPES = [
       'Mark exactly the correct option(s) with IsCorrect = true; the rest false.',
       "Leave option columns blank for options you don't need (2–4 options supported).",
     ],
-    sampleCsv: toCsv(MCQ_HEADERS, MCQ_ROWS),
+    buildRows: buildMcqRows,
   },
   {
     key: 'numeric',
@@ -136,7 +139,7 @@ export const UPLOAD_TYPES = [
       'Correct Answer is the accepted numeric value.',
       'Answer Tolerance is the ± margin (use 0 for an exact match).',
     ],
-    sampleCsv: toCsv(NUMERIC_HEADERS, NUMERIC_ROWS),
+    buildRows: buildNumericRows,
   },
 ];
 
@@ -145,9 +148,19 @@ export const DEFAULT_UPLOAD_TYPE_KEY = 'mcq';
 export const getUploadType = (key) =>
   UPLOAD_TYPES.find((t) => t.key === key) || UPLOAD_TYPES[0];
 
+// Build a sample CSV string for a type, filling the Topic ID column with a real
+// topic code from the user's institute (so it uploads as-is) or the fallback
+// placeholder when none is available.
+export const buildSampleCsv = (uploadType, topicCode) => {
+  const topic = topicCode || TOPIC_CODE_FALLBACK;
+  return toCsv(uploadType.headers, uploadType.buildRows(topic));
+};
+
 // Trigger a browser download of a type's sample CSV template.
-export const downloadSampleCsv = (uploadType) => {
-  const blob = new Blob([uploadType.sampleCsv], { type: 'text/csv;charset=utf-8;' });
+export const downloadSampleCsv = (uploadType, topicCode) => {
+  const blob = new Blob([buildSampleCsv(uploadType, topicCode)], {
+    type: 'text/csv;charset=utf-8;',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

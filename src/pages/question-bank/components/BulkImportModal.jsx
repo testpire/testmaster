@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { questionService } from '../../../services/questionService';
 import Icon from '../../../components/AppIcon';
@@ -10,7 +10,7 @@ import {
   DEFAULT_UPLOAD_TYPE_KEY,
   getUploadType,
   downloadSampleCsv,
-  TOPIC_ID_PLACEHOLDER,
+  TOPIC_CODE_FALLBACK,
 } from '../questionUploadTypes';
 
 const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
@@ -22,8 +22,24 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
   const [uploadResult, setUploadResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // A real topic { code, name } from the current institute, used to pre-fill the
+  // sample CSV so it uploads as-is. null until fetched / when the institute has none.
+  const [sampleTopic, setSampleTopic] = useState(null);
 
   const uploadType = getUploadType(selectedTypeKey);
+
+  // Fetch a real topic code once when the modal opens, so the downloadable sample
+  // resolves against an existing topic instead of a placeholder that would fail.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let cancelled = false;
+    questionService.getSampleTopic().then((topic) => {
+      if (!cancelled) setSampleTopic(topic);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   const handleSelectType = (key) => {
     if (key === selectedTypeKey) return;
@@ -219,7 +235,7 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
               <Button
                 variant="primary"
-                onClick={() => downloadSampleCsv(uploadType)}
+                onClick={() => downloadSampleCsv(uploadType, sampleTopic?.code)}
                 iconName="Download"
                 iconPosition="left"
               >
@@ -246,11 +262,21 @@ const BulkImportModal = ({ isOpen, onClose, onQuestionsImported }) => {
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-muted-foreground mt-3">
-                In the sample, every <code className="font-mono">Topic ID</code> is set to{' '}
-                <code className="font-mono text-foreground">{TOPIC_ID_PLACEHOLDER}</code> — replace
-                it with a real topic id, or the rows will be rejected.
-              </p>
+              {sampleTopic?.code ? (
+                <p className="text-xs text-muted-foreground mt-3">
+                  This sample is pre-filled with your topic{' '}
+                  <code className="font-mono text-foreground">{sampleTopic.code}</code>
+                  {sampleTopic.name ? ` (${sampleTopic.name})` : ''}, so it uploads as-is. Change the{' '}
+                  <code className="font-mono">Topic ID</code> column if these questions belong to a
+                  different topic.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-3">
+                  In the sample, every <code className="font-mono">Topic ID</code> is set to{' '}
+                  <code className="font-mono text-foreground">{TOPIC_CODE_FALLBACK}</code> — replace
+                  it with a Topic code that exists in your institute, or the rows will be rejected.
+                </p>
+              )}
             </div>
 
             {/* The exact columns for this type — makes it obvious which CSV is which. */}
