@@ -37,8 +37,12 @@ const TestTaking = () => {
   // we show a clean "not available" screen and bounce to /my-tests.
   const [unavailable, setUnavailable] = useState(false);
 
-  // answers: Map<questionId, number[]> (selected option ids)
+  // answers: Map<questionId, number[]> (selected option ids) — MCQ/multi questions.
   const [answers, setAnswers] = useState(new Map());
+  // numericAnswers: Map<questionId, string> — the typed value for numeric-answer
+  // (INTEGER/NUMERIC/NUMERICAL) questions, which have no options to click. Kept as a
+  // separate map so the option logic stays untouched; a question is only ever in one.
+  const [numericAnswers, setNumericAnswers] = useState(new Map());
   const [flagged, setFlagged] = useState(new Set()); // "marked for review"
   const [visited, setVisited] = useState(new Set()); // questions the student has opened
   // For Daily Practice: how many of each question's hints have been revealed.
@@ -61,6 +65,7 @@ const TestTaking = () => {
   const autosaveTimers = useRef({});
   // Mirror of answers state for the debounced save closure to read at fire time.
   const answersRef = useRef(new Map());
+  const numericAnswersRef = useRef(new Map());
 
   // ---- load attempt -----------------------------------------------------------
   useEffect(() => {
@@ -109,18 +114,31 @@ const TestTaking = () => {
         const arr = Array.isArray(opts) ? opts.filter((o) => o != null) : [];
         if (arr.length > 0) seed.set(qid, arr);
       };
+      // Numeric answers come back as `numericAnswer` (AttemptQuestionResponseDto),
+      // restored into their own map so a reload keeps the typed value.
+      const seedNumeric = new Map();
+      const seedNumericAnswer = (qid, val) => {
+        if (qid == null || seedNumeric.has(qid)) return;
+        if (val != null && String(val).trim() !== '') seedNumeric.set(qid, String(val));
+      };
       const seedQuestions = data.questions || data.test?.questions || [];
       (Array.isArray(seedQuestions) ? seedQuestions : []).forEach((sq) => {
+        const qid = sq.questionId ?? sq.id;
         const opts =
           sq.selectedOptionIds || sq.optionIds || (sq.selectedOptionId != null ? [sq.selectedOptionId] : []);
-        seedAnswer(sq.questionId ?? sq.id, opts);
+        seedAnswer(qid, opts);
+        seedNumericAnswer(qid, sq.numericAnswer);
       });
       (data.answers || []).forEach((a) => {
         const qid = a.questionId ?? a.question?.id;
-        if (qid == null || seed.has(qid)) return; // question-embedded selection wins
-        seedAnswer(qid, a.selectedOptionIds || a.optionIds || (a.selectedOptionId != null ? [a.selectedOptionId] : []));
+        if (qid == null) return;
+        if (!seed.has(qid)) {
+          seedAnswer(qid, a.selectedOptionIds || a.optionIds || (a.selectedOptionId != null ? [a.selectedOptionId] : []));
+        }
+        seedNumericAnswer(qid, a.numericAnswer); // question-embedded value wins (guarded inside)
       });
       setAnswers(seed);
+      setNumericAnswers(seedNumeric);
 
       // Establish the countdown deadline. The attempt payload isn't strongly typed,
       // so try every plausible field for an explicit remaining time, then an explicit
@@ -210,6 +228,20 @@ const TestTaking = () => {
     !!q.multipleCorrect ||
     !!q.multiSelect;
 
+  // Numeric-answer questions (INTEGER / NUMERIC / NUMERICAL) — the student types a
+  // number instead of picking an option. 'numerical'.includes('numeric') is true,
+  // so both spellings are covered.
+  const isNumericQ = (q) => {
+    const t = (q?.questionType || '').toLowerCase();
+    return t.includes('integer') || t.includes('numeric');
+  };
+
+  // Whether question id `id` currently has a non-empty numeric answer.
+  const hasNumericAnswer = (id) => {
+    const v = numericAnswers.get(id);
+    return v != null && String(v).trim() !== '';
+  };
+
   // Best-effort subject label for a question. Falls back through the denormalized
   // names the API may attach; null means "uncategorised".
   const subjectOf = (q) =>
@@ -240,7 +272,9 @@ const TestTaking = () => {
       const q = questions[idx];
       if (!q) return 'notVisited';
       const id = getQId(q);
-      const answered = (answers.get(id) || []).length > 0;
+      const numeric = numericAnswers.get(id);
+      const answered =
+        (answers.get(id) || []).length > 0 || (numeric != null && String(numeric).trim() !== '');
       const marked = flagged.has(id);
       if (answered && marked) return 'answeredMarked';
       if (marked) return 'marked';
@@ -248,7 +282,7 @@ const TestTaking = () => {
       if (visited.has(id)) return 'notAnswered';
       return 'notVisited';
     },
-    [questions, answers, flagged, visited]
+    [questions, answers, numericAnswers, flagged, visited]
   );
 
   const summary = useMemo(() => {
@@ -274,6 +308,7 @@ const TestTaking = () => {
 
   // Keep answersRef current so debounced save closures always read the latest state.
   useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { numericAnswersRef.current = numericAnswers; }, [numericAnswers]);
 
   // ---- submit + countdown -----------------------------------------------------
   const doSubmit = useCallback(
@@ -282,10 +317,19 @@ const TestTaking = () => {
       submittedRef.current = true;
       setSubmitting(true);
       setShowConfirm(false);
-      const payload = Array.from(answers.entries()).map(([questionId, selectedOptionIds]) => ({
+      const optionPayload = Array.from(answers.entries()).map(([questionId, selectedOptionIds]) => ({
         questionId,
         selectedOptionIds
       }));
+      // Numeric answers submit as { questionId, numericAnswer } (SubmitAnswerRequestDto).
+      // Drop any that don't parse to a finite number so we never send garbage.
+      const numericPayload = Array.from(numericAnswers.entries())
+        .map(([questionId, raw]) => {
+          const n = Number(String(raw).trim());
+          return Number.isFinite(n) ? { questionId, numericAnswer: n } : null;
+        })
+        .filter(Boolean);
+      const payload = [...optionPayload, ...numericPayload];
       const { data, error: err } = await newTestService.submitAttempt(attemptId, payload);
       setSubmitting(false);
       if (err) {
@@ -296,7 +340,7 @@ const TestTaking = () => {
       setTimeRemaining(0);
       setResult(data || { submitted: true });
     },
-    [answers, attemptId]
+    [answers, numericAnswers, attemptId]
   );
 
   useEffect(() => {
@@ -317,15 +361,33 @@ const TestTaking = () => {
   // backend. This eliminates the out-of-order network race: when a student rapidly
   // changes an answer, two concurrent PUT /answers requests can complete in reverse
   // order and the stale first answer overwrites the correct second one on the server.
-  const scheduleAutosave = (qid) => {
+  const scheduleAutosave = (q) => {
+    const qid = getQId(q);
+    const numeric = isNumericQ(q);
     clearTimeout(autosaveTimers.current[qid]);
     autosaveTimers.current[qid] = setTimeout(async () => {
       delete autosaveTimers.current[qid];
-      const opts = answersRef.current.get(qid) || [];
-      const { data } = await newTestService.saveAnswer(attemptId, { questionId: qid, selectedOptionIds: opts });
+      // Build the right request shape for the question type. Numeric answers use
+      // `numericAnswer` (a finite number, or null to clear); options use
+      // `selectedOptionIds`. Both read from refs so the latest value wins at fire time.
+      let body;
+      let answered;
+      if (numeric) {
+        const raw = numericAnswersRef.current.get(qid);
+        const trimmed = raw == null ? '' : String(raw).trim();
+        const parsed = trimmed === '' ? null : Number(trimmed);
+        const value = Number.isFinite(parsed) ? parsed : null;
+        body = { questionId: qid, numericAnswer: value };
+        answered = value != null;
+      } else {
+        const opts = answersRef.current.get(qid) || [];
+        body = { questionId: qid, selectedOptionIds: opts };
+        answered = opts.length > 0;
+      }
+      const { data } = await newTestService.saveAnswer(attemptId, body);
       setFeedback((prev) => {
         const n = new Map(prev);
-        if (opts.length > 0 && data && data.feedbackAvailable) n.set(qid, data);
+        if (answered && data && data.feedbackAvailable) n.set(qid, data);
         else n.delete(qid);
         return n;
       });
@@ -351,12 +413,31 @@ const TestTaking = () => {
       else next.set(qid, updated);
       return next;
     });
-    scheduleAutosave(qid);
+    scheduleAutosave(q);
+  };
+
+  // Numeric-answer input handler. Stores the raw string (empty → unanswered) and
+  // debounce-saves like option selection does.
+  const setNumericAnswer = (q, value) => {
+    const qid = getQId(q);
+    setNumericAnswers((prev) => {
+      const next = new Map(prev);
+      if (value == null || String(value).trim() === '') next.delete(qid);
+      else next.set(qid, String(value));
+      return next;
+    });
+    scheduleAutosave(q);
   };
 
   const clearResponse = (q) => {
     const qid = getQId(q);
     setAnswers((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Map(prev);
+      next.delete(qid);
+      return next;
+    });
+    setNumericAnswers((prev) => {
       if (!prev.has(qid)) return prev;
       const next = new Map(prev);
       next.delete(qid);
@@ -368,7 +449,7 @@ const TestTaking = () => {
       next.delete(qid);
       return next;
     });
-    scheduleAutosave(qid);
+    scheduleAutosave(q);
   };
 
   const toggleFlag = (qid) => {
@@ -511,7 +592,8 @@ const TestTaking = () => {
   const fb = qid != null ? feedback.get(qid) : null;
   const fbCorrectSet = fb?.feedbackAvailable && Array.isArray(fb.correctOptionIds) ? new Set(fb.correctOptionIds) : null;
   const title = attempt?.testTitle || attempt?.title || attempt?.test?.title || 'Test';
-  const answeredCount = answers.size;
+  // A question is in exactly one of the two maps, so summing sizes never double-counts.
+  const answeredCount = answers.size + numericAnswers.size;
   // 1-based position of the current question within its subject (for display).
   const posInSubject = activeSubject.indices.indexOf(current) + 1;
 
@@ -604,6 +686,27 @@ const TestTaking = () => {
                   />
                 )}
 
+                {isNumericQ(q) ? (
+                  <div className="max-w-sm">
+                    <label htmlFor={`numeric-answer-${qid}`} className="block text-sm font-medium text-foreground mb-2">
+                      Your answer
+                    </label>
+                    <input
+                      id={`numeric-answer-${qid}`}
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      autoComplete="off"
+                      value={numericAnswers.get(qid) ?? ''}
+                      onChange={(e) => setNumericAnswer(q, e.target.value)}
+                      placeholder="Enter your answer"
+                      className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground text-lg tabular-nums outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Type a number (decimals and negatives allowed).
+                    </p>
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   {(q.options || []).map((o) => {
                     const selected = chosen.includes(o.id);
@@ -653,6 +756,7 @@ const TestTaking = () => {
                     );
                   })}
                 </div>
+                )}
 
                 {/* Instant feedback (Daily Practice with solutionReveal=DURING_ATTEMPT).
                     Rendered from the saveAnswer response; the student may still change
@@ -748,7 +852,7 @@ const TestTaking = () => {
                   <Button
                     variant="ghost"
                     onClick={() => clearResponse(q)}
-                    disabled={chosen.length === 0}
+                    disabled={chosen.length === 0 && !hasNumericAnswer(qid)}
                     iconName="Eraser"
                     iconPosition="left"
                   >

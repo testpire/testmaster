@@ -79,8 +79,13 @@ const AttemptReview = ({ attempt, studentName }) => {
     let answered = 0;
     let unanswered = 0;
     questions.forEach((q) => {
+      const t = (q.questionType || '').toLowerCase();
+      const numeric = t.includes('integer') || t.includes('numeric');
       const sel = q.selectedOptionIds || (q.selectedOptionId != null ? [q.selectedOptionId] : []);
-      if (!Array.isArray(sel) || sel.length === 0) {
+      const isAnswered = numeric
+        ? q.numericAnswer != null && String(q.numericAnswer).trim() !== ''
+        : Array.isArray(sel) && sel.length > 0;
+      if (!isAnswered) {
         unanswered += 1;
         return;
       }
@@ -236,7 +241,16 @@ const QuestionCard = ({ q, index }) => {
   // don't reveal which options are correct, and don't mark the student's choice wrong.
   const optionsRevealed = Array.isArray(q.correctOptionIds);
   const correctSet = new Set(q.correctOptionIds || []);
-  const answered = selectedSet.size > 0;
+  // Numeric-answer questions (INTEGER/NUMERIC/NUMERICAL) carry the student's value in
+  // `numericAnswer` and the key in `correctAnswer`/`answerTolerance` — no options.
+  const isNumeric = (() => {
+    const t = (q.questionType || '').toLowerCase();
+    return t.includes('integer') || t.includes('numeric');
+  })();
+  const numericGiven = q.numericAnswer;
+  const numericAnswered = numericGiven != null && String(numericGiven).trim() !== '';
+  const numericKeyRevealed = q.correctAnswer != null;
+  const answered = isNumeric ? numericAnswered : selectedSet.size > 0;
   // Likewise, `correct: null` means correctness is withheld; only true/false are verdicts.
   const correctnessRevealed = q.correct === true || q.correct === false;
   const isCorrect = q.correct === true;
@@ -286,6 +300,35 @@ const QuestionCard = ({ q, index }) => {
         />
       )}
 
+      {isNumeric ? (
+        <div className="space-y-1.5">
+          <div
+            className={`flex items-center justify-between gap-2 text-sm px-3 py-2 rounded-lg border ${
+              !numericAnswered
+                ? 'border-border text-muted-foreground'
+                : correctnessRevealed
+                ? isCorrect
+                  ? 'border-success/40 bg-success/10 text-success'
+                  : 'border-destructive/40 bg-destructive/10 text-destructive'
+                : 'border-primary/40 bg-primary/5 text-foreground'
+            }`}
+          >
+            <span className="text-[10px] uppercase tracking-wide font-semibold opacity-70">Your answer</span>
+            <span className="tabular-nums font-medium">
+              {numericAnswered ? fmtNum(Number(numericGiven)) : 'Not answered'}
+            </span>
+          </div>
+          {numericKeyRevealed && (
+            <div className="flex items-center justify-between gap-2 text-sm px-3 py-2 rounded-lg border border-success/40 bg-success/10 text-success">
+              <span className="text-[10px] uppercase tracking-wide font-semibold opacity-70">Correct answer</span>
+              <span className="tabular-nums font-medium">
+                {fmtNum(Number(q.correctAnswer))}
+                {q.answerTolerance ? ` (± ${fmtNum(Number(q.answerTolerance))})` : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="space-y-1.5">
         {(q.options || []).map((o) => {
           const optCorrect = optionsRevealed && correctSet.has(o.id);
@@ -326,6 +369,7 @@ const QuestionCard = ({ q, index }) => {
           );
         })}
       </div>
+      )}
 
       {/* Hints — for Daily Practice self-study. Read defensively (hints aren't yet
           part of AttemptQuestionResponseDto): renders only when the payload carries
