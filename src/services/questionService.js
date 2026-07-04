@@ -4,11 +4,16 @@ import { courseService } from './courseService';
 // Map a full question (as returned by GET /questions/{id}) to the PUT request
 // body, applying field overrides. Mirrors useQuestionForm.buildPayload so the
 // update contract stays identical to the manual-edit modal, while additionally
-// preserving fields the modal omits (e.g. correctIntegerAnswer). We re-send the
+// preserving fields the modal omits (e.g. the numeric answer). We re-send the
 // whole resource so the update is safe whether the backend PUT is a partial
 // update or a full replace.
 function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
   const type = q?.questionType || q?.question_type || 'mcq';
+  const normalizedType = String(type).toLowerCase();
+  const isMcq = normalizedType === 'mcq';
+  // Numeric-answer types the backend recognizes. 'integer_type' is the manual
+  // form's internal value; the rest are the API's own (INTEGER/NUMERIC/NUMERICAL).
+  const isNumeric = ['integer', 'numeric', 'numerical', 'integer_type'].includes(normalizedType);
 
   const hasTopicOverride = changes.topicId !== undefined && changes.topicId !== null && changes.topicId !== '';
   const resolvedTopicId = hasTopicOverride
@@ -49,8 +54,15 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
       : (Array.isArray(q?.hints) ? q.hints : []),
     ...(typeof resolvedDraftMode === 'boolean' && { draftMode: resolvedDraftMode }),
     ...(q?.instituteId != null && { instituteId: q.instituteId }),
-    ...(q?.correctIntegerAnswer != null && { correctIntegerAnswer: q.correctIntegerAnswer }),
-    ...(String(type).toLowerCase() === 'mcq' && {
+    // Numeric-answer questions (INTEGER/NUMERIC/NUMERICAL) must re-send the answer
+    // or the backend rejects the update ("requires a correctAnswer") — this is what
+    // breaks publishing a numeric question. The API fields are correctAnswer +
+    // answerTolerance; there is no `correctIntegerAnswer` field on the API.
+    ...(isNumeric && q?.correctAnswer != null && {
+      correctAnswer: q.correctAnswer,
+      answerTolerance: q?.answerTolerance ?? 0,
+    }),
+    ...(isMcq && {
       options: (Array.isArray(q?.options) ? q.options : []).map((opt, i) => ({
         text: opt?.text ?? opt?.option_text ?? '',
         optionImagePath: opt?.optionImagePath || '',
