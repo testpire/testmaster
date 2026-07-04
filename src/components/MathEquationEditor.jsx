@@ -20,9 +20,41 @@ if (typeof window !== 'undefined' && MathfieldElement) {
   MathfieldElement.soundsDirectory = null;
 }
 
+// Matrix bracket styles offered by the toolbar. Each button inserts a grid of
+// the author-chosen rows × columns (see the size inputs) in the given delimiter,
+// with a tab-navigable placeholder in every cell.
+const MATRIX_STYLES = [
+  { env: 'pmatrix', label: '( )', title: 'Parentheses  ( )' },
+  { env: 'bmatrix', label: '[ ]', title: 'Square brackets  [ ]' },
+  { env: 'vmatrix', label: '| |', title: 'Determinant  | |' },
+  { env: 'Bmatrix', label: '{ }', title: 'Braces  { }' },
+];
+
+// Matrices are any dimension (2×2, 3×3, 2×3, a column vector, …). Rather than
+// grow a matrix in place — MathLive's array commands wrap a non-matrix caret in
+// \displaylines{…}, which KaTeX can't render — the author sets the size up front
+// and we build the exact grid. Clamp to a sane range; default to 2 on bad input.
+const MAX_MATRIX_DIM = 10;
+const clampDim = (v) => {
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return 2;
+  return Math.min(Math.max(n, 1), MAX_MATRIX_DIM);
+};
+
+// Read the field's LaTeX with \placeholder{} stripped. \placeholder is a
+// MathLive-only control sequence that KaTeX can't render, so any unfilled matrix
+// or fraction cell would otherwise break the rendered question. The
+// 'latex-without-placeholders' format replaces each \placeholder with its
+// (usually empty) body, leaving valid LaTeX — e.g. an empty matrix cell.
+const readLatex = (el) => (el ? el.getValue('latex-without-placeholders') : '');
+
 const MathEquationEditor = ({ isOpen, onClose, onInsert, initialLatex = '' }) => {
   const mathfieldRef = useRef(null);
   const [latex, setLatex] = useState(initialLatex);
+  // Desired matrix size (kept as strings so the inputs can be cleared mid-edit;
+  // clampDim resolves them when a matrix is actually inserted).
+  const [rows, setRows] = useState('2');
+  const [cols, setCols] = useState('2');
 
   // The <math-field> element exists only once the Modal renders its children
   // (Modal returns null while closed), so seed its value and subscribe to input
@@ -35,7 +67,7 @@ const MathEquationEditor = ({ isOpen, onClose, onInsert, initialLatex = '' }) =>
     el.value = initialLatex || '';
     setLatex(initialLatex || '');
 
-    const handler = () => setLatex(el.value);
+    const handler = () => setLatex(readLatex(el));
     el.addEventListener('input', handler);
     // Defer focus until after the dialog's own focus-on-open has run.
     const focusTimer = setTimeout(() => el.focus?.(), 0);
@@ -46,8 +78,30 @@ const MathEquationEditor = ({ isOpen, onClose, onInsert, initialLatex = '' }) =>
     };
   }, [isOpen, initialLatex]);
 
+  // Insert a rows×cols matrix of the chosen bracket style at the caret. Every
+  // cell is a \placeholder; the first is auto-selected (selectionMode:
+  // 'placeholder') so the author can start typing straight into it, and Tab moves
+  // between cells. \\ separates rows, & separates columns.
+  const insertMatrix = (env) => {
+    const el = mathfieldRef.current;
+    if (!el) return;
+    const r = clampDim(rows);
+    const c = clampDim(cols);
+    const rowLatex = Array.from({ length: c }, () => '\\placeholder{}').join(' & ');
+    const body = Array.from({ length: r }, () => rowLatex).join(' \\\\ ');
+    el.insert(`\\begin{${env}}${body}\\end{${env}}`, {
+      focus: true,
+      selectionMode: 'placeholder',
+    });
+    // A programmatic insert doesn't always emit an 'input' event, so sync the
+    // LaTeX state (and thus the preview) explicitly.
+    setLatex(readLatex(el));
+  };
+
   const handleInsert = () => {
-    const value = (latex || '').trim();
+    // Re-read straight from the field so the inserted value is always the current,
+    // placeholder-free LaTeX (not a possibly-stale state snapshot).
+    const value = (readLatex(mathfieldRef.current) || latex || '').trim();
     if (value) onInsert(value);
     onClose();
   };
@@ -73,6 +127,45 @@ const MathEquationEditor = ({ isOpen, onClose, onInsert, initialLatex = '' }) =>
       footer={footer}
     >
       <div className="space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground">Insert matrix:</span>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            rows
+            <input
+              type="number"
+              min={1}
+              max={MAX_MATRIX_DIM}
+              value={rows}
+              onChange={(e) => setRows(e.target.value)}
+              aria-label="Matrix rows"
+              className="w-12 rounded-md border border-border bg-background px-1.5 py-1 text-sm text-foreground text-center"
+            />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            cols
+            <input
+              type="number"
+              min={1}
+              max={MAX_MATRIX_DIM}
+              value={cols}
+              onChange={(e) => setCols(e.target.value)}
+              aria-label="Matrix columns"
+              className="w-12 rounded-md border border-border bg-background px-1.5 py-1 text-sm text-foreground text-center"
+            />
+          </label>
+          {MATRIX_STYLES.map((m) => (
+            <button
+              key={m.env}
+              type="button"
+              onClick={() => insertMatrix(m.env)}
+              title={`Insert ${m.title} matrix`}
+              aria-label={`Insert matrix with ${m.title}`}
+              className="px-2.5 py-1 rounded-md border border-border bg-background text-sm font-mono text-foreground hover:bg-muted transition-colors"
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
         <math-field
           ref={mathfieldRef}
           // eslint-disable-next-line react/no-unknown-property
@@ -81,7 +174,9 @@ const MathEquationEditor = ({ isOpen, onClose, onInsert, initialLatex = '' }) =>
         />
         <p className="text-xs text-muted-foreground">
           Tip: type like a calculator — <code>x^2</code> for powers, <code>/</code> for a fraction,
-          <code> sqrt</code> for a root — or use the on-screen keyboard (⌨) inside the field.
+          <code> sqrt</code> for a root — or use the on-screen keyboard (⌨) inside the field. For a
+          matrix, set the rows and columns, pick a bracket style, then <code>Tab</code> between cells
+          to fill it in.
         </p>
         {latex.trim() && (
           <div className="rounded-lg border border-border bg-muted/30 p-3">

@@ -84,6 +84,18 @@ const QuestionCard = ({
     ? question.hints.filter((h) => h && String(h).trim()).length
     : 0;
 
+  // Numeric-answer questions (INTEGER/NUMERIC/NUMERICAL) carry a correctAnswer and
+  // an answerTolerance (± margin) instead of options; surface them on the card so a
+  // reviewer sees the graded answer without opening the editor. `??` (not ||) keeps
+  // a legitimate 0 answer / 0 tolerance. Matches the type set in questionService.
+  const isNumeric = ['integer', 'numeric', 'numerical', 'integer_type'].includes(
+    String(safeQuestion.questionType).toLowerCase()
+  );
+  const correctAnswer = question.correctAnswer ?? question.correct_integer_answer ?? null;
+  const hasCorrectAnswer = correctAnswer != null && String(correctAnswer).trim() !== '';
+  const answerTolerance = question.answerTolerance ?? question.answer_tolerance ?? 0;
+  const isExactMatch = answerTolerance == null || Number(answerTolerance) === 0;
+
   // When the question was added (QuestionResponseDto.createdAt, UTC ISO). createdBy
   // is surfaced as a tooltip when present.
   const createdAt = question.createdAt ?? question.created_at ?? null;
@@ -380,6 +392,23 @@ const QuestionCard = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Correct answer + tolerance for numeric-answer questions (no options). */}
+      {isNumeric && (
+        <div className="mb-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs p-2 rounded border bg-success/10 border-success/40 text-success">
+            <span className="flex items-center gap-1">
+              <Icon name="CheckCircle" size={12} className="flex-shrink-0" />
+              <span className="font-medium">Correct answer:</span>
+              <span>{hasCorrectAnswer ? String(correctAnswer) : '—'}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="font-medium">Tolerance:</span>
+              <span>± {answerTolerance ?? 0}{isExactMatch && ' (exact match)'}</span>
+            </span>
+          </div>
         </div>
       )}
 

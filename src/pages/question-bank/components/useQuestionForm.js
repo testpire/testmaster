@@ -127,7 +127,13 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     });
   };
 
-  const insertLatexAtCursor = (latex) => spliceIntoActiveField(`$${latex}$`);
+  // A matrix / multi-line environment renders correctly only as *display* math
+  // ($$…$$): the inline delimiter ($…$) forbids newlines (MathText's MATH_PATTERN)
+  // and renders the matrix cramped. So content with a \begin{…} environment or a
+  // \\ row break goes in as block; a simple expression (x^2, \frac{…}) stays inline.
+  const isBlockLatex = (latex) => /\\begin\{/.test(latex) || /\\\\/.test(latex);
+  const insertLatexAtCursor = (latex) =>
+    spliceIntoActiveField(isBlockLatex(latex) ? `$$${latex}$$` : `$${latex}$`);
 
   // Match-list / two-column markdown table scaffold. Blank lines around it keep
   // remark-gfm from gluing the header row onto adjacent prose, and the trailing

@@ -56,20 +56,28 @@ const buildMcqRows = (topic) => [
   [
     'Q1', 'What is the SI unit of force?', '', 'EASY', 'MCQ', '1', '0',
     'Force is measured in newtons (N).', topic, 'PLAIN',
-    'Physics', "Recall Newton's second law F=ma",
+    'WBJEE 2021', "Recall Newton's second law F=ma",
     'Newton', '', 'true', 'Joule', '', 'false', 'Pascal', '', 'false', 'Watt', '', 'false',
   ],
   [
     'Q2', 'If mass $m = 2$ kg and velocity $v = 3$ m/s, the kinetic energy $KE = (1/2)mv^2$ equals:',
     '', 'MEDIUM', 'MCQ', '2', '0', 'KE = (1/2)(2)(3^2) = 9 J', topic, 'LATEX',
-    'Mechanics', 'Substitute m and v into the formula',
+    'IIT-JEE 2022, WBJEE 2023', 'Substitute m and v into the formula',
     '$9$ J', '', 'true', '$6$ J', '', 'false', '$12$ J', '', 'false', '$3$ J', '', 'false',
   ],
   [
     'Q3', 'Which law governs the electrostatic force between two point charges?',
     '', 'HARD', 'MCQ', '4', '1', "Coulomb's law: F = k q1 q2 / r^2.", topic, 'PLAIN',
-    'Electrostatics', '',
+    'IIT-JEE 2020', '',
     "Coulomb's Law", '', 'true', "Ohm's Law", '', 'false', "Lenz's Law", '', 'false', "Faraday's Law", '', 'false',
+  ],
+  // Matrix example — a LaTeX matrix written on a single line ($$…$$ block math,
+  // & between columns, \\ between rows). Text Format must be LATEX for it to render.
+  [
+    'Q4', 'Find the determinant of the matrix $$\\begin{bmatrix} 1 & 2 \\\\ 3 & 4 \\end{bmatrix}$$',
+    '', 'MEDIUM', 'MCQ', '4', '1', 'det = (1)(4) - (2)(3) = -2', topic, 'LATEX',
+    'WBJEE 2022', 'Determinant of a 2x2 matrix is ad - bc',
+    '$-2$', '', 'true', '$2$', '', 'false', '$10$', '', 'false', '$-10$', '', 'false',
   ],
 ];
 
@@ -86,17 +94,26 @@ const buildNumericRows = (topic) => [
   [
     'N1', 'How many moles are present in 12 g of carbon-12?', '', 'EASY', 'INTEGER',
     '4', '1', '12 g of carbon-12 is by definition exactly 1 mole.', topic, 'PLAIN',
-    'Chemistry', 'Use n = mass / molar mass', '1', '0',
+    'WBJEE 2022', 'Use n = mass / molar mass', '1', '0',
   ],
   [
     'N2', 'A particle starts from rest and accelerates at 2 m/s^2. What distance (in metres) does it cover in 3 s?',
     '', 'EASY', 'INTEGER', '4', '1', 's = ut + (1/2)at^2 = 9 m.', topic, 'PLAIN',
-    'Mechanics', 'Use s = ut + (1/2)at^2|Initial velocity u = 0', '9', '0',
+    'JEE Main 2021', 'Use s = ut + (1/2)at^2|Initial velocity u = 0', '9', '0',
   ],
   [
     'N3', 'The pH of a $10^{-3}$ M HCl solution is:', '', 'MEDIUM', 'NUMERIC',
     '4', '1', 'pH = -log(10^-3) = 3.', topic, 'LATEX',
-    'Chemistry', 'pH = -log[H+]', '3', '0.05',
+    'IIT-JEE 2023', 'pH = -log[H+]', '3', '0.05',
+  ],
+  // Matrix example — a LaTeX matrix written on a single line ($$…$$ block math,
+  // & between columns, \\ between rows). Text Format must be LATEX for it to render.
+  [
+    'N4', 'Find the determinant of the matrix $$\\begin{bmatrix} 2 & 0 \\\\ 0 & 3 \\end{bmatrix}$$',
+    '', 'MEDIUM', 'NUMERIC', '4', '1',
+    'For a diagonal matrix the determinant is the product of the diagonal entries: 2 x 3 = 6.',
+    topic, 'LATEX', 'IIT-JEE 2022, WBJEE 2023', 'Determinant of a diagonal matrix is the product of its diagonal entries',
+    '6', '0',
   ],
 ];
 
@@ -119,6 +136,8 @@ export const UPLOAD_TYPES = [
       'Question Type should be MCQ.',
       'Mark exactly the correct option(s) with IsCorrect = true; the rest false.',
       "Leave option columns blank for options you don't need (2–4 options supported).",
+      'Tags mark previous-year exams the question appeared in — comma-separated, e.g. IIT-JEE 2022, WBJEE 2023. Leave blank if it has not appeared before.',
+      'Matrices are supported: write them on one line as $$\\begin{bmatrix} 1 & 2 \\\\ 3 & 4 \\end{bmatrix}$$ — use & between columns and \\\\ between rows — and set Text Format to LATEX.',
     ],
     buildRows: buildMcqRows,
   },
@@ -138,6 +157,8 @@ export const UPLOAD_TYPES = [
       'Question Type must be one of INTEGER, NUMERIC, or NUMERICAL.',
       'Correct Answer is the accepted numeric value.',
       'Answer Tolerance is the ± margin (use 0 for an exact match).',
+      'Tags mark previous-year exams the question appeared in — comma-separated, e.g. IIT-JEE 2022, WBJEE 2023. Leave blank if it has not appeared before.',
+      'Matrices are supported: write them on one line as $$\\begin{bmatrix} 1 & 2 \\\\ 3 & 4 \\end{bmatrix}$$ — use & between columns and \\\\ between rows — and set Text Format to LATEX.',
     ],
     buildRows: buildNumericRows,
   },
