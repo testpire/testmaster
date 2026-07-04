@@ -266,7 +266,7 @@ const QuestionCard = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => safeHandleClick(onEdit, safeQuestion)}
+            onClick={() => safeHandleClick(onEdit, question)}
             className="w-8 h-8"
             title="Edit Question"
           >

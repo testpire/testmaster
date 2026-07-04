@@ -202,12 +202,14 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
           ? editingQuestion.hints.filter((h) => h != null)
           : [],
         options: editingQuestion?.options?.length > 0
-          ? editingQuestion?.options?.map(opt => ({
-              label: opt?.option_label || opt?.label,
-              text: opt?.text || opt?.option_text,
+          ? editingQuestion?.options?.map((opt, i) => ({
+              // The API options carry no A/B/C/D label — derive it from position so the
+              // badge isn't blank on edit.
+              label: opt?.option_label || opt?.label || String.fromCharCode(65 + i),
+              text: opt?.text || opt?.option_text || '',
               optionImagePath: opt?.optionImagePath || '',
               optionImagePreview: opt?.optionImagePath || '',
-              isCorrect: opt?.isCorrect || opt?.is_correct
+              isCorrect: opt?.isCorrect ?? opt?.is_correct ?? false
             }))
           : makeBlankOptions(),
         // Numeric answer + tolerance from the API fields (correctAnswer/answerTolerance).
