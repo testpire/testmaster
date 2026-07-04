@@ -220,7 +220,7 @@ const QuestionFormFields = ({ form }) => {
           onChange={(value) => handleInputChange('questionType', value)}
           options={[
             { value: 'mcq', label: 'Multiple Choice' },
-            { value: 'integer_type', label: 'Integer Type' },
+            { value: 'integer_type', label: 'Numeric / Integer' },
             { value: 'subjective', label: 'Subjective' }
           ]}
         />
@@ -471,16 +471,27 @@ const QuestionFormFields = ({ form }) => {
         </div>
       )}
 
-      {/* Integer Answer */}
+      {/* Numeric / Integer answer */}
       {questionData?.questionType === 'integer_type' && (
-        <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="Correct Integer Answer *"
+            label="Correct Answer *"
             type="number"
+            step="any"
             value={questionData?.correctIntegerAnswer}
             onChange={(e) => handleInputChange('correctIntegerAnswer', e?.target?.value)}
-            placeholder="Enter the correct integer answer"
+            placeholder="e.g. 9 or 1.41"
             required
+          />
+          <Input
+            label="Answer Tolerance"
+            type="number"
+            step="any"
+            min="0"
+            value={questionData?.answerTolerance}
+            onChange={(e) => handleInputChange('answerTolerance', e?.target?.value)}
+            placeholder="0 for an exact match"
+            description="Student's answer is correct within ± this margin."
           />
         </div>
       )}

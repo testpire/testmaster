@@ -49,7 +49,12 @@ const makeBlankQuestion = () => ({
   // Shown progressively to students in Daily Practice Problems.
   hints: [],
   options: makeBlankOptions(),
-  correctIntegerAnswer: ''
+  correctIntegerAnswer: '',
+  // Numeric-answer questions: the ± margin (blank → 0). And the exact backend type
+  // string (INTEGER/NUMERIC/NUMERICAL) preserved when editing so a save never
+  // silently downgrades a NUMERIC question to INTEGER. null → new question.
+  answerTolerance: '',
+  apiQuestionType: null
 });
 
 /**
@@ -168,13 +173,19 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       // Pin the format (skip auto re-detect) only for an explicit LATEX save — a
       // pinned PLAIN would stop the content from auto-correcting if it has latex.
       setFormatManual(savedFormat === 'LATEX');
+      // Map the backend question type to the form's internal toggle value. The API
+      // uses MCQ / INTEGER / NUMERIC / NUMERICAL (camelCase `questionType`); the form
+      // models "mcq" vs "integer_type". Reading the wrong (snake_case) key here was
+      // why editing a numeric question showed the MCQ options editor.
+      const rawType = editingQuestion?.questionType || editingQuestion?.question_type || 'mcq';
+      const isNumericType = /integer|numeric/i.test(String(rawType));
       setQuestionData({
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
         textFormat: loadedFormat,
         questionImagePath: editingQuestion?.questionImagePath || '',
         // Backend already returns a full public URL, so it doubles as the preview.
         questionImagePreview: editingQuestion?.questionImagePath || '',
-        questionType: editingQuestion?.question_type || 'mcq',
+        questionType: isNumericType ? 'integer_type' : 'mcq',
         subject: asId(editingQuestion?.subjectId ?? editingQuestion?.subject),
         chapter: asId(editingQuestion?.chapterId ?? editingQuestion?.chapter),
         topic: asId(editingQuestion?.topicId ?? editingQuestion?.topic),
@@ -199,7 +210,16 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
               isCorrect: opt?.isCorrect || opt?.is_correct
             }))
           : makeBlankOptions(),
-        correctIntegerAnswer: editingQuestion?.correct_integer_answer || ''
+        // Numeric answer + tolerance from the API fields (correctAnswer/answerTolerance).
+        // Kept as strings for the controlled inputs; buildPayload converts to numbers.
+        correctIntegerAnswer:
+          editingQuestion?.correctAnswer != null
+            ? String(editingQuestion.correctAnswer)
+            : (editingQuestion?.correct_integer_answer ?? ''),
+        answerTolerance:
+          editingQuestion?.answerTolerance != null ? String(editingQuestion.answerTolerance) : '',
+        // Preserve the exact backend subtype so an edit re-sends INTEGER/NUMERIC as-is.
+        apiQuestionType: isNumericType ? rawType : null
       });
 
       // A question response only carries topicId — not subjectId/chapterId — so
@@ -474,8 +494,8 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       }
     }
 
-    if (questionData?.questionType === 'integer_type' && !questionData?.correctIntegerAnswer?.trim()) {
-      return 'Correct integer answer is required';
+    if (questionData?.questionType === 'integer_type' && !String(questionData?.correctIntegerAnswer ?? '').trim()) {
+      return 'Correct answer is required';
     }
 
     return null;
@@ -485,36 +505,58 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
   // `draftMode` (when a boolean) is sent through so the create flow can default a
   // new question to draft, and the edit flow can preserve the question's current
   // publish state instead of accidentally flipping it.
-  const buildPayload = ({ instituteId, draftMode } = {}) => ({
-    text: questionData?.questionText,
-    questionImagePath: questionData?.questionImagePath || '',
-    difficultyLevel: questionData?.difficultyLevel?.toUpperCase() || 'EASY',
-    topicId: questionData?.topic ? parseInt(questionData?.topic) : null,
-    instituteId,
-    questionType: questionData?.questionType,
-    marks: parseInt(questionData?.marks) || 4,
-    negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
-    textFormat: questionData?.textFormat || 'PLAIN',
-    explanation: questionData?.explanation || '',
-    // Tags → comma-separated string (API contract); hints → trimmed, empty-dropped
-    // string[]. Both always sent so an edit that clears them persists the clear.
-    tags: (questionData?.tags || [])
-      .map((t) => String(t).trim())
-      .filter(Boolean)
-      .join(', '),
-    hints: (questionData?.hints || [])
-      .map((h) => String(h).trim())
-      .filter(Boolean),
-    ...(typeof draftMode === 'boolean' && { draftMode }),
-    ...(questionData?.questionType === 'mcq' && {
-      options: questionData?.options?.map((opt, index) => ({
-        text: opt?.text || '',
-        optionImagePath: opt?.optionImagePath || '',
-        isCorrect: opt?.isCorrect || false,
-        optionOrder: index + 1
-      }))
-    })
-  });
+  const buildPayload = ({ instituteId, draftMode } = {}) => {
+    const internalType = questionData?.questionType;
+    const isNumeric = internalType === 'integer_type';
+    // Map the form's internal toggle to the backend enum. For numeric, preserve the
+    // exact loaded subtype (INTEGER/NUMERIC/NUMERICAL); default a new one to INTEGER.
+    // 'mcq' → 'MCQ'; anything else (e.g. 'subjective') passes through unchanged.
+    const apiQuestionType = isNumeric
+      ? (questionData?.apiQuestionType || 'INTEGER')
+      : internalType === 'mcq'
+        ? 'MCQ'
+        : internalType;
+    const rawAnswer = questionData?.correctIntegerAnswer;
+    const rawTolerance = questionData?.answerTolerance;
+    return {
+      text: questionData?.questionText,
+      questionImagePath: questionData?.questionImagePath || '',
+      difficultyLevel: questionData?.difficultyLevel?.toUpperCase() || 'EASY',
+      topicId: questionData?.topic ? parseInt(questionData?.topic) : null,
+      instituteId,
+      questionType: apiQuestionType,
+      marks: parseInt(questionData?.marks) || 4,
+      negativeMarks: parseFloat(questionData?.negativeMarks) || 0,
+      textFormat: questionData?.textFormat || 'PLAIN',
+      explanation: questionData?.explanation || '',
+      // Tags → comma-separated string (API contract); hints → trimmed, empty-dropped
+      // string[]. Both always sent so an edit that clears them persists the clear.
+      tags: (questionData?.tags || [])
+        .map((t) => String(t).trim())
+        .filter(Boolean)
+        .join(', '),
+      hints: (questionData?.hints || [])
+        .map((h) => String(h).trim())
+        .filter(Boolean),
+      ...(typeof draftMode === 'boolean' && { draftMode }),
+      // Numeric-answer questions send correctAnswer (+ tolerance); the backend
+      // rejects them otherwise ("requires a correctAnswer").
+      ...(isNumeric && {
+        correctAnswer:
+          rawAnswer != null && String(rawAnswer).trim() !== '' ? Number(rawAnswer) : null,
+        answerTolerance:
+          rawTolerance != null && String(rawTolerance).trim() !== '' ? Number(rawTolerance) : 0
+      }),
+      ...(questionData?.questionType === 'mcq' && {
+        options: questionData?.options?.map((opt, index) => ({
+          text: opt?.text || '',
+          optionImagePath: opt?.optionImagePath || '',
+          isCorrect: opt?.isCorrect || false,
+          optionOrder: index + 1
+        }))
+      })
+    };
+  };
 
   // Full reset (used when starting fresh).
   const resetForm = () => {
