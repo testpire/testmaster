@@ -29,7 +29,7 @@ import {
 const TABS = [
   { key: 'ALL', label: 'All' },
   { key: 'TEST', label: 'Tests' },
-  { key: 'PRACTICE', label: 'Practice' },
+  { key: 'PRACTICE', label: 'DPP' },
   { key: 'SELF_TEST', label: 'Self-Test' }
 ];
 

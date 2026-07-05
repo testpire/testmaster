@@ -47,12 +47,13 @@ const TestTaking = () => {
   const [visited, setVisited] = useState(new Set()); // questions the student has opened
   // For Daily Practice: how many of each question's hints have been revealed.
   const [hintsShown, setHintsShown] = useState({}); // Map<questionId, count>
-  // Instant per-question feedback (PRACTICE + solutionReveal=DURING_ATTEMPT). Keyed
-  // by questionId from the saveAnswer response (AnswerFeedbackResponseDto).
+  // Per-question feedback (PRACTICE + solutionReveal=DURING_ATTEMPT). Keyed by
+  // questionId from the saveAnswer response (AnswerFeedbackResponseDto). Stored as the
+  // answer saves, but not shown until the student commits — see `revealed`.
   const [feedback, setFeedback] = useState(new Map());
-  // Self-test only: questions whose feedback the student has explicitly revealed via
-  // "Check answer". Feedback is still saved on answer, just held back until they commit
-  // — so a self-test reads like practice you grade yourself, one question at a time.
+  // Questions whose feedback the student has explicitly revealed via "Check answer".
+  // Applies to both self-study modes: PRACTICE and SELF_TEST hold the result behind an
+  // explicit click so it never pops up mid-answer (numeric typing in particular).
   const [revealed, setRevealed] = useState(new Set());
   const [checkingId, setCheckingId] = useState(null); // qid currently being checked
   const [current, setCurrent] = useState(0);
@@ -429,14 +430,17 @@ const TestTaking = () => {
     autosaveTimers.current[qid] = setTimeout(async () => {
       delete autosaveTimers.current[qid];
       const { data, answered } = await persistAnswer(q);
-      // A self-test hides feedback until the student clicks "Check answer", so autosave
-      // is persistence-only there. Other modes (PRACTICE DURING_ATTEMPT) reveal it as
-      // the answer is saved.
+      // Store any available feedback but keep it hidden — both self-study modes hold the
+      // result behind an explicit "Check answer" click (fbVisible gates on `revealed`),
+      // so nothing is revealed while the student is still answering. For PRACTICE this
+      // also doubles as the "is a result available to check?" signal (see showCheckButton).
+      // Self-test never stores it on autosave; it re-fetches on the click instead.
       if (!isSelfTest) applyFeedback(qid, data, answered);
     }, 300);
   };
 
-  // "Check answer" (self-test): commit the current answer now and reveal its feedback.
+  // "Check answer" (self-study: PRACTICE + self-test): commit the current answer now
+  // and reveal its feedback.
   const checkAnswer = async (q) => {
     const qid = getQId(q);
     clearTimeout(autosaveTimers.current[qid]);
@@ -488,7 +492,9 @@ const TestTaking = () => {
       else next.set(qid, updated);
       return next;
     });
-    if (isSelfTest) clearCheck(qid);
+    // Changing the answer retracts any revealed result and its stale feedback so the
+    // student must re-check — for both self-study modes (PRACTICE + SELF_TEST).
+    if (selfStudy) clearCheck(qid);
     scheduleAutosave(q);
   };
 
@@ -502,7 +508,9 @@ const TestTaking = () => {
       else next.set(qid, String(value));
       return next;
     });
-    if (isSelfTest) clearCheck(qid);
+    // Retract any revealed result while the student is still typing, so the answer is
+    // never shown before they finish and click "Check answer" (the reported bug).
+    if (selfStudy) clearCheck(qid);
     scheduleAutosave(q);
   };
 
@@ -545,6 +553,12 @@ const TestTaking = () => {
 
   const goTo = (idx) => setCurrent(Math.min(questions.length - 1, Math.max(0, idx)));
   const goNext = () => setCurrent((c) => Math.min(questions.length - 1, c + 1));
+  // Jump to the first question of the subject/section at index subjIdx — powers the
+  // sequential prev/next-subject controls that complement the section tab strip.
+  const goToSubject = (subjIdx) => {
+    const target = subjects[subjIdx];
+    if (target && target.indices.length) goTo(target.indices[0]);
+  };
   const isLast = current === questions.length - 1;
 
   const saveAndNext = () => {
@@ -671,21 +685,32 @@ const TestTaking = () => {
   const q = questions[current];
   const qid = q ? getQId(q) : null;
   const chosen = qid != null ? answers.get(qid) || [] : [];
-  // Instant feedback for the current question. For PRACTICE it shows as soon as the
-  // answer saves; for a SELF_TEST it stays hidden until the student clicks "Check
-  // answer" (revealed set). `fbVisible` gates both the panel and the option tinting.
+  // Feedback for the current question. In both self-study modes it stays hidden until
+  // the student clicks "Check answer" (revealed set) — so it never appears mid-answer.
+  // `fbVisible` gates both the result panel and the option tinting.
   const fb = qid != null ? feedback.get(qid) : null;
-  const fbVisible = !!fb?.feedbackAvailable && (!isSelfTest || (qid != null && revealed.has(qid)));
+  const fbVisible = !!fb?.feedbackAvailable && (!selfStudy || (qid != null && revealed.has(qid)));
   const fbCorrectSet = fbVisible && Array.isArray(fb.correctOptionIds) ? new Set(fb.correctOptionIds) : null;
   // Whether the current question has an answer the student could check/submit, and
-  // (self-test) whether they've already revealed its feedback via "Check answer".
+  // whether they've already revealed its feedback via "Check answer".
   const currentAnswered = chosen.length > 0 || (qid != null && hasNumericAnswer(qid));
   const currentRevealed = qid != null && revealed.has(qid);
+  // A result exists for this question (autosave got feedback back). Used so PRACTICE
+  // only offers "Check answer" when there's actually something to reveal.
+  const currentHasFeedback = qid != null && feedback.has(qid);
+  // "Check answer" gate — applies to every self-study question type (numeric + choice):
+  // the student commits, then sees the result. Self-test always offers it (feedback is
+  // fetched on the click); PRACTICE offers it once during-attempt feedback exists, so a
+  // practice test set not to reveal during the attempt shows no dead button.
+  const showCheckButton = selfStudy && !currentRevealed && (isSelfTest || currentHasFeedback);
   const title = attempt?.testTitle || attempt?.title || attempt?.test?.title || 'Test';
   // A question is in exactly one of the two maps, so summing sizes never double-counts.
   const answeredCount = answers.size + numericAnswers.size;
   // 1-based position of the current question within its subject (for display).
   const posInSubject = activeSubject.indices.indexOf(current) + 1;
+  // Index of the active subject in the ordered list — drives the prev/next-subject
+  // controls (disabled at the ends). Labels are unique (deduped), so this is stable.
+  const activeSubjectIdx = subjects.findIndex((s) => s.label === activeSubject.label);
 
   const paletteCls = {
     current: 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-card',
@@ -704,29 +729,52 @@ const TestTaking = () => {
       onTestSubmit={() => setShowConfirm(true)}
     >
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
-        {/* Subject / section tabs */}
+        {/* Subject / section navigator — tabs to jump to any section, plus prev/next
+            controls to step through them in order (industry-standard multi-section UX). */}
         {hasSubjects && (
-          <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
-            {subjects.map((s) => {
-              const isActive = s.label === activeSubject.label;
-              const ansInSub = s.indices.filter((i) => statusOf(i) === 'answered' || statusOf(i) === 'answeredMarked').length;
-              return (
-                <button
-                  key={s.label}
-                  onClick={() => goTo(s.indices[0])}
-                  className={`px-4 py-2 rounded-t-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/70'
-                  }`}
-                >
-                  {s.label}
-                  <span className={`ml-2 text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                    {ansInSub}/{s.indices.length}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToSubject(activeSubjectIdx - 1)}
+              disabled={activeSubjectIdx <= 0}
+              iconName="ChevronLeft"
+              title="Previous subject"
+              aria-label="Previous subject"
+              className="flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0 flex gap-2 overflow-x-auto">
+              {subjects.map((s) => {
+                const isActive = s.label === activeSubject.label;
+                const ansInSub = s.indices.filter((i) => statusOf(i) === 'answered' || statusOf(i) === 'answeredMarked').length;
+                return (
+                  <button
+                    key={s.label}
+                    onClick={() => goTo(s.indices[0])}
+                    className={`flex-shrink-0 px-4 py-2 rounded-t-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                    }`}
+                  >
+                    {s.label}
+                    <span className={`ml-2 text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                      {ansInSub}/{s.indices.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToSubject(activeSubjectIdx + 1)}
+              disabled={activeSubjectIdx >= subjects.length - 1}
+              iconName="ChevronRight"
+              title="Next subject"
+              aria-label="Next subject"
+              className="flex-shrink-0"
+            />
           </div>
         )}
 
@@ -864,10 +912,10 @@ const TestTaking = () => {
                 </div>
                 )}
 
-                {/* Check answer (self-test) — the student commits, then sees feedback.
-                    Hidden once revealed (the feedback panel replaces it) and reappears
-                    if they change their answer. */}
-                {isSelfTest && !currentRevealed && (
+                {/* Check answer (all self-study: PRACTICE + self-test) — the student
+                    commits, then sees feedback. Hidden once revealed (the feedback panel
+                    replaces it) and reappears if they change their answer. */}
+                {showCheckButton && (
                   <div className="mt-4">
                     <Button
                       variant="default"
@@ -885,9 +933,9 @@ const TestTaking = () => {
                   </div>
                 )}
 
-                {/* Per-answer feedback. PRACTICE (solutionReveal=DURING_ATTEMPT) shows
-                    it as the answer saves; a SELF_TEST holds it back until the student
-                    clicks "Check answer". Either way it refreshes if they change answers. */}
+                {/* Per-answer feedback. Both self-study modes (PRACTICE with
+                    solutionReveal=DURING_ATTEMPT, and SELF_TEST) hold it back until the
+                    student clicks "Check answer", and it refreshes if they change answers. */}
                 {fbVisible && (
                   <div
                     className={`mt-4 rounded-xl border p-4 ${
