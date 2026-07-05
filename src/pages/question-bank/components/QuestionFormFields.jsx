@@ -127,10 +127,15 @@ const QuestionFormFields = ({ form }) => {
     editorOpen, setEditorOpen,
     questionData,
     recordCaret, openEquationEditor, insertLatexAtCursor, insertTableAtCursor,
-    handleInputChange, handleOptionChange, handleCorrectAnswerChange,
+    handleInputChange, handleOptionChange, handleCorrectAnswerChange, handleToggleCorrect,
     handleQuestionImageUpload, handleClearQuestionImage,
     handleOptionImageUpload, handleClearOptionImage
   } = form;
+
+  // Both single-choice MCQ and multiple-correct (MSQ) use the options editor; only
+  // the correctness control (radio vs checkbox) and marking rules differ.
+  const isMultiCorrect = questionData?.questionType === 'multiple_correct';
+  const showOptions = questionData?.questionType === 'mcq' || isMultiCorrect;
 
   // Tags + hints live on questionData as arrays (see useQuestionForm). They're edited
   // through handleInputChange like any other field — no dedicated hook handlers needed.
@@ -219,7 +224,8 @@ const QuestionFormFields = ({ form }) => {
           value={questionData?.questionType}
           onChange={(value) => handleInputChange('questionType', value)}
           options={[
-            { value: 'mcq', label: 'Multiple Choice' },
+            { value: 'mcq', label: 'Multiple Choice (single answer)' },
+            { value: 'multiple_correct', label: 'Multiple Correct (one or more answers)' },
             { value: 'integer_type', label: 'Numeric / Integer' },
             { value: 'subjective', label: 'Subjective' }
           ]}
@@ -373,12 +379,34 @@ const QuestionFormFields = ({ form }) => {
         </p>
       </div>
 
-      {/* MCQ Options */}
-      {questionData?.questionType === 'mcq' && (
+      {/* MCQ / Multiple-correct options */}
+      {showOptions && (
         <div>
           <label className="block text-sm font-medium text-foreground mb-3">
             Answer Options *
+            <span className="ml-2 font-normal text-muted-foreground">
+              {isMultiCorrect
+                ? 'Tick every correct option (one or more).'
+                : 'Select the single correct option.'}
+            </span>
           </label>
+
+          {/* Marking scheme — only meaningful for multiple-correct questions. */}
+          {isMultiCorrect && (
+            <div className="mb-4 max-w-md">
+              <Select
+                label="Marking Scheme *"
+                value={questionData?.markingScheme || 'PARTIAL'}
+                onChange={(value) => handleInputChange('markingScheme', value)}
+                options={[
+                  { value: 'PARTIAL', label: 'Partial credit (JEE) — reward correct ticks, penalise wrong ones' },
+                  { value: 'ALL_OR_NOTHING', label: 'All or nothing — full marks only for the exact correct set' }
+                ]}
+                description="How the backend scores an answer that is partly correct."
+              />
+            </div>
+          )}
+
           <div className="space-y-4">
             {questionData?.options?.map((option, index) => (
               <div
@@ -393,11 +421,15 @@ const QuestionFormFields = ({ form }) => {
                 <div className="flex items-center space-x-3 mb-3">
                   <div className="relative">
                     <input
-                      type="radio"
+                      type={isMultiCorrect ? 'checkbox' : 'radio'}
                       name="correctAnswer"
                       checked={option?.isCorrect}
-                      onChange={() => handleCorrectAnswerChange(index)}
-                      className="w-5 h-5 text-success focus:ring-success border-border cursor-pointer"
+                      onChange={() =>
+                        isMultiCorrect ? handleToggleCorrect(index) : handleCorrectAnswerChange(index)
+                      }
+                      className={`w-5 h-5 text-success focus:ring-success border-border cursor-pointer ${
+                        isMultiCorrect ? 'rounded' : ''
+                      }`}
                     />
                     {option?.isCorrect && (
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-success rounded-full flex items-center justify-center">
@@ -459,11 +491,12 @@ const QuestionFormFields = ({ form }) => {
               <Icon name="Info" size={16} className="text-primary mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-primary">
-                  How to mark the correct answer:
+                  {isMultiCorrect ? 'How to mark the correct answers:' : 'How to mark the correct answer:'}
                 </p>
                 <p className="text-xs text-primary/80 mt-1">
-                  Click the radio button (○) next to the option you want to mark as correct.
-                  The selected option will be highlighted in green with a "✓ Correct Answer" badge.
+                  {isMultiCorrect
+                    ? 'Tick the checkbox (☑) next to every option that is correct — a multiple-correct question can have one or more. Each marked option is highlighted in green with a "✓ Correct Answer" badge.'
+                    : 'Click the radio button (○) next to the option you want to mark as correct. The selected option will be highlighted in green with a "✓ Correct Answer" badge.'}
                 </p>
               </div>
             </div>

@@ -11,6 +11,7 @@ import QuestionFormFields from '../question-bank/components/QuestionFormFields';
 
 const QUESTION_TYPE_LABELS = {
   mcq: 'MCQ',
+  multiple_correct: 'Multiple Correct',
   integer_type: 'Integer',
   subjective: 'Subjective'
 };

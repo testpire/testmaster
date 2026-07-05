@@ -223,10 +223,13 @@ const TestTaking = () => {
   const revealNextHint = (id, total) =>
     setHintsShown((prev) => ({ ...prev, [id]: Math.min(total, (prev[id] || 0) + 1) }));
 
+  // Multiple-correct (MSQ) → checkboxes + array submit. The backend flags these with
+  // `multiSelect` on the attempt question; fall back to the type spelling (MULTIPLE_CORRECT
+  // / MULTI_CORRECT / MSQ) so it still renders as multi-select if the flag is ever absent.
   const isMulti = (q) =>
-    (q.questionType || '').toLowerCase().includes('multi') ||
+    !!q.multiSelect ||
     !!q.multipleCorrect ||
-    !!q.multiSelect;
+    /multi|msq/.test((q.questionType || '').toLowerCase());
 
   // Numeric-answer questions (INTEGER / NUMERIC / NUMERICAL) — the student types a
   // number instead of picking an option. 'numerical'.includes('numeric') is true,

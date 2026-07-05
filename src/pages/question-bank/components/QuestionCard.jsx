@@ -91,6 +91,16 @@ const QuestionCard = ({
   const isNumeric = ['integer', 'numeric', 'numerical', 'integer_type'].includes(
     String(safeQuestion.questionType).toLowerCase()
   );
+  // Multiple-correct (MSQ) questions carry the same options list as MCQ, but more than
+  // one option can be flagged correct and they have a marking scheme (PARTIAL default).
+  const isMultiple = /multi|msq/.test(String(safeQuestion.questionType).toLowerCase());
+  const markingScheme = String(question.markingScheme || '').toUpperCase();
+  // Friendly type badge — the raw backend value (e.g. MULTIPLE_CORRECT) reads awkwardly.
+  const typeLabel = isMultiple
+    ? 'Multiple Correct'
+    : isNumeric
+    ? 'Numeric'
+    : String(safeQuestion.questionType).toUpperCase();
   const correctAnswer = question.correctAnswer ?? question.correct_integer_answer ?? null;
   const hasCorrectAnswer = correctAnswer != null && String(correctAnswer).trim() !== '';
   const answerTolerance = question.answerTolerance ?? question.answer_tolerance ?? 0;
@@ -163,8 +173,18 @@ const QuestionCard = ({
 
           {/* Question Type Badge */}
           <div className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-            {safeQuestion.questionType.toUpperCase()}
+            {typeLabel}
           </div>
+
+          {/* Marking scheme — only for multiple-correct questions. */}
+          {isMultiple && (
+            <div
+              className="px-2 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent-foreground border border-border"
+              title="How partly-correct answers are scored"
+            >
+              {markingScheme === 'ALL_OR_NOTHING' ? 'All or nothing' : 'Partial marking'}
+            </div>
+          )}
 
           {/* Publish status badge */}
           <div
@@ -344,8 +364,9 @@ const QuestionCard = ({
         )}
       </div>
 
-      {/* Options for MCQ */}
-      {safeQuestion.questionType?.toLowerCase() === 'mcq' && safeQuestion.options.length > 0 && (
+      {/* Options for MCQ / multiple-correct (both list options; multiple-correct just
+          highlights more than one as correct). */}
+      {(safeQuestion.questionType?.toLowerCase() === 'mcq' || isMultiple) && safeQuestion.options.length > 0 && (
         <div className="mb-3 space-y-1">
           {safeQuestion.options.map((option, optionIndex) => {
             const safeOption = {

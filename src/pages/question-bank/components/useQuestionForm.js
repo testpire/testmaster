@@ -29,6 +29,18 @@ const makeBlankOptions = () => [
 // into the form to a string so the dropdowns actually show the saved selection.
 const asId = (v) => (v === null || v === undefined || v === '' ? '' : String(v));
 
+// Map a backend questionType string to the form's internal toggle value. Mirrors
+// the backend's QuestionTypeUtil buckets so an edit reopens with the right editor:
+//   numeric          → INTEGER / NUMERIC / NUMERICAL           → 'integer_type'
+//   multiple-correct → MULTIPLE_CORRECT / MULTI_CORRECT / MSQ  → 'multiple_correct'
+//   everything else  → MCQ / TRUE_FALSE / unrecognized         → 'mcq' (single-correct)
+const classifyQuestionType = (raw) => {
+  const t = String(raw || '').toLowerCase();
+  if (/integer|numeric/.test(t)) return 'integer_type';
+  if (/multi|msq/.test(t)) return 'multiple_correct';
+  return 'mcq';
+};
+
 const makeBlankQuestion = () => ({
   questionText: '',
   questionImagePath: '',
@@ -54,6 +66,11 @@ const makeBlankQuestion = () => ({
   // string (INTEGER/NUMERIC/NUMERICAL) preserved when editing so a save never
   // silently downgrades a NUMERIC question to INTEGER. null → new question.
   answerTolerance: '',
+  // Multiple-correct questions: how partial answers are scored. 'PARTIAL' (JEE
+  // default) awards partial credit; 'ALL_OR_NOTHING' needs the exact correct set.
+  // Ignored for other types. Also preserves the exact backend subtype (for numeric
+  // and multiple-correct) in apiQuestionType so an edit re-sends it verbatim.
+  markingScheme: 'PARTIAL',
   apiQuestionType: null
 });
 
@@ -180,18 +197,21 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       // pinned PLAIN would stop the content from auto-correcting if it has latex.
       setFormatManual(savedFormat === 'LATEX');
       // Map the backend question type to the form's internal toggle value. The API
-      // uses MCQ / INTEGER / NUMERIC / NUMERICAL (camelCase `questionType`); the form
-      // models "mcq" vs "integer_type". Reading the wrong (snake_case) key here was
-      // why editing a numeric question showed the MCQ options editor.
+      // uses MCQ / INTEGER / NUMERIC / NUMERICAL / MULTIPLE_CORRECT (camelCase
+      // `questionType`); the form models 'mcq' | 'integer_type' | 'multiple_correct'.
+      // Reading the wrong (snake_case) key here was why editing a numeric question
+      // showed the MCQ options editor.
       const rawType = editingQuestion?.questionType || editingQuestion?.question_type || 'mcq';
-      const isNumericType = /integer|numeric/i.test(String(rawType));
+      const internalType = classifyQuestionType(rawType);
+      const isNumericType = internalType === 'integer_type';
+      const isMultiType = internalType === 'multiple_correct';
       setQuestionData({
         questionText: editingQuestion?.text || editingQuestion?.question_text || '',
         textFormat: loadedFormat,
         questionImagePath: editingQuestion?.questionImagePath || '',
         // Backend already returns a full public URL, so it doubles as the preview.
         questionImagePreview: editingQuestion?.questionImagePath || '',
-        questionType: isNumericType ? 'integer_type' : 'mcq',
+        questionType: internalType,
         subject: asId(editingQuestion?.subjectId ?? editingQuestion?.subject),
         chapter: asId(editingQuestion?.chapterId ?? editingQuestion?.chapter),
         topic: asId(editingQuestion?.topicId ?? editingQuestion?.topic),
@@ -226,8 +246,15 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
             : (editingQuestion?.correct_integer_answer ?? ''),
         answerTolerance:
           editingQuestion?.answerTolerance != null ? String(editingQuestion.answerTolerance) : '',
-        // Preserve the exact backend subtype so an edit re-sends INTEGER/NUMERIC as-is.
-        apiQuestionType: isNumericType ? rawType : null
+        // Marking scheme for multiple-correct questions (QuestionResponseDto.markingScheme).
+        // Anything but an explicit ALL_OR_NOTHING falls back to the PARTIAL default.
+        markingScheme:
+          String(editingQuestion?.markingScheme || '').toUpperCase() === 'ALL_OR_NOTHING'
+            ? 'ALL_OR_NOTHING'
+            : 'PARTIAL',
+        // Preserve the exact backend subtype so an edit re-sends INTEGER/NUMERIC /
+        // MULTIPLE_CORRECT/MSQ verbatim (never downgrading e.g. MSQ → MULTIPLE_CORRECT).
+        apiQuestionType: isNumericType || isMultiType ? rawType : null
       });
 
       // A question response only carries topicId — not subjectId/chapterId — so
@@ -390,6 +417,16 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       if (field === 'chapter') {
         newData.topic = '';
       }
+      // Switching to single-choice MCQ: collapse any multi-marked correctness down to
+      // the first correct option, so we never save an ambiguous single-correct question
+      // after a user tried multiple-correct and changed their mind.
+      if (field === 'questionType' && value === 'mcq') {
+        const firstCorrect = (prev.options || []).findIndex((o) => o?.isCorrect);
+        newData.options = (prev.options || []).map((o, i) => ({
+          ...o,
+          isCorrect: firstCorrect >= 0 && i === firstCorrect
+        }));
+      }
       return newData;
     });
   };
@@ -403,6 +440,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     }));
   };
 
+  // Single-choice MCQ: exactly one option is correct (radio semantics).
   const handleCorrectAnswerChange = (index) => {
     setQuestionData(prev => ({
       ...prev,
@@ -410,6 +448,16 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
         ...opt,
         isCorrect: i === index
       }))
+    }));
+  };
+
+  // Multiple-correct (MSQ): each option toggles independently (checkbox semantics).
+  const handleToggleCorrect = (index) => {
+    setQuestionData(prev => ({
+      ...prev,
+      options: prev?.options?.map((opt, i) =>
+        i === index ? { ...opt, isCorrect: !opt?.isCorrect } : opt
+      )
     }));
   };
 
@@ -502,6 +550,17 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       }
     }
 
+    if (questionData?.questionType === 'multiple_correct') {
+      const correctCount = questionData?.options?.filter(opt => opt?.isCorrect)?.length || 0;
+      if (correctCount < 1) {
+        return 'Mark at least one correct option for a multiple-correct question';
+      }
+      const emptyOptions = questionData?.options?.filter(opt => !opt?.text?.trim());
+      if (emptyOptions?.length > 0) {
+        return 'All option texts are required for multiple-correct questions';
+      }
+    }
+
     if (questionData?.questionType === 'integer_type' && !String(questionData?.correctIntegerAnswer ?? '').trim()) {
       return 'Correct answer is required';
     }
@@ -516,14 +575,21 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
   const buildPayload = ({ instituteId, draftMode } = {}) => {
     const internalType = questionData?.questionType;
     const isNumeric = internalType === 'integer_type';
-    // Map the form's internal toggle to the backend enum. For numeric, preserve the
-    // exact loaded subtype (INTEGER/NUMERIC/NUMERICAL); default a new one to INTEGER.
+    const isMultiple = internalType === 'multiple_correct';
+    // Both MCQ and multiple-correct carry an options list; only the number of
+    // correct options (and the marking scheme) differ.
+    const hasOptions = internalType === 'mcq' || isMultiple;
+    // Map the form's internal toggle to the backend enum. For numeric/multiple-correct,
+    // preserve the exact loaded subtype (INTEGER/NUMERIC/NUMERICAL, MULTIPLE_CORRECT/MSQ);
+    // default a new numeric to INTEGER and a new multiple-correct to MULTIPLE_CORRECT.
     // 'mcq' → 'MCQ'; anything else (e.g. 'subjective') passes through unchanged.
     const apiQuestionType = isNumeric
       ? (questionData?.apiQuestionType || 'INTEGER')
-      : internalType === 'mcq'
-        ? 'MCQ'
-        : internalType;
+      : isMultiple
+        ? (questionData?.apiQuestionType || 'MULTIPLE_CORRECT')
+        : internalType === 'mcq'
+          ? 'MCQ'
+          : internalType;
     const rawAnswer = questionData?.correctIntegerAnswer;
     const rawTolerance = questionData?.answerTolerance;
     return {
@@ -555,7 +621,13 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
         answerTolerance:
           rawTolerance != null && String(rawTolerance).trim() !== '' ? Number(rawTolerance) : 0
       }),
-      ...(questionData?.questionType === 'mcq' && {
+      // Multiple-correct questions send their marking scheme (ALL_OR_NOTHING | PARTIAL);
+      // the backend defaults to PARTIAL, so we send that unless ALL_OR_NOTHING was chosen.
+      ...(isMultiple && {
+        markingScheme:
+          questionData?.markingScheme === 'ALL_OR_NOTHING' ? 'ALL_OR_NOTHING' : 'PARTIAL'
+      }),
+      ...(hasOptions && {
         options: questionData?.options?.map((opt, index) => ({
           text: opt?.text || '',
           optionImagePath: opt?.optionImagePath || '',
@@ -585,6 +657,9 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
       chapter: prev.chapter,
       topic: prev.topic,
       questionType: prev.questionType,
+      // Marking scheme goes with the type — carry it so a run of multiple-correct
+      // questions keeps the chosen scheme instead of resetting to PARTIAL each time.
+      markingScheme: prev.markingScheme,
       difficultyLevel: prev.difficultyLevel,
       marks: prev.marks,
       negativeMarks: prev.negativeMarks,
@@ -605,7 +680,7 @@ export function useQuestionForm({ currentUser, editingQuestion = null, active })
     questionData, setQuestionData,
     // handlers
     recordCaret, openEquationEditor, insertLatexAtCursor, insertTableAtCursor,
-    handleInputChange, handleOptionChange, handleCorrectAnswerChange,
+    handleInputChange, handleOptionChange, handleCorrectAnswerChange, handleToggleCorrect,
     handleQuestionImageUpload, handleClearQuestionImage,
     handleOptionImageUpload, handleClearOptionImage,
     // logic

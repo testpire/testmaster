@@ -14,6 +14,11 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
   // Numeric-answer types the backend recognizes. 'integer_type' is the manual
   // form's internal value; the rest are the API's own (INTEGER/NUMERIC/NUMERICAL).
   const isNumeric = ['integer', 'numeric', 'numerical', 'integer_type'].includes(normalizedType);
+  // Multiple-correct (MSQ) types (MULTIPLE_CORRECT/MULTI_CORRECT/MSQ). Like MCQ they
+  // carry an options list, so a partial edit (difficulty/topic/publish) must re-send
+  // both the options and the marking scheme or the backend loses them on the PUT.
+  const isMultiple = /multi|msq/.test(normalizedType);
+  const hasOptions = isMcq || isMultiple;
 
   const hasTopicOverride = changes.topicId !== undefined && changes.topicId !== null && changes.topicId !== '';
   const resolvedTopicId = hasTopicOverride
@@ -62,7 +67,10 @@ function buildUpdatePayloadFromQuestion(q = {}, changes = {}) {
       correctAnswer: q.correctAnswer,
       answerTolerance: q?.answerTolerance ?? 0,
     }),
-    ...(isMcq && {
+    // Preserve the marking scheme for multiple-correct questions (backend default is
+    // PARTIAL) so an unrelated inline edit never resets how the question is scored.
+    ...(isMultiple && { markingScheme: q?.markingScheme || 'PARTIAL' }),
+    ...(hasOptions && {
       options: (Array.isArray(q?.options) ? q.options : []).map((opt, i) => ({
         text: opt?.text ?? opt?.option_text ?? '',
         optionImagePath: opt?.optionImagePath || '',

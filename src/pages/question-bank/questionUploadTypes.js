@@ -117,6 +117,43 @@ const buildNumericRows = (topic) => [
   ],
 ];
 
+// ---- Multiple Correct (MSQ / IIT-JEE) --------------------------------------
+// Identical CSV layout to MCQ (same columns, same /questions/bulk-upload endpoint);
+// the only differences are Question Type = MULTIPLE_CORRECT and more than one option
+// flagged IsCorrect = true. The backend defaults these to PARTIAL marking.
+
+const buildMultipleCorrectRows = (topic) => [
+  [
+    'M1', 'Which of the following are noble gases? (Select all that apply.)', '', 'EASY',
+    'MULTIPLE_CORRECT', '4', '2',
+    'Helium, Neon and Argon are noble gases (group 18); chlorine is a halogen.', topic, 'PLAIN',
+    'NEET', 'Noble gases sit in group 18 of the periodic table',
+    'Helium', '', 'true', 'Neon', '', 'true', 'Chlorine', '', 'false', 'Argon', '', 'true',
+  ],
+  [
+    'M2', 'For the function $f(x) = x^2$, which statements are true?', '', 'MEDIUM',
+    'MULTIPLE_CORRECT', '4', '2',
+    '$f$ is even and has a global minimum at $x=0$; it is not injective over all reals and is not decreasing on $(0,\\infty)$.',
+    topic, 'LATEX', 'JEE Advanced 2016', 'Sketch the parabola before deciding',
+    '$f$ is an even function', '', 'true', '$f$ has a minimum at $x=0$', '', 'true',
+    '$f$ is one-to-one on $\\mathbb{R}$', '', 'false', '$f$ is decreasing for $x>0$', '', 'false',
+  ],
+  [
+    'M3', 'Which quantities are vectors?', '', 'EASY', 'MULTIPLE_CORRECT', '4', '2',
+    'Velocity and acceleration have direction (vectors); speed and mass are scalars.', topic, 'PLAIN',
+    'JEE Main', 'A vector has both magnitude and direction',
+    'Velocity', '', 'true', 'Speed', '', 'false', 'Acceleration', '', 'true', 'Mass', '', 'false',
+  ],
+  [
+    'M4', 'A particle moves under a net force. Which statements must be true?', '', 'HARD',
+    'MULTIPLE_CORRECT', '4', '2',
+    "A net force implies acceleration and a changing velocity vector; speed need not change (e.g. uniform circular motion), and momentum is not conserved for the particle alone.",
+    topic, 'PLAIN', 'JEE Advanced 2019', "Recall Newton's second law and think about circular motion",
+    'The particle accelerates', '', 'true', 'Its velocity changes', '', 'true',
+    'Its speed must increase', '', 'false', 'Its momentum is conserved', '', 'false',
+  ],
+];
+
 export const UPLOAD_TYPES = [
   {
     key: 'mcq',
@@ -140,6 +177,30 @@ export const UPLOAD_TYPES = [
       'Matrices are supported: write them on one line as $$\\begin{bmatrix} 1 & 2 \\\\ 3 & 4 \\end{bmatrix}$$ — use & between columns and \\\\ between rows — and set Text Format to LATEX.',
     ],
     buildRows: buildMcqRows,
+  },
+  {
+    key: 'multiple_correct',
+    label: 'Multiple Correct',
+    shortLabel: 'Multi',
+    icon: 'CheckSquare',
+    // Same parser/endpoint as MCQ — the backend routes by the Question Type column.
+    endpoint: '/questions/bulk-upload',
+    tagline: 'Options with one or more correct answers',
+    description:
+      'IIT-JEE-style questions where one or more options are correct. Same layout as MCQ (Option1–Option4) — set Question Type to MULTIPLE_CORRECT and mark every correct option IsCorrect = true. Answers are scored with partial marking.',
+    sampleFileName: 'sample-multiple-correct-questions.csv',
+    // The columns are identical to the MCQ format.
+    headers: MCQ_HEADERS,
+    editColumns: COMMON_EDIT_COLUMNS,
+    notes: [
+      'Question Type must be MULTIPLE_CORRECT (MULTI_CORRECT and MSQ are also accepted).',
+      'Mark every correct option with IsCorrect = true — a multiple-correct question can have more than one.',
+      'Answers are scored with partial marking by default: correct ticks earn credit, wrong ticks are penalised (set Negative Marks accordingly).',
+      "Leave option columns blank for options you don't need (2–4 options supported).",
+      'Tags mark previous-year exams the question appeared in — comma-separated, e.g. JEE Advanced 2016. Leave blank if it has not appeared before.',
+      'Matrices are supported: write them on one line as $$\\begin{bmatrix} 1 & 2 \\\\ 3 & 4 \\end{bmatrix}$$ — use & between columns and \\\\ between rows — and set Text Format to LATEX.',
+    ],
+    buildRows: buildMultipleCorrectRows,
   },
   {
     key: 'numeric',

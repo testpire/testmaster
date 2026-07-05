@@ -20,6 +20,15 @@ const DIFFICULTY_STYLES = {
 
 const titleCase = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : '');
 
+// Friendly label for the raw backend questionType (e.g. MULTIPLE_CORRECT → "Multiple
+// correct"), collapsing the backend's spelling variants into their grading behavior.
+const prettyQuestionType = (t) => {
+  const s = String(t || '').toLowerCase();
+  if (/multi|msq/.test(s)) return 'Multiple correct';
+  if (/integer|numeric/.test(s)) return 'Numeric';
+  return String(t || '');
+};
+
 // Curate the questions on a test. Browse the institute's question bank (left),
 // narrow it with the Subject → Chapter → Topic + difficulty + text filters,
 // pick questions and tune their per-question marks / negative marks / order on
@@ -598,7 +607,7 @@ const QuestionPickerModal = ({ isOpen, onClose, onSuccess, test }) => {
                         <DifficultyBadge level={q.difficultyLevel} />
                         {q.questionType && (
                           <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium uppercase tracking-wide">
-                            {q.questionType}
+                            {prettyQuestionType(q.questionType)}
                           </span>
                         )}
                         {q.topicName && (
