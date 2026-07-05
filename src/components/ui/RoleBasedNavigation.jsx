@@ -174,36 +174,42 @@ const RoleBasedNavigation = ({
     'student': [
       {
         label: 'Dashboard',
+        shortLabel: 'Home',
         path: '/student-dashboard',
         icon: 'LayoutDashboard',
         roles: ['student']
       },
       {
         label: 'Study Materials',
+        shortLabel: 'Study',
         path: '/study-materials',
         icon: 'Library',
         roles: ['student']
       },
       {
         label: 'My Tests',
+        shortLabel: 'Tests',
         path: '/my-tests',
         icon: 'ClipboardList',
         roles: ['student']
       },
       {
         label: 'Self-Test',
+        shortLabel: 'Self-Test',
         path: '/self-test',
         icon: 'Sparkles',
         roles: ['student']
       },
       {
         label: 'Results',
+        shortLabel: 'Results',
         path: '/my-results',
         icon: 'Award',
         roles: ['student']
       },
       {
         label: 'Profile',
+        shortLabel: 'Profile',
         path: '/profile',
         icon: 'User',
         roles: ['student']
@@ -339,13 +345,15 @@ const RoleBasedNavigation = ({
             <button
               key={item?.path}
               onClick={() => handleItemClick(item)}
-              className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-all duration-200 ${
-                isActiveRoute(item?.path) 
+              className={`flex flex-1 min-w-0 flex-col items-center space-y-1 px-1 py-2 rounded-lg transition-all duration-200 ${
+                isActiveRoute(item?.path)
                   ? 'text-primary bg-primary/10' :'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon name={item?.icon} size={20} />
-              <span className="text-xs font-medium">{item?.label}</span>
+              <span className="text-[11px] font-medium leading-tight whitespace-nowrap max-w-full truncate">
+                {item?.shortLabel || item?.label}
+              </span>
             </button>
           ))}
         </div>

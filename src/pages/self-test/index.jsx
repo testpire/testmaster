@@ -131,7 +131,7 @@ const SelfTestHub = () => {
             onClick={() => navigate('/self-test/new')}
             iconName="Plus"
             iconPosition="left"
-            className="flex-shrink-0"
+            className="flex-shrink-0 w-full sm:w-auto"
           >
             Build a test
           </Button>

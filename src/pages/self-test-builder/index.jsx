@@ -303,7 +303,7 @@ const SelfTestBuilder = () => {
               question{result.totalQuestions === 1 ? '' : 's'} from your enrolled content.
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3">
               <Button
                 variant="default"
                 size="lg"
@@ -311,11 +311,18 @@ const SelfTestBuilder = () => {
                 disabled={startingAttempt || result.totalQuestions < 1}
                 iconName={startingAttempt ? 'Loader2' : 'Play'}
                 iconPosition="left"
-                className={startingAttempt ? 'animate-pulse' : ''}
+                className={`w-full sm:w-auto ${startingAttempt ? 'animate-pulse' : ''}`}
               >
                 {startingAttempt ? 'Starting…' : 'Start test'}
               </Button>
-              <Button variant="outline" size="lg" onClick={startOver} iconName="Pencil" iconPosition="left">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={startOver}
+                iconName="Pencil"
+                iconPosition="left"
+                className="w-full sm:w-auto"
+              >
                 Adjust
               </Button>
             </div>
@@ -513,7 +520,7 @@ const SelfTestBuilder = () => {
                 disabled={!canGenerate}
                 iconName={generating ? 'Loader2' : 'Sparkles'}
                 iconPosition="left"
-                className={generating ? 'animate-pulse' : ''}
+                className={`w-full sm:w-auto ${generating ? 'animate-pulse' : ''}`}
               >
                 {generating ? 'Generating…' : 'Generate test'}
               </Button>

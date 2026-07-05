@@ -875,7 +875,7 @@ const TestTaking = () => {
                       disabled={!currentAnswered || checkingId === qid}
                       iconName={checkingId === qid ? 'Loader2' : 'CheckCircle2'}
                       iconPosition="left"
-                      className={checkingId === qid ? 'animate-pulse' : ''}
+                      className={`w-full sm:w-auto ${checkingId === qid ? 'animate-pulse' : ''}`}
                     >
                       {checkingId === qid ? 'Checking…' : 'Check answer'}
                     </Button>
