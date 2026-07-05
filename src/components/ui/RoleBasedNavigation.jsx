@@ -191,6 +191,12 @@ const RoleBasedNavigation = ({
         roles: ['student']
       },
       {
+        label: 'Self-Test',
+        path: '/self-test',
+        icon: 'Sparkles',
+        roles: ['student']
+      },
+      {
         label: 'Results',
         path: '/my-results',
         icon: 'Award',
@@ -329,7 +335,7 @@ const RoleBasedNavigation = ({
     return (
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-[999] md:hidden">
         <div className="flex items-center justify-around py-2">
-          {currentNavItems?.slice(0, 4)?.map((item) => (
+          {currentNavItems?.slice(0, 5)?.map((item) => (
             <button
               key={item?.path}
               onClick={() => handleItemClick(item)}

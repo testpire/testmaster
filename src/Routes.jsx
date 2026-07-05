@@ -15,6 +15,8 @@ import AddQuestions from './pages/add-questions';
 import TestManagement from './pages/test-management';
 import TestDetail from './pages/test-detail';
 import StudentTests from './pages/student-tests';
+import SelfTestHub from './pages/self-test';
+import SelfTestBuilder from './pages/self-test-builder';
 import StudentResults from './pages/student-results';
 import TestResult from './pages/test-result';
 import TestTaking from './pages/test-taking';
@@ -89,6 +91,9 @@ const Routes = () => {
           {/* Student test-taking */}
           <Route path="/study-materials" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudyMaterials /></ProtectedRoute>} />
           <Route path="/my-tests" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentTests /></ProtectedRoute>} />
+          {/* Self-tests — student-built practice. /self-test lists them; /new builds one. */}
+          <Route path="/self-test" element={<ProtectedRoute allowedRoles={['STUDENT']}><SelfTestHub /></ProtectedRoute>} />
+          <Route path="/self-test/new" element={<ProtectedRoute allowedRoles={['STUDENT']}><SelfTestBuilder /></ProtectedRoute>} />
           <Route path="/my-results" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentResults /></ProtectedRoute>} />
           <Route path="/test-result/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestResult /></ProtectedRoute>} />
           <Route path="/test-taking/:attemptId" element={<ProtectedRoute allowedRoles={['STUDENT']}><TestTaking /></ProtectedRoute>} />

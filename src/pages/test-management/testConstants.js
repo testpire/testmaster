@@ -10,35 +10,47 @@ export const TEST_STATUS_BADGE = {
   CLOSED: 'bg-muted text-muted-foreground'
 };
 
-// Test type (CreateTestRequestDto.type). TEST = a graded test/exam; PRACTICE = a
-// Daily Practice Problem (DPP) set — unlimited attempts within the window with
-// answers revealed for self-study. Set at creation only (no `type` on update).
+// Test type. TEST = a graded test/exam; PRACTICE = a Daily Practice Problem (DPP)
+// set — unlimited attempts within the window with answers revealed for self-study;
+// SELF_TEST = a practice test the *student* assembles on demand (untimed, unlimited
+// attempts, instant per-answer feedback). TEST/PRACTICE are set at creation by staff
+// (CreateTestRequestDto.type); SELF_TEST is created by the student via the self-test
+// blueprint endpoint and is never authorable in Test Management.
 export const TEST_TYPES = ['TEST', 'PRACTICE'];
 
 export const TEST_TYPE_LABEL = {
   TEST: 'Test',
-  PRACTICE: 'Daily Practice'
+  PRACTICE: 'Daily Practice',
+  SELF_TEST: 'Self-Test'
 };
 
 // Longer label for selectors/empty states.
 export const TEST_TYPE_LABEL_LONG = {
   TEST: 'Test / Exam',
-  PRACTICE: 'Daily Practice Problems (DPP)'
+  PRACTICE: 'Daily Practice Problems (DPP)',
+  SELF_TEST: 'Self-Test (practice you build)'
 };
 
 export const TEST_TYPE_BADGE = {
   TEST: 'bg-primary/10 text-primary',
-  PRACTICE: 'bg-accent/15 text-accent'
+  PRACTICE: 'bg-accent/15 text-accent',
+  SELF_TEST: 'bg-secondary/15 text-secondary'
 };
 
 export const TEST_TYPE_ICON = {
   TEST: 'ClipboardList',
-  PRACTICE: 'Repeat'
+  PRACTICE: 'Repeat',
+  SELF_TEST: 'Sparkles'
 };
 
-// Normalize an API value to one of TEST_TYPES (defaults to TEST).
-export const normalizeTestType = (value) =>
-  String(value || '').toUpperCase() === 'PRACTICE' ? 'PRACTICE' : 'TEST';
+// Normalize an API value to a known test type. Recognizes PRACTICE and SELF_TEST;
+// everything else (incl. null/unknown) defaults to TEST.
+export const normalizeTestType = (value) => {
+  const v = String(value || '').toUpperCase();
+  if (v === 'PRACTICE') return 'PRACTICE';
+  if (v === 'SELF_TEST' || v === 'SELFTEST') return 'SELF_TEST';
+  return 'TEST';
+};
 
 // ---- Result / solution reveal (RevealTrigger) ------------------------------
 // A test has two independent reveal axes, each a RevealTrigger evaluated

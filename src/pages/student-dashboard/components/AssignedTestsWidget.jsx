@@ -41,7 +41,11 @@ const AssignedTestsWidget = ({ tests: testsProp, loading: loadingProp, error: er
   const [errorState, setErrorState] = useState(null);
   const [startingId, setStartingId] = useState(null);
 
-  const tests = controlled ? testsProp : testsState;
+  const rawTests = controlled ? testsProp : testsState;
+  // The dashboard shares its unfiltered /available feed. Self-tests aren't "assigned"
+  // — they're student-built practice — so keep them out of this panel; they live on
+  // the dedicated Self-Test page.
+  const tests = (Array.isArray(rawTests) ? rawTests : []).filter((t) => getType(t) !== 'SELF_TEST');
   const loading = controlled ? !!loadingProp : loadingState;
   const error = controlled ? errorProp : errorState;
 

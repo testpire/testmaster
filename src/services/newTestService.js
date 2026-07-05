@@ -276,6 +276,32 @@ export const newTestService = {
   },
 
   // ---------------------------------------------------------------------------
+  // Student — Self-Test (student-built practice)
+  // ---------------------------------------------------------------------------
+
+  // Generate a SELF_TEST from a blueprint the student assembles: one or more sections,
+  // each scoping questions at a single granularity (topicIds > chapterId > subjectId,
+  // by server precedence) with an optional difficulty ('EASY'|'MEDIUM'|'HARD'|'ALL')
+  // and a required count. POST /student/self-tests (SelfTestRequest { title?, sections[] }).
+  // The server assembles a ready-to-take test scoped to this student's enrolled content
+  // and dedupes questions across sections, so `selected` per section can be < `requested`.
+  //
+  // Returns { data: SelfTestResponse, error }: SelfTestResponse is
+  //   { testId, title, totalQuestions, sections: [{ subjectId?, chapterId?, topicIds?,
+  //     difficulty?, requested, selected }] } — hand testId straight to startAttempt().
+  // The backend enforces caps (default max 50 questions / 10 sections) and rejects an
+  // empty/scopeless blueprint with a 400 whose `message` we surface verbatim to the user.
+  async generateSelfTest(body) {
+    try {
+      const { data, error, success } = await post('/student/self-tests', body);
+      if (!success) return { data: null, error };
+      return { data: unwrapOne(data), error: null };
+    } catch (error) {
+      return { data: null, error: { message: error?.message || 'Failed to generate self-test' } };
+    }
+  },
+
+  // ---------------------------------------------------------------------------
   // Student — Test Taking
   // ---------------------------------------------------------------------------
 

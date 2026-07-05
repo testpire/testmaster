@@ -25,7 +25,8 @@ import {
 const TABS = [
   { key: 'ALL', label: 'All' },
   { key: 'TEST', label: 'Tests' },
-  { key: 'PRACTICE', label: 'Practice' }
+  { key: 'PRACTICE', label: 'Practice' },
+  { key: 'SELF_TEST', label: 'Self-Test' }
 ];
 
 const StudentResults = () => {
@@ -117,6 +118,11 @@ const StudentResults = () => {
       ? {
           title: 'No practice results yet',
           body: 'Once you complete a Daily Practice set it will appear here.'
+        }
+      : activeTab === 'SELF_TEST'
+      ? {
+          title: 'No self-test results yet',
+          body: 'Once you complete a practice test you built, it will appear here for review.'
         }
       : activeTab === 'TEST'
       ? {

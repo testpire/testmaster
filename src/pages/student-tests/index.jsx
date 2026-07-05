@@ -29,8 +29,13 @@ import {
 const TABS = [
   { key: 'ALL', label: 'All' },
   { key: 'TEST', label: 'Tests' },
-  { key: 'PRACTICE', label: 'Practice' }
+  { key: 'PRACTICE', label: 'Practice' },
+  { key: 'SELF_TEST', label: 'Self-Test' }
 ];
+
+// PRACTICE (DPP) and SELF_TEST are both self-paced: untimed, unlimited attempts, and
+// started without the timed-exam "are you ready?" warning. Only graded TESTs get that.
+const isSelfPaced = (type) => type === 'PRACTICE' || type === 'SELF_TEST';
 
 const StudentTests = () => {
   const navigate = useNavigate();
@@ -50,7 +55,7 @@ const StudentTests = () => {
     setLoading(true);
     setError(null);
     // Use the documented ?type= filter when a specific tab is active.
-    const typeParam = tab === 'TEST' || tab === 'PRACTICE' ? tab : undefined;
+    const typeParam = tab === 'ALL' ? undefined : tab;
     const { data, error: err } = await newTestService.getAvailableTests(typeParam);
     if (err) {
       setError(err.message || 'Failed to load your tests');
@@ -102,10 +107,10 @@ const StudentTests = () => {
     });
   };
 
-  // Practice (DPP) starts immediately — no timed-exam warning. Graded tests get the
-  // "are you ready?" confirmation first.
+  // Self-paced sets (Practice/Self-Test) start immediately — no timed-exam warning.
+  // Graded tests get the "are you ready?" confirmation first.
   const beginTest = (t) => {
-    if (getType(t) === 'PRACTICE') handleStart(t);
+    if (isSelfPaced(getType(t))) handleStart(t);
     else setConfirmTest(t);
   };
 
@@ -116,7 +121,7 @@ const StudentTests = () => {
 
   const renderState = (t) => {
     const testId = getTestId(t);
-    const isPractice = getType(t) === 'PRACTICE';
+    const selfPaced = isSelfPaced(getType(t));
     const open = isWithinWindow(t.availableFrom, t.availableUntil);
     const inProgressId = getInProgressAttemptId(t);
     const attemptsUsed = getAttemptsUsed(t);
@@ -139,7 +144,7 @@ const StudentTests = () => {
     }
 
     // Graded test with the attempt budget exhausted — nothing left to start.
-    if (!isPractice && attemptsLeft <= 0 && attemptsUsed > 0) {
+    if (!selfPaced && attemptsLeft <= 0 && attemptsUsed > 0) {
       return (
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
@@ -158,7 +163,7 @@ const StudentTests = () => {
       );
     }
 
-    const label = isPractice
+    const label = selfPaced
       ? attemptsUsed > 0
         ? 'Practice again'
         : 'Start practice'
@@ -195,9 +200,8 @@ const StudentTests = () => {
 
   // Short "attempts" descriptor for the card meta row.
   const attemptsLabel = (t) => {
-    const isPractice = getType(t) === 'PRACTICE';
     const used = getAttemptsUsed(t);
-    if (isPractice) {
+    if (isSelfPaced(getType(t))) {
       return used > 0 ? `${used} attempt${used === 1 ? '' : 's'} · unlimited` : 'Unlimited attempts';
     }
     const max = t.maxAttempts;
@@ -210,6 +214,12 @@ const StudentTests = () => {
       ? {
           title: 'No practice sets yet',
           body: 'Daily Practice Problems your teacher assigns will appear here.'
+        }
+      : activeTab === 'SELF_TEST'
+      ? {
+          title: 'No self-tests yet',
+          body: 'Build your own practice test from any mix of subjects, chapters and topics.',
+          action: { label: 'Build a practice test', to: '/self-test/new' }
         }
       : activeTab === 'TEST'
       ? {
@@ -274,6 +284,17 @@ const StudentTests = () => {
               {tabEmptyCopy.title}
             </h3>
             <p className="text-muted-foreground text-sm">{tabEmptyCopy.body}</p>
+            {tabEmptyCopy.action && (
+              <Button
+                variant="default"
+                className="mt-5"
+                onClick={() => navigate(tabEmptyCopy.action.to)}
+                iconName="Sparkles"
+                iconPosition="left"
+              >
+                {tabEmptyCopy.action.label}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

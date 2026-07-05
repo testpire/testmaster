@@ -11,7 +11,7 @@ import {
   isUsableAttempt,
   isTransientAttemptError,
 } from '../../utils/attemptStatus';
-import { resolveImagePath, formatDateTime, isFutureIso } from '../test-management/testConstants';
+import { resolveImagePath, formatDateTime, isFutureIso, normalizeTestType } from '../test-management/testConstants';
 import MathText from '../../components/MathText';
 import QuestionContent from '../../components/QuestionContent';
 
@@ -50,6 +50,11 @@ const TestTaking = () => {
   // Instant per-question feedback (PRACTICE + solutionReveal=DURING_ATTEMPT). Keyed
   // by questionId from the saveAnswer response (AnswerFeedbackResponseDto).
   const [feedback, setFeedback] = useState(new Map());
+  // Self-test only: questions whose feedback the student has explicitly revealed via
+  // "Check answer". Feedback is still saved on answer, just held back until they commit
+  // — so a self-test reads like practice you grade yourself, one question at a time.
+  const [revealed, setRevealed] = useState(new Set());
+  const [checkingId, setCheckingId] = useState(null); // qid currently being checked
   const [current, setCurrent] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null); // seconds
 
@@ -207,18 +212,34 @@ const TestTaking = () => {
 
   const getQId = (q) => q.questionId ?? q.id;
 
-  // Daily Practice (DPP) mode — passed in via router state from My Tests, and read
-  // from the attempt payload as a fallback for the day the backend echoes `type`.
-  // In practice mode the student can reveal per-question hints for self-study.
-  const isPractice =
-    String(location.state?.testType || attempt?.type || attempt?.test?.type || '').toUpperCase() ===
-    'PRACTICE';
+  // Test type — passed in via router state from the tests list, with the attempt
+  // payload as a fallback for the day the backend echoes `type`.
+  //   • PRACTICE (DPP)  — instant per-answer feedback + progressive hints.
+  //   • SELF_TEST       — student-built practice: feedback on demand via "Check
+  //                       answer", plus hints and question tags shown by default.
+  const resolvedTestType = normalizeTestType(
+    location.state?.testType || attempt?.type || attempt?.test?.type
+  );
+  const isPractice = resolvedTestType === 'PRACTICE';
+  const isSelfTest = resolvedTestType === 'SELF_TEST';
+  // Self-study affordances (hints + tags) are available in both practice modes.
+  const selfStudy = isPractice || isSelfTest;
 
   // Hints aren't yet part of AttemptQuestionResponseDto, so read defensively: this
   // lights up automatically once the backend includes `hints` on attempt questions,
   // and renders nothing (no dead control) until then.
   const hintsOf = (q) =>
     Array.isArray(q?.hints) ? q.hints.filter((h) => h && String(h).trim()) : [];
+
+  // Question tags (e.g. "IIT-JEE 2022", "kinematics"). The API stores them
+  // comma-separated but may also send an array; normalize both. Read defensively —
+  // shown for self-tests, nothing rendered when the attempt payload omits them.
+  const tagsOf = (q) => {
+    const raw = q?.tags;
+    if (Array.isArray(raw)) return raw.map((t) => String(t).trim()).filter(Boolean);
+    if (typeof raw === 'string') return raw.split(',').map((t) => t.trim()).filter(Boolean);
+    return [];
+  };
 
   const revealNextHint = (id, total) =>
     setHintsShown((prev) => ({ ...prev, [id]: Math.min(total, (prev[id] || 0) + 1) }));
@@ -364,37 +385,88 @@ const TestTaking = () => {
   // backend. This eliminates the out-of-order network race: when a student rapidly
   // changes an answer, two concurrent PUT /answers requests can complete in reverse
   // order and the stale first answer overwrites the correct second one on the server.
+  // Persist question q's current answer to the backend, returning the
+  // AnswerFeedbackResponseDto and whether the question is answered. Reads from refs so
+  // the latest value wins at fire time. Shared by the debounced autosave and the
+  // on-demand "Check answer" action.
+  const persistAnswer = async (q) => {
+    const qid = getQId(q);
+    let body;
+    let answered;
+    if (isNumericQ(q)) {
+      const raw = numericAnswersRef.current.get(qid);
+      const trimmed = raw == null ? '' : String(raw).trim();
+      const parsed = trimmed === '' ? null : Number(trimmed);
+      const value = Number.isFinite(parsed) ? parsed : null;
+      body = { questionId: qid, numericAnswer: value };
+      answered = value != null;
+    } else {
+      const opts = answersRef.current.get(qid) || [];
+      body = { questionId: qid, selectedOptionIds: opts };
+      answered = opts.length > 0;
+    }
+    const { data } = await newTestService.saveAnswer(attemptId, body);
+    return { data, answered };
+  };
+
+  const applyFeedback = (qid, data, answered) =>
+    setFeedback((prev) => {
+      const n = new Map(prev);
+      if (answered && data && data.feedbackAvailable) n.set(qid, data);
+      else n.delete(qid);
+      return n;
+    });
+
+  // Schedule a debounced autosave for questionId qid. If called again for the same
+  // qid before the timer fires, the old timer is cancelled and a new one starts —
+  // so only the *final* selection within the debounce window is ever sent to the
+  // backend. This eliminates the out-of-order network race: when a student rapidly
+  // changes an answer, two concurrent PUT /answers requests can complete in reverse
+  // order and the stale first answer overwrites the correct second one on the server.
   const scheduleAutosave = (q) => {
     const qid = getQId(q);
-    const numeric = isNumericQ(q);
     clearTimeout(autosaveTimers.current[qid]);
     autosaveTimers.current[qid] = setTimeout(async () => {
       delete autosaveTimers.current[qid];
-      // Build the right request shape for the question type. Numeric answers use
-      // `numericAnswer` (a finite number, or null to clear); options use
-      // `selectedOptionIds`. Both read from refs so the latest value wins at fire time.
-      let body;
-      let answered;
-      if (numeric) {
-        const raw = numericAnswersRef.current.get(qid);
-        const trimmed = raw == null ? '' : String(raw).trim();
-        const parsed = trimmed === '' ? null : Number(trimmed);
-        const value = Number.isFinite(parsed) ? parsed : null;
-        body = { questionId: qid, numericAnswer: value };
-        answered = value != null;
-      } else {
-        const opts = answersRef.current.get(qid) || [];
-        body = { questionId: qid, selectedOptionIds: opts };
-        answered = opts.length > 0;
-      }
-      const { data } = await newTestService.saveAnswer(attemptId, body);
-      setFeedback((prev) => {
-        const n = new Map(prev);
-        if (answered && data && data.feedbackAvailable) n.set(qid, data);
-        else n.delete(qid);
-        return n;
-      });
+      const { data, answered } = await persistAnswer(q);
+      // A self-test hides feedback until the student clicks "Check answer", so autosave
+      // is persistence-only there. Other modes (PRACTICE DURING_ATTEMPT) reveal it as
+      // the answer is saved.
+      if (!isSelfTest) applyFeedback(qid, data, answered);
     }, 300);
+  };
+
+  // "Check answer" (self-test): commit the current answer now and reveal its feedback.
+  const checkAnswer = async (q) => {
+    const qid = getQId(q);
+    clearTimeout(autosaveTimers.current[qid]);
+    delete autosaveTimers.current[qid];
+    setCheckingId(qid);
+    const { data, answered } = await persistAnswer(q);
+    setCheckingId((cur) => (cur === qid ? null : cur));
+    applyFeedback(qid, data, answered);
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.add(qid);
+      return next;
+    });
+  };
+
+  // Drop any revealed feedback for qid — used when the student changes their answer on
+  // a self-test, so stale "Check answer" results don't linger over a new selection.
+  const clearCheck = (qid) => {
+    setRevealed((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Set(prev);
+      next.delete(qid);
+      return next;
+    });
+    setFeedback((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Map(prev);
+      next.delete(qid);
+      return next;
+    });
   };
 
   const selectOption = (q, optionId) => {
@@ -416,6 +488,7 @@ const TestTaking = () => {
       else next.set(qid, updated);
       return next;
     });
+    if (isSelfTest) clearCheck(qid);
     scheduleAutosave(q);
   };
 
@@ -429,6 +502,7 @@ const TestTaking = () => {
       else next.set(qid, String(value));
       return next;
     });
+    if (isSelfTest) clearCheck(qid);
     scheduleAutosave(q);
   };
 
@@ -449,6 +523,12 @@ const TestTaking = () => {
     setFeedback((prev) => {
       if (!prev.has(qid)) return prev;
       const next = new Map(prev);
+      next.delete(qid);
+      return next;
+    });
+    setRevealed((prev) => {
+      if (!prev.has(qid)) return prev;
+      const next = new Set(prev);
       next.delete(qid);
       return next;
     });
@@ -591,9 +671,16 @@ const TestTaking = () => {
   const q = questions[current];
   const qid = q ? getQId(q) : null;
   const chosen = qid != null ? answers.get(qid) || [] : [];
-  // Instant feedback for the current question (Daily Practice DURING_ATTEMPT only).
+  // Instant feedback for the current question. For PRACTICE it shows as soon as the
+  // answer saves; for a SELF_TEST it stays hidden until the student clicks "Check
+  // answer" (revealed set). `fbVisible` gates both the panel and the option tinting.
   const fb = qid != null ? feedback.get(qid) : null;
-  const fbCorrectSet = fb?.feedbackAvailable && Array.isArray(fb.correctOptionIds) ? new Set(fb.correctOptionIds) : null;
+  const fbVisible = !!fb?.feedbackAvailable && (!isSelfTest || (qid != null && revealed.has(qid)));
+  const fbCorrectSet = fbVisible && Array.isArray(fb.correctOptionIds) ? new Set(fb.correctOptionIds) : null;
+  // Whether the current question has an answer the student could check/submit, and
+  // (self-test) whether they've already revealed its feedback via "Check answer".
+  const currentAnswered = chosen.length > 0 || (qid != null && hasNumericAnswer(qid));
+  const currentRevealed = qid != null && revealed.has(qid);
   const title = attempt?.testTitle || attempt?.title || attempt?.test?.title || 'Test';
   // A question is in exactly one of the two maps, so summing sizes never double-counts.
   const answeredCount = answers.size + numericAnswers.size;
@@ -689,6 +776,22 @@ const TestTaking = () => {
                   />
                 )}
 
+                {/* Question tags (e.g. the exams a question appeared in). Shown by
+                    default for self-tests as a study aid; hidden otherwise. */}
+                {isSelfTest && tagsOf(q).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                    <Icon name="Tag" size={13} className="text-muted-foreground" />
+                    {tagsOf(q).map((tag, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {isNumericQ(q) ? (
                   <div className="max-w-sm">
                     <label htmlFor={`numeric-answer-${qid}`} className="block text-sm font-medium text-foreground mb-2">
@@ -761,10 +864,31 @@ const TestTaking = () => {
                 </div>
                 )}
 
-                {/* Instant feedback (Daily Practice with solutionReveal=DURING_ATTEMPT).
-                    Rendered from the saveAnswer response; the student may still change
-                    their answer afterwards (v1), which refreshes this. */}
-                {fb?.feedbackAvailable && (
+                {/* Check answer (self-test) — the student commits, then sees feedback.
+                    Hidden once revealed (the feedback panel replaces it) and reappears
+                    if they change their answer. */}
+                {isSelfTest && !currentRevealed && (
+                  <div className="mt-4">
+                    <Button
+                      variant="default"
+                      onClick={() => checkAnswer(q)}
+                      disabled={!currentAnswered || checkingId === qid}
+                      iconName={checkingId === qid ? 'Loader2' : 'CheckCircle2'}
+                      iconPosition="left"
+                      className={checkingId === qid ? 'animate-pulse' : ''}
+                    >
+                      {checkingId === qid ? 'Checking…' : 'Check answer'}
+                    </Button>
+                    {!currentAnswered && (
+                      <p className="text-xs text-muted-foreground mt-1.5">Select an answer to check it.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Per-answer feedback. PRACTICE (solutionReveal=DURING_ATTEMPT) shows
+                    it as the answer saves; a SELF_TEST holds it back until the student
+                    clicks "Check answer". Either way it refreshes if they change answers. */}
+                {fbVisible && (
                   <div
                     className={`mt-4 rounded-xl border p-4 ${
                       fb.correct ? 'border-success/40 bg-success/10' : 'border-destructive/40 bg-destructive/10'
@@ -786,6 +910,15 @@ const TestTaking = () => {
                         </span>
                       )}
                     </div>
+                    {/* Numeric questions have no option to tint green — surface the
+                        correct value (with tolerance) directly so the feedback is useful. */}
+                    {isNumericQ(q) && fb.correctAnswer != null && (
+                      <p className="mt-2 text-sm text-foreground">
+                        Correct answer:{' '}
+                        <span className="font-semibold tabular-nums">{fb.correctAnswer}</span>
+                        {fb.answerTolerance ? ` (± ${fb.answerTolerance})` : ''}
+                      </p>
+                    )}
                     {fb.explanation && String(fb.explanation).trim() && (
                       <QuestionContent
                         as="div"
@@ -797,10 +930,10 @@ const TestTaking = () => {
                   </div>
                 )}
 
-                {/* Progressive hints (Daily Practice only). Gated on hints being
-                    present in the payload, so nothing renders for graded tests or
-                    until the backend serves hints on the attempt. */}
-                {isPractice && (() => {
+                {/* Progressive hints (self-study: Daily Practice + Self-Test). Gated on
+                    hints being present in the payload, so nothing renders for graded
+                    tests or until the backend serves hints on the attempt. */}
+                {selfStudy && (() => {
                   const qHints = hintsOf(q);
                   if (qHints.length === 0) return null;
                   const shown = hintsShown[qid] || 0;

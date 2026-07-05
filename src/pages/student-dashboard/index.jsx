@@ -157,9 +157,13 @@ const StudentDashboard = () => {
   };
 
   // ── Derived stats (client-side; no backend aggregate endpoint exists) ──────
-  const completedTests = tests.filter((t) => DONE.includes(statusOf(t)));
+  // Self-tests come back in the shared /available feed but are self-built practice,
+  // not assigned work — exclude them from the "assigned" oriented counts below.
+  const isSelfTest = (t) => String(t.type).toUpperCase() === 'SELF_TEST';
+  const assignedTests = tests.filter((t) => !isSelfTest(t));
+  const completedTests = assignedTests.filter((t) => DONE.includes(statusOf(t)));
   const inProgressTest = tests.find((t) => INPROGRESS.includes(statusOf(t)));
-  const dueCount = tests.filter((t) => {
+  const dueCount = assignedTests.filter((t) => {
     const s = statusOf(t);
     return (s === '' || s === 'NOT_STARTED') && isWithinWindow(t.availableFrom, t.availableUntil);
   }).length;
@@ -244,7 +248,7 @@ const StudentDashboard = () => {
             <button
               onClick={() => {
                 const aid = attemptIdOf(inProgressTest);
-                if (aid) navigate(`/test-taking/${aid}`, { state: { durationMinutes: inProgressTest.durationMinutes } });
+                if (aid) navigate(`/test-taking/${aid}`, { state: { durationMinutes: inProgressTest.durationMinutes, testType: inProgressTest.type } });
                 else navigate('/my-tests');
               }}
               className="w-full text-left mb-6 group"
@@ -292,6 +296,25 @@ const StudentDashboard = () => {
               label="Courses enrolled"
             />
           </div>
+
+          {/* Build-your-own practice CTA */}
+          <button
+            onClick={() => navigate('/self-test/new')}
+            className="w-full text-left mb-6 group"
+          >
+            <div className="flex items-center gap-4 rounded-2xl border border-secondary/30 bg-secondary/5 p-5 transition-colors hover:bg-secondary/10">
+              <div className="w-11 h-11 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center flex-shrink-0">
+                <Icon name="Sparkles" size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-foreground">Build a practice test</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Pick subjects, chapters or topics and practise at your own pace — untimed, with instant feedback.
+                </p>
+              </div>
+              <Icon name="ArrowRight" size={20} className="text-secondary flex-shrink-0 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
 
           {/* Assigned tests (shares the dashboard's fetch) */}
           <div className="mb-6">
