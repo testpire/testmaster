@@ -48,7 +48,7 @@ const StudentTests = () => {
   const [confirmTest, setConfirmTest] = useState(null);
 
   useEffect(() => {
-    document.title = 'My Tests - TestMaster';
+    document.title = 'My Tests - TopperLoop';
   }, []);
 
   const load = async (tab) => {

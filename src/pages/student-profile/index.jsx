@@ -63,7 +63,7 @@ const StudentProfile = () => {
   const [detailError, setDetailError] = useState(null);
 
   useEffect(() => {
-    document.title = 'Student Profile - TestMaster';
+    document.title = 'Student Profile - TopperLoop';
   }, []);
 
   // Load A: student details (fast).

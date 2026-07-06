@@ -77,7 +77,7 @@ const SelfTestBuilder = () => {
   const [startingAttempt, setStartingAttempt] = useState(false);
 
   useEffect(() => {
-    document.title = 'Build a Practice Test - TestMaster';
+    document.title = 'Build a Practice Test - TopperLoop';
   }, []);
 
   // ---- load enrolled courses + their full subtrees ----------------------------

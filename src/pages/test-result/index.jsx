@@ -26,7 +26,7 @@ const TestResult = () => {
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    document.title = 'Test Result - TestMaster';
+    document.title = 'Test Result - TopperLoop';
   }, []);
 
   useEffect(() => {

@@ -18,14 +18,16 @@ const AuthShell = ({ title, subtitle, children, footer }) => (
           <span className="w-11 h-11 rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20 flex items-center justify-center">
             <Icon name="GraduationCap" size={22} className="text-primary-foreground" />
           </span>
-          <span className="font-display text-2xl font-semibold tracking-tight">LearnX</span>
+          <span className="font-display text-2xl font-semibold tracking-tight">TopperLoop</span>
         </div>
 
         <div className="max-w-md">
           <h1 className="font-display text-4xl xl:text-5xl font-semibold leading-[1.1] tracking-tight">
-            Learning,
+            Learn,
             <br />
-            beautifully organised.
+            Grow &
+            <br />
+            Achieve.
           </h1>
           <p className="mt-5 text-primary-foreground/80 leading-relaxed">
             One calm place for your courses, tests and progress — built for students,

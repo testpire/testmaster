@@ -37,7 +37,7 @@ const StudentResults = () => {
   const [activeTab, setActiveTab] = useState('ALL');
 
   useEffect(() => {
-    document.title = 'Test Results - TestMaster';
+    document.title = 'Test Results - TopperLoop';
   }, []);
 
   useEffect(() => {

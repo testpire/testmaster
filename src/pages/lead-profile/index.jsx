@@ -69,7 +69,7 @@ const LeadProfile = () => {
   const [courseMap, setCourseMap] = useState({});
 
   useEffect(() => {
-    document.title = 'Lead Profile - TestMaster';
+    document.title = 'Lead Profile - TopperLoop';
   }, []);
 
   useEffect(() => {

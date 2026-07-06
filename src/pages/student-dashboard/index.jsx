@@ -77,7 +77,7 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
-    document.title = 'Student Dashboard - LearnX';
+    document.title = 'Student Dashboard - TopperLoop';
   }, []);
 
   // Load real student data

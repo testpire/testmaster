@@ -130,7 +130,7 @@ const TestDetail = () => {
   }, [testId]);
 
   useEffect(() => {
-    document.title = 'Test Details - TestMaster';
+    document.title = 'Test Details - TopperLoop';
   }, []);
 
   useEffect(() => {

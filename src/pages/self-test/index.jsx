@@ -19,7 +19,7 @@ const SelfTestHub = () => {
   const [startingId, setStartingId] = useState(null);
 
   useEffect(() => {
-    document.title = 'My Practice Tests - TestMaster';
+    document.title = 'My Practice Tests - TopperLoop';
   }, []);
 
   useEffect(() => {

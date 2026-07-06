@@ -60,7 +60,7 @@ export function TestPireLogo({ size = 'medium', showText = true, className = '' 
       {showText && (
         <div className="flex flex-col">
           <h1 className={`font-display ${currentSize.text} font-semibold text-foreground leading-none tracking-tight`}>
-            Learn<span className="text-primary">X</span>
+            Topper<span className="text-primary">Loop</span>
           </h1>
           {size === 'large' && (
             <p className="text-sm text-muted-foreground font-medium mt-1">
